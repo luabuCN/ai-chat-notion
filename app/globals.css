@@ -13,6 +13,8 @@
 @plugin "tailwindcss-animate";
 @plugin "@tailwindcss/typography";
 
+/* @plugin "tailwind-scrollbar-hide"; */
+
 /* define design tokens (light mode) */
 :root {
   --background: hsl(0 0% 100%);
@@ -50,6 +52,8 @@
   /* border radius unit */
   --radius: 0.5rem;
   --sidebar: hsl(0 0% 98%);
+  --highlight: oklch(0.852 0.199 91.936);
+  --brand: oklch(0.623 0.214 259.815);
 }
 
 /* define design tokens (dark mode) */
@@ -87,6 +91,8 @@
   --sidebar-border: hsl(240 3.7% 15.9%);
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
   --sidebar: hsl(240 5.9% 10%);
+  --highlight: oklch(0.852 0.199 91.936);
+  --brand: oklch(0.707 0.165 254.624);
 }
 
 /* define theme */
@@ -308,6 +314,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand: var(--brand);
+  --color-highlight: var(--highlight);
 }
 
 @layer base {
