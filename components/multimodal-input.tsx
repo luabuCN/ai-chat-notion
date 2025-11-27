@@ -196,7 +196,8 @@ function PureMultimodalInput({
   }, []);
 
   const _modelResolver = useMemo(() => {
-    return myProvider.languageModel(selectedModelId);
+    // return myProvider.languageModel(selectedModelId);
+    return myProvider;
   }, [selectedModelId]);
 
   const contextProps = useMemo(
@@ -365,7 +366,7 @@ function PureMultimodalInput({
             rows={1}
             value={input}
           />{" "}
-          <Context {...contextProps} />
+          {/* <Context {...contextProps} /> */}
         </div>
         <PromptInputToolbar className="!border-top-0 border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">

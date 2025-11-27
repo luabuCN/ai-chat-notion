@@ -1,6 +1,6 @@
 "use client";
 
-import { python } from "@codemirror/lang-python";
+import { javascript } from "@codemirror/lang-javascript";
 import { EditorState, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
@@ -10,6 +10,7 @@ import type { Suggestion } from "@/lib/db/schema";
 
 type EditorProps = {
   content: string;
+  language?: "javascript";
   onSaveContent: (updatedContent: string, debounce: boolean) => void;
   status: "streaming" | "idle";
   isCurrentVersion: boolean;
@@ -25,7 +26,7 @@ function PureCodeEditor({ content, onSaveContent, status }: EditorProps) {
     if (containerRef.current && !editorRef.current) {
       const startState = EditorState.create({
         doc: content,
-        extensions: [basicSetup, python(), oneDark],
+        extensions: [basicSetup, javascript(), oneDark],
       });
 
       editorRef.current = new EditorView({
@@ -63,7 +64,7 @@ function PureCodeEditor({ content, onSaveContent, status }: EditorProps) {
 
       const newState = EditorState.create({
         doc: editorRef.current.state.doc,
-        extensions: [basicSetup, python(), oneDark, updateListener],
+        extensions: [basicSetup, javascript(), oneDark, updateListener],
         selection: currentSelection,
       });
 
