@@ -1,12 +1,25 @@
-export default function WorkbenchLayout({
+import { cookies } from "next/headers";
+import { AppSidebar } from "@/components/app-sidebar";
+import { DataStreamProvider } from "@/components/data-stream-provider";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { auth } from "../(auth)/auth";
+
+export default async function Layout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [session, cookieStore] = await Promise.all([auth(), cookies()]);
+  const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
+
   return (
-    <main className="flex h-full w-full">
-      <div className="flex w-[150px] h-full">123</div>
-      <div className="flex flex-col flex-1">{children}</div>
-    </main>
+    <>
+      <DataStreamProvider>
+        <SidebarProvider defaultOpen={!isCollapsed}>
+          <AppSidebar user={session?.user} />
+          <SidebarInset>{children}</SidebarInset>
+        </SidebarProvider>
+      </DataStreamProvider>
+    </>
   );
 }
