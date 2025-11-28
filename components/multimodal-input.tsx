@@ -18,7 +18,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
-import { saveChatModelAsCookie } from "@/app/(chat)/actions";
+import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
 import { SelectItem } from "@/components/ui/select";
 import { chatModels } from "@/lib/ai/models";
 import { myProvider } from "@/lib/ai/providers";
