@@ -12,7 +12,7 @@ export default function Page() {
   const { width: windowWidth } = useWindowSize();
 
   return (
-    <div className="relative h-screen w-full">
+    <div className="relative h-screen flex-1">
       {(!open || windowWidth < 768) && (
         <SidebarToggle
           className="absolute left-1 top-12 z-9999999"

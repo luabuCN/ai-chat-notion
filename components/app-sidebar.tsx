@@ -13,6 +13,7 @@ import {
   SidebarHistory,
   getChatHistoryPaginationKey,
 } from "@/components/sidebar-history";
+import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Button } from "@/components/ui/button";
@@ -126,6 +127,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+          <SidebarDocuments />
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
       </Sidebar>
