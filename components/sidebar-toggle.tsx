@@ -1,3 +1,5 @@
+"use client";
+
 import type { ComponentProps } from "react";
 
 import { type SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -12,6 +14,7 @@ import { Button } from "./ui/button";
 
 export function SidebarToggle({
   className,
+  variant,
 }: ComponentProps<typeof SidebarTrigger>) {
   const { toggleSidebar } = useSidebar();
 
@@ -22,7 +25,7 @@ export function SidebarToggle({
           className={cn("h-8 px-2 md:h-fit md:px-2", className)}
           data-testid="sidebar-toggle-button"
           onClick={toggleSidebar}
-          variant="outline"
+          variant={variant}
         >
           <SidebarLeftIcon size={16} />
         </Button>
