@@ -7,22 +7,38 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
-import { PlusIcon, TrashIcon } from "@/components/icons";
+
+import { BotIcon, ClockRewind, PlusIcon, TrashIcon } from "@/components/icons";
 import {
   SidebarHistory,
   getChatHistoryPaginationKey,
 } from "@/components/sidebar-history";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
+import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,8 +48,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "./ui/alert-dialog";
-import { SidebarToggle } from "./sidebar-toggle";
+} from "@/components/ui/alert-dialog";
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
@@ -71,54 +86,46 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   setOpenMobile(false);
                 }}
               >
-                <span className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
+                <span className="cursor-pointer rounded-md px-2 text-lg font-semibold hover:bg-muted">
                   Chatbot
                 </span>
               </Link>
               <div className="flex flex-row gap-1">
-                {user && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        className="h-8 p-1 md:h-fit md:p-2"
-                        onClick={() => setShowDeleteAllDialog(true)}
-                        type="button"
-                        variant="ghost"
-                      >
-                        <TrashIcon />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent align="end" className="hidden md:block">
-                      Delete All Chats
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      className="h-8 p-1 md:h-fit md:p-2"
-                      onClick={() => {
-                        setOpenMobile(false);
-                        router.push("/chat");
-                        router.refresh();
-                      }}
-                      type="button"
-                      variant="ghost"
-                    >
-                      <PlusIcon />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent align="end" className="hidden md:block">
-                    New Chat
-                  </TooltipContent>
-                </Tooltip>
                 <SidebarToggle variant="ghost" />
               </div>
             </div>
           </SidebarMenu>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarHistory user={user} />
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/chat");
+                      router.refresh();
+                    }}
+                  >
+                    <BotIcon />
+                    <span>AI 灵感小助手</span>
+                  </SidebarMenuButton>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <SidebarMenuAction showOnHover>
+                        <ClockRewind />
+                        <span className="sr-only">History</span>
+                      </SidebarMenuAction>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-80 p-0">
+                      <SidebarHistory user={user} />
+                    </PopoverContent>
+                  </Popover>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
       </Sidebar>

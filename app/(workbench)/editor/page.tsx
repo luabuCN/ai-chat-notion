@@ -15,7 +15,7 @@ export default function Page() {
     <div className="relative h-screen w-full">
       {(!open || windowWidth < 768) && (
         <SidebarToggle
-          className="absolute left-1 top-10 z-9999999"
+          className="absolute left-1 top-12 z-9999999"
           variant="ghost"
         />
       )}
