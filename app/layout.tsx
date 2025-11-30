@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import { getLocale, getMessages } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.vercel.ai"),
@@ -49,11 +51,13 @@ const THEME_COLOR_SCRIPT = `\
   updateThemeColor();
 })();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
     <html
       className={`${geist.variable} ${geistMono.variable}`}
@@ -61,7 +65,7 @@ export default function RootLayout({
       // visual flicker before hydration. Hence the `suppressHydrationWarning`
       // prop is necessary to avoid the React hydration mismatch warning.
       // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
     >
       <head>
@@ -79,10 +83,12 @@ export default function RootLayout({
           disableTransitionOnChange
           enableSystem
         >
-          <TooltipProvider>
-            <Toaster position="top-center" />
-            <SessionProvider>{children}</SessionProvider>
-          </TooltipProvider>
+          <NextIntlClientProvider>
+            <TooltipProvider>
+              <Toaster position="top-center" />
+              <SessionProvider>{children}</SessionProvider>
+            </TooltipProvider>
+          </NextIntlClientProvider>
         </ThemeProvider>
       </body>
     </html>
