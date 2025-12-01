@@ -1,8 +1,10 @@
-import { put } from "@vercel/blob";
+import { UTApi } from "uploadthing/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+
+const utapi = new UTApi();
 
 // Use Blob instead of File since File is not available in Node.js environment
 const FileSchema = z.object({
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as Blob;
+    const file = formData.get("file") as File;
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -46,16 +48,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
-    // Get filename from formData since Blob doesn't have name property
-    const filename = (formData.get("file") as File).name;
-    const fileBuffer = await file.arrayBuffer();
-
     try {
-      const data = await put(`${filename}`, fileBuffer, {
-        access: "public",
-      });
+      const response = await utapi.uploadFiles(file);
 
-      return NextResponse.json(data);
+      if (response.error) {
+        return NextResponse.json(
+          { error: response.error.message },
+          { status: 500 }
+        );
+      }
+
+      const data = response.data;
+
+      return NextResponse.json({
+        url: data.url,
+        pathname: data.name,
+        contentType: data.type,
+      });
     } catch (_error) {
       return NextResponse.json({ error: "Upload failed" }, { status: 500 });
     }
