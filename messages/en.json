@@ -1,5 +1,9 @@
 {
   "Home": {
     "hellow": "hellow"
+  },
+  "Chat": {
+    "hellow":"Hello there!",
+    "help":"How can I help you today?"
   }
 }

@@ -7,7 +7,6 @@ import { defaultLocale } from "@/i18n/config";
 
 export default function LocaleSwitcher({ defaultValue = defaultLocale }) {
   const [isPending, startTransition] = useTransition();
-
   function onChange(locale: any) {
     startTransition(() => {
       setUserLocale(locale);

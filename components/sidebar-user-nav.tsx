@@ -6,12 +6,16 @@ import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
+import { useTransition } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
@@ -19,6 +23,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { guestRegex } from "@/lib/constants";
+import { setUserLocale } from "@/i18n/service";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
@@ -26,8 +31,16 @@ export function SidebarUserNav({ user }: { user: User }) {
   const router = useRouter();
   const { data, status } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
+  const [isPending, startTransition] = useTransition();
 
   const isGuest = guestRegex.test(data?.user?.email ?? "");
+
+  const handleLocaleChange = (locale: string) => {
+    startTransition(() => {
+      setUserLocale(locale);
+      router.refresh();
+    });
+  };
 
   return (
     <SidebarMenu>
@@ -79,6 +92,30 @@ export function SidebarUserNav({ user }: { user: User }) {
             >
               {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
             </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger
+                className="cursor-pointer"
+                data-testid="user-nav-item-language"
+              >
+                Language / 语言
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={isPending}
+                  onSelect={() => handleLocaleChange("en")}
+                >
+                  English
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={isPending}
+                  onSelect={() => handleLocaleChange("zh")}
+                >
+                  中文
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button

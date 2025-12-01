@@ -83,7 +83,7 @@ export default async function RootLayout({
           disableTransitionOnChange
           enableSystem
         >
-          <NextIntlClientProvider>
+          <NextIntlClientProvider messages={messages}>
             <TooltipProvider>
               <Toaster position="top-center" />
               <SessionProvider>{children}</SessionProvider>
