@@ -85,12 +85,17 @@ export function Chat({
       api: "/api/chat",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
+        const modelId = currentModelIdRef.current;
+        // Check if it's a dynamic model (contains /)
+        const isDynamicModel = modelId.includes("/");
+
         return {
           body: {
             id: request.id,
             message: request.messages.at(-1),
-            selectedChatModel: currentModelIdRef.current,
+            selectedChatModel: isDynamicModel ? "chat-model" : modelId,
             selectedVisibilityType: visibilityType,
+            selectedModelSlug: isDynamicModel ? modelId : undefined,
             ...request.body,
           },
         };

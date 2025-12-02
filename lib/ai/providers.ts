@@ -7,10 +7,18 @@ import {
 
 import { isTestEnvironment } from "../constants";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+
 const openrouter = createOpenRouter({
-  apiKey:process.env.API_KEY || ''
+  apiKey: process.env.API_KEY || ''
 });
-export const myProvider = openrouter("google/gemini-2.5-flash-lite")
+
+// Default model
+export const myProvider = openrouter("openai/gpt-oss-20b:free");
+
+// Function to get provider with custom model
+export function getProviderWithModel(modelSlug: string) {
+  return openrouter(modelSlug);
+}
 
 
 // isTestEnvironment

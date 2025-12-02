@@ -20,11 +20,12 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
 import { SelectItem } from "@/components/ui/select";
-import { chatModels } from "@/lib/ai/models";
 import { myProvider } from "@/lib/ai/providers";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { cn } from "@/lib/utils";
+import { useModels } from "@/hooks/use-models";
+import type { ModelInfo } from "@/app/api/models/route";
 import { Context } from "./elements/context";
 import {
   PromptInput,
@@ -82,6 +83,7 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+  const { models, loading: modelsLoading } = useModels();
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -380,6 +382,8 @@ function PureMultimodalInput({
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
+              models={models}
+              modelsLoading={modelsLoading}
             />
           </PromptInputTools>
 
@@ -456,9 +460,13 @@ const AttachmentsButton = memo(PureAttachmentsButton);
 function PureModelSelectorCompact({
   selectedModelId,
   onModelChange,
+  models,
+  modelsLoading,
 }: {
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  models: ModelInfo[];
+  modelsLoading: boolean;
 }) {
   const [optimisticModelId, setOptimisticModelId] = useState(selectedModelId);
 
@@ -466,43 +474,66 @@ function PureModelSelectorCompact({
     setOptimisticModelId(selectedModelId);
   }, [selectedModelId]);
 
-  const selectedModel = chatModels.find(
-    (model) => model.id === optimisticModelId
+  // Find selected model from dynamic models
+  const selectedDynamicModel = models.find(
+    (model) => model.full_slug === optimisticModelId
   );
+
+  const displayName = selectedDynamicModel
+    ? `${selectedDynamicModel.provider}/${selectedDynamicModel.model}`
+    : "Select Model";
 
   return (
     <PromptInputModelSelect
-      onValueChange={(modelName) => {
-        const model = chatModels.find((m) => m.name === modelName);
-        if (model) {
-          setOptimisticModelId(model.id);
-          onModelChange?.(model.id);
+      onValueChange={(modelSlug) => {
+        const dynamicModel = models.find((m) => m.full_slug === modelSlug);
+        if (dynamicModel) {
+          setOptimisticModelId(dynamicModel.full_slug);
+          onModelChange?.(dynamicModel.full_slug);
           startTransition(() => {
-            saveChatModelAsCookie(model.id);
+            saveChatModelAsCookie(dynamicModel.full_slug);
           });
         }
       }}
-      value={selectedModel?.name}
+      value={selectedDynamicModel?.full_slug}
     >
       <Trigger asChild>
-        <Button variant="ghost" className="h-8 px-2">
+        <Button variant="ghost" className="h-8 px-2" disabled={modelsLoading}>
           <CpuIcon size={16} />
           <span className="hidden font-medium text-xs sm:block">
-            {selectedModel?.name}
+            {modelsLoading ? "Loading..." : displayName}
           </span>
           <ChevronDownIcon size={16} />
         </Button>
       </Trigger>
       <PromptInputModelSelectContent className="min-w-[260px] p-0">
-        <div className="flex flex-col gap-px">
-          {chatModels.map((model) => (
-            <SelectItem key={model.id} value={model.name}>
-              <div className="truncate font-medium text-xs">{model.name}</div>
-              <div className="mt-px truncate text-[10px] text-muted-foreground leading-tight">
-                {model.description}
+        <div className="flex flex-col gap-px max-h-[400px] overflow-y-auto">
+          {modelsLoading ? (
+            <div className="p-4 text-center text-xs text-muted-foreground">
+              Loading models...
+            </div>
+          ) : models.length > 0 ? (
+            <>
+              <div className="px-2 py-1.5 font-semibold text-[10px] text-muted-foreground uppercase">
+                Available Models
               </div>
-            </SelectItem>
-          ))}
+              {models.map((model) => (
+                <SelectItem key={model.full_slug} value={model.full_slug}>
+                  <div className="truncate font-medium text-xs">
+                    {model.provider}/{model.model}
+                  </div>
+                  <div className="mt-px truncate text-[10px] text-muted-foreground leading-tight">
+                    {model.input_modalities.join(", ")} →{" "}
+                    {model.output_modalities.join(", ")}
+                  </div>
+                </SelectItem>
+              ))}
+            </>
+          ) : (
+            <div className="p-4 text-center text-xs text-muted-foreground">
+              No models available
+            </div>
+          )}
         </div>
       </PromptInputModelSelectContent>
     </PromptInputModelSelect>
