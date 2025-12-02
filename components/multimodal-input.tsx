@@ -46,7 +46,14 @@ import {
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { Button } from "./ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 import type { VisibilityType } from "./visibility-selector";
+import { Brain } from "lucide-react";
 
 function PureMultimodalInput({
   chatId,
@@ -81,9 +88,26 @@ function PureMultimodalInput({
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
 }) {
+  const [enableReasoning, setEnableReasoning] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const { models, loading: modelsLoading } = useModels();
+
+  // Check if the selected model supports reasoning
+  const selectedModel = useMemo(() => {
+    return models.find((model) => model.full_slug === selectedModelId);
+  }, [models, selectedModelId]);
+
+  const supportsReasoning = useMemo(() => {
+    return selectedModel?.supported_parameters?.includes("reasoning") ?? false;
+  }, [selectedModel]);
+
+  // Reset reasoning when model changes and doesn't support it
+  useEffect(() => {
+    if (!supportsReasoning && enableReasoning) {
+      setEnableReasoning(false);
+    }
+  }, [supportsReasoning, enableReasoning]);
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -134,21 +158,28 @@ function PureMultimodalInput({
   const submitForm = useCallback(() => {
     window.history.pushState({}, "", `/chat/${chatId}`);
 
-    sendMessage({
-      role: "user",
-      parts: [
-        ...attachments.map((attachment) => ({
-          type: "file" as const,
-          url: attachment.url,
-          name: attachment.name,
-          mediaType: attachment.contentType,
-        })),
-        {
-          type: "text",
-          text: input,
+    sendMessage(
+      {
+        role: "user",
+        parts: [
+          ...attachments.map((attachment) => ({
+            type: "file" as const,
+            url: attachment.url,
+            name: attachment.name,
+            mediaType: attachment.contentType,
+          })),
+          {
+            type: "text",
+            text: input,
+          },
+        ],
+      },
+      {
+        body: {
+          enableReasoning: enableReasoning && supportsReasoning,
         },
-      ],
-    });
+      }
+    );
 
     setAttachments([]);
     setLocalStorageInput("");
@@ -168,6 +199,8 @@ function PureMultimodalInput({
     width,
     chatId,
     resetHeight,
+    enableReasoning,
+    supportsReasoning,
   ]);
 
   const uploadFile = useCallback(async (file: File) => {
@@ -379,6 +412,12 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
               status={status}
             />
+            <ReasoningToggle
+              enabled={enableReasoning}
+              onToggle={setEnableReasoning}
+              supportsReasoning={supportsReasoning}
+              status={status}
+            />
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
@@ -456,6 +495,59 @@ function PureAttachmentsButton({
 }
 
 const AttachmentsButton = memo(PureAttachmentsButton);
+
+function PureReasoningToggle({
+  enabled,
+  onToggle,
+  supportsReasoning,
+  status,
+}: {
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  supportsReasoning: boolean;
+  status: UseChatHelpers<ChatMessage>["status"];
+}) {
+  const isDisabled = status !== "ready" || !supportsReasoning;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={isDisabled ? 0 : -1}>
+            <Button
+              className={cn(
+                "aspect-square h-8 rounded-lg p-1 transition-colors",
+                enabled && supportsReasoning
+                  ? "bg-accent text-accent-foreground hover:bg-accent/80"
+                  : "hover:bg-accent"
+              )}
+              data-testid="reasoning-toggle"
+              disabled={isDisabled}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!isDisabled) {
+                  onToggle(!enabled);
+                }
+              }}
+              variant="ghost"
+            >
+              <Brain />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {supportsReasoning
+            ? enabled
+              ? "深度思考已启用"
+              : "启用深度思考"
+            : "当前模型不支持深度思考"}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+const ReasoningToggle = memo(PureReasoningToggle);
 
 function PureModelSelectorCompact({
   selectedModelId,

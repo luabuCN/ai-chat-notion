@@ -32,10 +32,14 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 - Immediately after creating a document
 
 Do not update document right after creating it. Wait for user feedback or request to update it.
+
+**Language:**
+- Always respond in the same language as the user's message
+- Match the user's language for all explanations and conversational text
 `;
 
 export const regularPrompt =
-  "You are a friendly assistant! Keep your responses concise and helpful.";
+  "You are a friendly assistant! Keep your responses concise and helpful. Always respond in the same language as the user's message.";
 
 export type RequestHints = {
   latitude: Geo["latitude"];
@@ -53,19 +57,17 @@ About the origin of user's request:
 `;
 
 export const systemPrompt = ({
-  selectedChatModel,
+  enableReasoning,
   requestHints,
 }: {
-  selectedChatModel: string;
+  enableReasoning?: Boolean,
   requestHints: RequestHints;
 }) => {
   const requestPrompt = getRequestPromptFromHints(requestHints);
-
-  if (selectedChatModel === "chat-model-reasoning") {
-    return `${regularPrompt}\n\n${requestPrompt}`;
+  if (enableReasoning) {
+    return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
   }
-
-  return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
+  return `${regularPrompt}\n\n${requestPrompt}` ;
 };
 
 export const codePrompt = `
@@ -125,6 +127,7 @@ ${currentContent}`;
 
 export const titlePrompt = `\n
     - you will generate a short title based on the first message a user begins a conversation with
-    - ensure it is not more than 80 characters long
+    - ensure it is not more than 40 characters long
     - the title should be a summary of the user's message
-    - do not use quotes or colons`
+    - do not use quotes or colons
+    - generate the title in the same language as the user's message`

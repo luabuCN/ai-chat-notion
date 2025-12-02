@@ -79,17 +79,18 @@ export async function POST(request: Request) {
     const {
       id,
       message,
-      selectedChatModel,
       selectedVisibilityType,
       selectedModelSlug,
+      enableReasoning,
     }: {
       id: string;
       message: ChatMessage;
-      selectedChatModel: ChatModel["id"];
       selectedVisibilityType: VisibilityType;
       selectedModelSlug?: string;
+      enableReasoning?: boolean;
     } = requestBody;
-
+    console.log(requestBody,'requestBody--------');
+    
     const session = await auth();
 
     if (!session?.user) {
@@ -168,12 +169,12 @@ export async function POST(request: Request) {
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: modelProvider,
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: systemPrompt({ enableReasoning, requestHints }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           maxOutputTokens: 5000,
           experimental_activeTools:
-            selectedChatModel === "chat-model-reasoning"
+             enableReasoning
               ? []
               : [
                   "getWeather",
@@ -195,6 +196,7 @@ export async function POST(request: Request) {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
           },
+          ...(enableReasoning && { reasoning: { effort: "medium" } }),
           onFinish: async ({ usage }) => {
             console.log("usage", usage);
             finalMergedUsage = usage;
