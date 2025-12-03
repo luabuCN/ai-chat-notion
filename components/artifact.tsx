@@ -318,7 +318,7 @@ function PureArtifact({
                 )}
               </AnimatePresence>
 
-              <div className="flex h-full flex-col items-center justify-between">
+              <div className="flex h-full w-full flex-col items-center justify-between">
                 <ArtifactMessages
                   artifactStatus={artifact.status}
                   chatId={chatId}
@@ -518,7 +518,7 @@ export const Artifact = memo(PureArtifact, (prevProps, nextProps) => {
   if (prevProps.input !== nextProps.input) {
     return false;
   }
-  if (!equal(prevProps.messages, nextProps.messages.length)) {
+  if (!equal(prevProps.messages, nextProps.messages)) {
     return false;
   }
   if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
