@@ -111,6 +111,8 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
+      console.log("error", error);
+
       if (error instanceof ChatSDKError) {
         // Check if it's a credit card error
         if (
@@ -151,6 +153,10 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
+
+  useEffect(() => {
+    console.log("status", status);
+  }, [status]);
 
   useAutoResume({
     autoResume,

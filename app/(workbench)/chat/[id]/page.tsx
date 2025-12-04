@@ -12,6 +12,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { id } = params;
   const chat = await getChatById({ id });
+  console.log(chat, "chat--------");
 
   if (!chat) {
     notFound();
@@ -38,6 +39,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   });
 
   const uiMessages = convertToUIMessages(messagesFromDb);
+  console.log(uiMessages, "uiMessages--------");
 
   const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get("chat-model");

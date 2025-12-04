@@ -69,30 +69,60 @@ function PureMessages({
         <ConversationContent className="flex flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
           {messages.length === 0 && <Greeting />}
 
-          {messages.map((message, index) => (
-            <PreviewMessage
-              chatId={chatId}
-              isLoading={
-                status === "streaming" && messages.length - 1 === index
-              }
-              isReadonly={isReadonly}
-              key={message.id}
-              message={message}
-              regenerate={regenerate}
-              requiresScrollPadding={
-                hasSentMessage && index === messages.length - 1
-              }
-              setMessages={setMessages}
-              vote={
-                votes
-                  ? votes.find((vote) => vote.messageId === message.id)
-                  : undefined
-              }
-            />
-          ))}
+          {messages.map((message, index) => {
+            const isLastMessage = index === messages.length - 1;
+            const isEmptyAssistantMessage =
+              isLastMessage &&
+              message.role === "assistant" &&
+              status === "streaming" &&
+              !message.parts?.some(
+                (p) =>
+                  (p.type === "text" && p.text?.trim()) ||
+                  (p.type === "reasoning" &&
+                    "text" in p &&
+                    p.text &&
+                    p.text !== "[REDACTED]")
+              );
+
+            // 如果最后一条消息是空的 assistant 消息且在 streaming，则不渲染
+            if (isEmptyAssistantMessage) {
+              return null;
+            }
+
+            return (
+              <PreviewMessage
+                chatId={chatId}
+                isLoading={status === "streaming" && isLastMessage}
+                isReadonly={isReadonly}
+                key={message.id}
+                message={message}
+                regenerate={regenerate}
+                requiresScrollPadding={hasSentMessage && isLastMessage}
+                setMessages={setMessages}
+                vote={
+                  votes
+                    ? votes.find((vote) => vote.messageId === message.id)
+                    : undefined
+                }
+              />
+            );
+          })}
 
           <AnimatePresence mode="wait">
-            {status === "submitted" && <ThinkingMessage key="thinking" />}
+            {(status === "submitted" ||
+              (status === "streaming" &&
+                messages.length > 0 &&
+                messages.at(-1)?.role === "assistant" &&
+                !messages
+                  .at(-1)
+                  ?.parts?.some(
+                    (p) =>
+                      (p.type === "text" && p.text?.trim()) ||
+                      (p.type === "reasoning" &&
+                        "text" in p &&
+                        p.text &&
+                        p.text !== "[REDACTED]")
+                  ))) && <ThinkingMessage key="thinking" />}
           </AnimatePresence>
 
           <div

@@ -82,12 +82,14 @@ export async function POST(request: Request) {
       selectedVisibilityType,
       selectedModelSlug,
       enableReasoning,
+      modelSupportedParameters,
     }: {
       id: string;
       message: ChatMessage;
       selectedVisibilityType: VisibilityType;
       selectedModelSlug?: string;
       enableReasoning?: boolean;
+      modelSupportedParameters?: string[];
     } = requestBody;
     console.log(requestBody,'requestBody--------');
     
@@ -132,6 +134,38 @@ export async function POST(request: Request) {
     }
 
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+    
+    // 确保每个 assistant 消息至少有一个非空的文本部分
+    // 这可以防止 Amazon Bedrock 报错："The text field in the ContentBlock object is blank"
+    const sanitizedMessages = uiMessages.map((msg) => {
+      if (msg.role === "assistant") {
+        const parts = msg.parts || [];
+        console.log(JSON.stringify(parts), "parts");
+        
+        const hasTextPart = parts.some(
+          (part) => part.type === "text" && part.text?.trim()
+        );
+        const hasToolParts = parts.some(
+          (part) => part.type.startsWith("tool-")
+        );
+
+        // 如果只有工具调用而没有文本内容，添加一个占位符文本
+        // 这确保 convertToModelMessages 不会创建空的 text 字段
+        if (hasToolParts && !hasTextPart && parts.length > 0) {
+          return {
+            ...msg,
+            parts: [
+              ...parts,
+              {
+                type: "text" as const,
+                text: "工具调用已完成。", // 添加占位符文本，避免空文本字段
+              },
+            ],
+          };
+        }
+      }
+      return msg;
+    });
 
     const { longitude, latitude, city, country } = geolocation(request);
 
@@ -165,16 +199,19 @@ export async function POST(request: Request) {
       ? getProviderWithModel(selectedModelSlug)
       : myProvider;
 
+    // Check if model supports tools based on supported_parameters from frontend
+    const supportsTools = modelSupportedParameters?.includes("tools") ?? false;
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: modelProvider,
           system: systemPrompt({ enableReasoning, requestHints }),
-          messages: convertToModelMessages(uiMessages),
+          messages: convertToModelMessages(sanitizedMessages),
           stopWhen: stepCountIs(5),
           maxOutputTokens: 5000,
           experimental_activeTools:
-             enableReasoning
+          !supportsTools
               ? []
               : [
                   "getWeather",
@@ -183,22 +220,23 @@ export async function POST(request: Request) {
                   "requestSuggestions",
                 ],
           experimental_transform: smoothStream({ chunking: "word" }),
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
+          ...(supportsTools && !enableReasoning && {
+            tools: {
+              getWeather,
+              createDocument: createDocument({ session, dataStream }),
+              updateDocument: updateDocument({ session, dataStream }),
+              requestSuggestions: requestSuggestions({
+                session,
+                dataStream,
+              }),
+            },
+          }),
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
           },
           ...(enableReasoning && { reasoning: { effort: "medium" } }),
           onFinish: async ({ usage }) => {
-            console.log("usage", usage);
             finalMergedUsage = usage;
             dataStream.write({ type: "data-usage", data: finalMergedUsage });
           },
@@ -236,7 +274,8 @@ export async function POST(request: Request) {
           }
         }
       },
-      onError: () => {
+      onError: (error) => {
+        console.log("error", error);
         return "Oops, an error occurred!";
       },
     });

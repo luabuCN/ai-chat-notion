@@ -17,21 +17,23 @@ export function MessageReasoning({
   reasoning,
 }: MessageReasoningProps) {
   const [hasBeenStreaming, setHasBeenStreaming] = useState(isLoading);
+  const isRedacted = reasoning === "[REDACTED]";
+  const isStreaming = isLoading || isRedacted;
 
   useEffect(() => {
-    if (isLoading) {
+    if (isStreaming) {
       setHasBeenStreaming(true);
     }
-  }, [isLoading]);
+  }, [isStreaming]);
 
   return (
     <Reasoning
       data-testid="message-reasoning"
       defaultOpen={hasBeenStreaming}
-      isStreaming={isLoading}
+      isStreaming={isStreaming}
     >
       <ReasoningTrigger />
-      <ReasoningContent>{reasoning}</ReasoningContent>
+      {!isRedacted && <ReasoningContent>{reasoning}</ReasoningContent>}
     </Reasoning>
   );
 }

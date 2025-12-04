@@ -110,10 +110,23 @@ const PurePreviewMessage = ({
             const { type } = part;
             const key = `message-${message.id}-part-${index}`;
 
-            if (type === "reasoning" && part.text?.trim().length > 0) {
+            if (type === "reasoning" && part.text) {
+              // 如果 state 是 "done" 且 text 是 "[REDACTED]"，说明思考已完成但内容被隐藏，不显示
+              if (
+                part.text === "[REDACTED]" &&
+                "state" in part &&
+                part.state === "done"
+              ) {
+                return null;
+              }
+
               return (
                 <MessageReasoning
-                  isLoading={isLoading}
+                  isLoading={
+                    isLoading ||
+                    (part.text === "[REDACTED]" &&
+                      (!("state" in part) || part.state !== "done"))
+                  }
                   key={key}
                   reasoning={part.text}
                 />
@@ -328,7 +341,26 @@ export const ThinkingMessage = () => {
         </div>
 
         <div className="flex w-full flex-col gap-2 md:gap-4">
-          <div className="p-0 text-muted-foreground text-sm">Thinking...</div>
+          <div className="p-0 text-muted-foreground text-sm">
+            Thinking
+            {[0, 1, 2].map((index) => (
+              <motion.span
+                key={index}
+                animate={{
+                  opacity: [0.3, 1, 0.3],
+                }}
+                className="inline-block"
+                transition={{
+                  duration: 1.4,
+                  repeat: Number.POSITIVE_INFINITY,
+                  delay: index * 0.2,
+                  ease: "easeInOut",
+                }}
+              >
+                .
+              </motion.span>
+            ))}
+          </div>
         </div>
       </div>
     </motion.div>

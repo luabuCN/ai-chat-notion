@@ -25,6 +25,7 @@ export const postRequestBodySchema = z.object({
   selectedVisibilityType: z.enum(["public", "private"]),
   selectedModelSlug: z.string().optional(),
   enableReasoning: z.boolean().optional(),
+  modelSupportedParameters: z.array(z.string()).optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;
