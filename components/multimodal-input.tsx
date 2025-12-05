@@ -267,6 +267,10 @@ function PureMultimodalInput({
         console.error("Error uploading files!", error);
       } finally {
         setUploadQueue([]);
+        // 重置文件输入，允许用户重新选择文件（包括相同的文件）
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
     },
     [setAttachments, uploadFile]

@@ -236,9 +236,9 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupContent>
+        <SidebarGroupContent className="flex flex-col h-full">
           {!hasEmptyChatHistory && (
-            <div className="flex items-center justify-between px-2 py-2 border-b">
+            <div className="flex items-center justify-between px-2 py-2 border-b shrink-0">
               <div className="text-sidebar-foreground/50 text-xs font-semibold uppercase">
                 History
               </div>
@@ -262,7 +262,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               </TooltipProvider>
             </div>
           )}
-          <SidebarMenu>
+          <SidebarMenu className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)] min-h-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-border [&::-webkit-scrollbar-track]:bg-transparent">
             {paginatedChatHistories &&
               (() => {
                 const chatsFromHistory = paginatedChatHistories.flatMap(
@@ -375,28 +375,27 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                   </div>
                 );
               })()}
-          </SidebarMenu>
+            <motion.div
+              onViewportEnter={() => {
+                if (!isValidating && !hasReachedEnd) {
+                  setSize((size) => size + 1);
+                }
+              }}
+            />
 
-          <motion.div
-            onViewportEnter={() => {
-              if (!isValidating && !hasReachedEnd) {
-                setSize((size) => size + 1);
-              }
-            }}
-          />
-
-          {hasReachedEnd ? (
-            <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
-              You have reached the end of your chat history.
-            </div>
-          ) : (
-            <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
-              <div className="animate-spin">
-                <LoaderIcon />
+            {hasReachedEnd ? (
+              <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500 shrink-0">
+                You have reached the end of your chat history.
               </div>
-              <div>Loading Chats...</div>
-            </div>
-          )}
+            ) : (
+              <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400 shrink-0">
+                <div className="animate-spin">
+                  <LoaderIcon />
+                </div>
+                <div>Loading Chats...</div>
+              </div>
+            )}
+          </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
 

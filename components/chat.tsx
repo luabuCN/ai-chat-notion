@@ -93,7 +93,6 @@ export function Chat({
           body: {
             id: request.id,
             message: request.messages.at(-1),
-            selectedChatModel: isDynamicModel ? "chat-model" : modelId,
             selectedVisibilityType: visibilityType,
             selectedModelSlug: isDynamicModel ? modelId : undefined,
             ...request.body,
