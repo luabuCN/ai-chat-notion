@@ -3,28 +3,24 @@ import type { NextRequest } from 'next/server';
 import { generateText } from 'ai';
 import { NextResponse } from 'next/server';
 
+import { getProviderWithModel, getFirstModelSlug } from '@/lib/ai/providers';
+
 export async function POST(req: NextRequest) {
   const {
-    apiKey: key,
-    model = 'gpt-4o-mini',
+    model,
     prompt,
     system,
   } = await req.json();
 
-  const apiKey = key || process.env.AI_GATEWAY_API_KEY;
-
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'Missing ai gateway API key.' },
-      { status: 401 }
-    );
-  }
+  // Use custom model if provided, otherwise use first available model
+  const modelSlug = model || await getFirstModelSlug();
+  const modelProvider = getProviderWithModel(modelSlug);
 
   try {
     const result = await generateText({
       abortSignal: req.signal,
       maxOutputTokens: 50,
-      model: `openai/${model}`,
+      model: modelProvider,
       prompt,
       system,
       temperature: 0.7,

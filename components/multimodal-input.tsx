@@ -93,6 +93,25 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
   const { models, loading: modelsLoading } = useModels();
 
+  // Auto-select first model if selectedModelId is not in the models list
+  useEffect(() => {
+    if (!modelsLoading && models.length > 0) {
+      const isSelectedModelValid = models.some(
+        (model) => model.full_slug === selectedModelId
+      );
+      if (!isSelectedModelValid) {
+        // Select first model if current selection is invalid
+        const firstModel = models[0];
+        if (firstModel && onModelChange) {
+          onModelChange(firstModel.full_slug);
+          startTransition(() => {
+            saveChatModelAsCookie(firstModel.full_slug);
+          });
+        }
+      }
+    }
+  }, [models, modelsLoading, selectedModelId, onModelChange]);
+
   // Check if the selected model supports reasoning
   const selectedModel = useMemo(() => {
     return models.find((model) => model.full_slug === selectedModelId);
@@ -411,7 +430,7 @@ function PureMultimodalInput({
           />{" "}
           {/* <Context {...contextProps} /> */}
         </div>
-        <PromptInputToolbar className="!border-top-0 border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
+        <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
             <AttachmentsButton
               fileInputRef={fileInputRef}
@@ -572,10 +591,10 @@ function PureModelSelectorCompact({
     setOptimisticModelId(selectedModelId);
   }, [selectedModelId]);
 
-  // Find selected model from dynamic models
-  const selectedDynamicModel = models.find(
-    (model) => model.full_slug === optimisticModelId
-  );
+  // Find selected model from dynamic models, or use first model if none selected
+  const selectedDynamicModel =
+    models.find((model) => model.full_slug === optimisticModelId) ||
+    (models.length > 0 ? models[0] : undefined);
 
   const displayName = selectedDynamicModel
     ? `${selectedDynamicModel.provider}/${selectedDynamicModel.model}`

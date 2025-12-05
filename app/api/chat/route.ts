@@ -17,7 +17,7 @@ import type { VisibilityType } from "@/components/visibility-selector";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import type { ChatModel } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { myProvider, getProviderWithModel } from "@/lib/ai/providers";
+import { getProviderWithModel, getFirstModelSlug } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
@@ -196,10 +196,9 @@ export async function POST(request: Request) {
 
     let finalMergedUsage: AppUsage | undefined;
 
-    // Use custom model if provided, otherwise use default
-    const modelProvider = selectedModelSlug 
-      ? getProviderWithModel(selectedModelSlug)
-      : myProvider;
+    // Use custom model if provided, otherwise use first available model
+    const modelSlug = selectedModelSlug || await getFirstModelSlug();
+    const modelProvider = getProviderWithModel(modelSlug);
 
     // Check if model supports tools based on supported_parameters from frontend
     const supportsTools = modelSupportedParameters?.includes("tools") ?? false;
