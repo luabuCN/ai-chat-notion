@@ -6,6 +6,7 @@ import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
+import type { VisibilityType } from "@/components/visibility-selector";
 import { convertToUIMessages } from "@/lib/utils";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
@@ -53,7 +54,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           initialChatModel={DEFAULT_CHAT_MODEL}
           initialLastContext={chat.lastContext ?? undefined}
           initialMessages={uiMessages}
-          initialVisibilityType={chat.visibility}
+          initialVisibilityType={chat.visibility as VisibilityType}
           isReadonly={session?.user?.id !== chat.userId}
         />
         <DataStreamHandler />
@@ -69,7 +70,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         initialChatModel={chatModelFromCookie.value}
         initialLastContext={chat.lastContext ?? undefined}
         initialMessages={uiMessages}
-        initialVisibilityType={chat.visibility}
+        initialVisibilityType={chat.visibility as VisibilityType}
         isReadonly={session?.user?.id !== chat.userId}
       />
       <DataStreamHandler />

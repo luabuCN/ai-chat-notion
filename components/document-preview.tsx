@@ -11,7 +11,7 @@ import {
 } from "react";
 import useSWR from "swr";
 import { useArtifact } from "@/hooks/use-artifact";
-import type { Document } from "@/lib/db/schema";
+import type { Document } from "@/lib/db/queries";
 import { cn, fetcher } from "@/lib/utils";
 import type { ArtifactKind, UIArtifact } from "./artifact";
 import { CodeEditor } from "./code-editor";
@@ -87,15 +87,15 @@ export function DocumentPreview({
   const document: Document | null = previewDocument
     ? previewDocument
     : artifact.status === "streaming"
-      ? {
-          title: artifact.title,
-          kind: artifact.kind,
-          content: artifact.content,
-          id: artifact.documentId,
-          createdAt: new Date(),
-          userId: "noop",
-        }
-      : null;
+    ? {
+        title: artifact.title,
+        kind: artifact.kind,
+        content: artifact.content,
+        id: artifact.documentId,
+        createdAt: new Date(),
+        userId: "noop",
+      }
+    : null;
 
   if (!document) {
     return <LoadingSkeleton artifactKind={artifact.kind} />;
@@ -110,7 +110,7 @@ export function DocumentPreview({
       />
       <DocumentHeader
         isStreaming={artifact.status === "streaming"}
-        kind={document.kind}
+        kind={document.kind as ArtifactKind}
         title={document.title}
       />
       <DocumentContent document={document} />

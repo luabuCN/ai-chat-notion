@@ -3,7 +3,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { motion } from "framer-motion";
 import { memo, useState } from "react";
-import type { Vote } from "@/lib/db/schema";
+import type { Vote } from "@/lib/db/queries";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
@@ -78,12 +78,7 @@ const PurePreviewMessage = ({
               (p) => p.type === "text" && p.text?.trim()
             ),
             "min-h-96": message.role === "assistant" && requiresScrollPadding,
-            "w-full":
-              (message.role === "assistant" &&
-                message.parts?.some(
-                  (p) => p.type === "text" && p.text?.trim()
-                )) ||
-              mode === "edit",
+            "w-full": message.role === "assistant" || mode === "edit",
             "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]":
               message.role === "user" && mode !== "edit",
           })}

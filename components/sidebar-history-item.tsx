@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { memo } from "react";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
-import type { Chat } from "@/lib/db/schema";
+import type { Chat } from "@/lib/db/queries";
+import type { VisibilityType } from "./visibility-selector";
 import {
   CheckCircleFillIcon,
   GlobeIcon,
@@ -39,7 +40,7 @@ const PureChatItem = ({
 }) => {
   const { visibilityType, setVisibilityType } = useChatVisibility({
     chatId: chat.id,
-    initialVisibilityType: chat.visibility,
+    initialVisibilityType: chat.visibility as VisibilityType,
   });
 
   return (

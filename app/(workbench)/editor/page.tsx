@@ -1,8 +1,6 @@
 "use client";
 
 import { Toaster } from "sonner";
-
-import { PlateEditor } from "@/components/plate-editor";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useWindowSize } from "usehooks-ts";
@@ -19,7 +17,7 @@ export default function Page() {
           variant="ghost"
         />
       )}
-      <PlateEditor />
+      <div className="w-full h-full"></div>
       <Toaster />
     </div>
   );

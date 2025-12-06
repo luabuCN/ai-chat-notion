@@ -6,7 +6,7 @@ import {
   getMessagesByChatId,
   getStreamIdsByChatId,
 } from "@/lib/db/queries";
-import type { Chat } from "@/lib/db/schema";
+import type { Chat } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { getStreamContext } from "../../route";
