@@ -15,9 +15,9 @@ import {
 import { auth, type UserType } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import type { ChatModel } from "@/lib/ai/models";
-import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { getProviderWithModel, getFirstModelSlug } from "@/lib/ai/providers";
+import type { ChatModel } from "@repo/ai";
+import { type RequestHints, systemPrompt } from "@repo/ai";
+import { getProviderWithModel, getFirstModelSlug } from "@repo/ai";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";

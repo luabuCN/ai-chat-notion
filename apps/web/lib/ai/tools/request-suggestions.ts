@@ -5,7 +5,7 @@ import { getDocumentById, saveSuggestions } from "@repo/database";
 import type { Suggestion } from "@repo/database";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
-import { myProvider } from "../providers";
+import { myProvider } from "@repo/ai";
 
 type RequestSuggestionsProps = {
   session: Session;

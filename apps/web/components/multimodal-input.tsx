@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
 import { SelectItem } from "@repo/ui";
-import { myProvider } from "@/lib/ai/providers";
+import { myProvider } from "@repo/ai";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { cn } from "@/lib/utils";

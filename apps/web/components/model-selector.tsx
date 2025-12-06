@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import { chatModels } from "@/lib/ai/models";
+import { chatModels } from "@repo/ai";
 import { cn } from "@/lib/utils";
 import { CheckCircleFillIcon, ChevronDownIcon } from "./icons";
 
