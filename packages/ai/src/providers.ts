@@ -1,12 +1,6 @@
-import { gateway } from "@ai-sdk/gateway";
 import {
-  customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
   type LanguageModel,
 } from "ai";
-
-import { isTestEnvironment } from "./utils";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 const openrouter = createOpenRouter({
@@ -21,14 +15,33 @@ export function getProviderWithModel(modelSlug: string): LanguageModel {
 // Get first available model slug from OpenRouter API
 export async function getFirstModelSlug(): Promise<string> {
   try {
-    const url = "https://openrouter.ai/api/frontend/models/find?max_price=0";
+    // 在客户端通过 API 路由获取，避免 CORS 问题
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    
+    const url = typeof window !== "undefined"
+      ? `${baseUrl}/api/models`
+      : "https://openrouter.ai/api/frontend/models/find?max_price=0";
+    
     const response = await fetch(url, { cache: 'no-store' });
     
     if (response.ok) {
       const jsonData = await response.json();
-      const models = jsonData?.data?.models ?? [];
-      if (models.length > 0) {
-        return models[0].slug;
+      
+      // 处理 API 路由返回的格式
+      if (Array.isArray(jsonData)) {
+        // 来自 /api/models 路由的格式
+        if (jsonData.length > 0) {
+          return jsonData[0].full_slug;
+        }
+      } else {
+        // 直接调用 OpenRouter API 的格式
+        const models = jsonData?.data?.models ?? [];
+        if (models.length > 0) {
+          return models[0].slug;
+        }
       }
     }
   } catch (error) {

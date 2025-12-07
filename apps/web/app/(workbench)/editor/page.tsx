@@ -1,11 +1,16 @@
 "use client";
 
+import { useMemo } from "react";
 import { Toaster } from "sonner";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { useSidebar } from "@repo/ui";
 import { useWindowSize } from "usehooks-ts";
+import dynamic from "next/dynamic";
 
-import { Editor } from "@repo/editor";
+const BlockNoteEditor = dynamic(
+  () => import("@repo/editor").then((mod) => mod.NoteEditor),
+  { ssr: false }
+);
 
 export default function Page() {
   const { open } = useSidebar();
@@ -20,7 +25,7 @@ export default function Page() {
         />
       )}
       <div className="w-full h-full p-4 overflow-auto">
-        <Editor className="min-h-full" />
+        <BlockNoteEditor />
       </div>
       <Toaster />
     </div>

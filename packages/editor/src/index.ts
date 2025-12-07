@@ -1,1 +1,2 @@
-export * from "./editor";
+export { NoteEditor } from "./editor";
+
