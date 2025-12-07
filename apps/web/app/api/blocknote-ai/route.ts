@@ -12,20 +12,19 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   try {
     const { messages, toolDefinitions } = await req.json();
-
-    // Get the model provider
     const modelSlug = await getFirstModelSlug();
     const model = getProviderWithModel(modelSlug);
-
+    const tools = toolDefinitionsToToolSet(toolDefinitions);
+    
     const result = streamText({
       model,
       system: aiDocumentFormats.html.systemPrompt,
       messages: convertToModelMessages(
         injectDocumentStateMessages(messages)
       ),
-      tools: toolDefinitionsToToolSet(toolDefinitions),
+      tools: tools as any,
       toolChoice: "required",
-      maxOutputTokens:1024,
+      maxOutputTokens: 1024,
     });
 
     return result.toUIMessageStreamResponse();

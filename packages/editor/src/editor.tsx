@@ -1,7 +1,7 @@
 import { BlockNoteEditor } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import "@blocknote/core/fonts/inter.css";
-import { en } from "@blocknote/core/locales";
+import { en, zh } from "@blocknote/core/locales";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import {
@@ -18,7 +18,7 @@ import {
   AIToolbarButton,
   getAISlashMenuItems,
 } from "@blocknote/xl-ai";
-import { en as aiEn } from "@blocknote/xl-ai/locales";
+import { en as aiEn, zh as aiZh } from "@blocknote/xl-ai/locales";
 import "@blocknote/xl-ai/style.css";
 import { DefaultChatTransport } from "ai";
 
@@ -30,8 +30,8 @@ export function NoteEditor({ apiUrl = "/api/blocknote-ai" }: NoteEditorProps) {
   // Creates a new editor instance.
   const editor = useCreateBlockNote({
     dictionary: {
-      ...en,
-      ai: aiEn, // add default translations for the AI extension
+      ...zh,
+      ai: aiZh,
     },
     // Register the AI extension
     extensions: [
