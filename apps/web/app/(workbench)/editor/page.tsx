@@ -25,7 +25,7 @@ export default function Page() {
         />
       )}
       <div className="w-full h-full p-4 overflow-auto">
-        <BlockNoteEditor />
+        <BlockNoteEditor apiUrl="/api/blocknote-ai" />
       </div>
       <Toaster />
     </div>

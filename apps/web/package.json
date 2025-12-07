@@ -15,6 +15,7 @@
     "@prisma/client": "6",
     "@repo/editor": "workspace:*",
     "@repo/ai": "workspace:*",
+    "@blocknote/xl-ai": "^0.44.0",
     "@ai-sdk/deepseek": "^1.0.29",
     "@ai-sdk/gateway": "^1.0.15",
     "@ai-sdk/provider": "2.0.0",

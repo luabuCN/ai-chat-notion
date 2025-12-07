@@ -16,19 +16,17 @@ import {
   AIExtension,
   AIMenuController,
   AIToolbarButton,
-  ClientSideTransport,
   getAISlashMenuItems,
 } from "@blocknote/xl-ai";
 import { en as aiEn } from "@blocknote/xl-ai/locales";
 import "@blocknote/xl-ai/style.css";
-import { getFirstModelSlug, getProviderWithModel } from "@repo/ai";
-import { useEffect, useState } from "react";
-import type { LanguageModel } from "ai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-const openrouter = createOpenRouter({
-  apiKey: process.env.API_KEY || "",
-});
-export function NoteEditor() {
+import { DefaultChatTransport } from "ai";
+
+interface NoteEditorProps {
+  apiUrl?: string;
+}
+
+export function NoteEditor({ apiUrl = "/api/blocknote-ai" }: NoteEditorProps) {
   // Creates a new editor instance.
   const editor = useCreateBlockNote({
     dictionary: {
@@ -38,11 +36,8 @@ export function NoteEditor() {
     // Register the AI extension
     extensions: [
       AIExtension({
-        // The ClientSideTransport is used so the client makes calls directly to `streamText`
-        // (whereas normally in the Vercel AI SDK, the client makes calls to your server, which then calls these methods)
-        // (see https://github.com/vercel/ai/issues/5140 for background info)
-        transport: new ClientSideTransport({
-          model: openrouter("amazon/nova-2-lite-v1"),
+        transport: new DefaultChatTransport({
+          api: apiUrl,
         }),
       }),
     ],
