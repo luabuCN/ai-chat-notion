@@ -21,17 +21,20 @@ import {
 import { en as aiEn, zh as aiZh } from "@blocknote/xl-ai/locales";
 import "@blocknote/xl-ai/style.css";
 import { DefaultChatTransport } from "ai";
+import { useEffect, useState } from "react";
 
 export interface NoteEditorProps {
   apiUrl?: string;
   locale?: string;
   theme?: "light" | "dark";
+  uploadFile?: (file: File) => Promise<string>;
 }
 
 export function NoteEditor({
   apiUrl = "/api/blocknote-ai",
   locale = "en",
   theme = "light",
+  uploadFile,
 }: NoteEditorProps) {
   // Creates a new editor instance.
   const editor = useCreateBlockNote({
@@ -55,6 +58,12 @@ export function NoteEditor({
     ],
     // We set some initial content for demo purposes
     initialContent: [{}],
+    uploadFile: uploadFile
+      ? async (file: File) => {
+          const url = await uploadFile(file);
+          return url;
+        }
+      : undefined,
   });
 
   // Renders the editor instance using a React component.
@@ -74,7 +83,7 @@ export function NoteEditor({
         and replace it for one with an "AI button" (defined below). 
         (See "Formatting Toolbar" in docs)
         */}
-        <FormattingToolbarWithAI />
+        <FormattingToolbarWithAI editor={editor} />
 
         {/* We disabled the default SlashMenu with `slashMenu=false` 
         and replace it for one with an AI option (defined below). 
@@ -87,14 +96,46 @@ export function NoteEditor({
 }
 
 // Formatting toolbar with the `AIToolbarButton` added
-function FormattingToolbarWithAI() {
+function FormattingToolbarWithAI(props: {
+  editor: BlockNoteEditor<any, any, any>;
+}) {
+  const [hasMediaBlockSelected, setHasMediaBlockSelected] = useState(false);
+
+  useEffect(() => {
+    const updateSelection = () => {
+      console.log(props.editor.getSelectionCutBlocks(), "selectionCutBlocks");
+
+      const selection = props.editor.getSelectionCutBlocks();
+      if (selection) {
+        const selectedBlocks = selection.blocks;
+        const containsMediaBlock = selectedBlocks.some(
+          (block) =>
+            block.type === "image" ||
+            block.type === "table" ||
+            block.type === "video" ||
+            block.type === "audio" ||
+            block.type === "file"
+        );
+        setHasMediaBlockSelected(containsMediaBlock);
+      } else {
+        setHasMediaBlockSelected(false);
+      }
+    };
+
+    // 监听选择变化
+    const unsubscribe = props.editor.onSelectionChange(updateSelection);
+    updateSelection(); // 初始检查
+
+    return unsubscribe;
+  }, [props.editor]);
+
   return (
     <FormattingToolbarController
       formattingToolbar={() => (
         <FormattingToolbar>
           {...getFormattingToolbarItems()}
-          {/* Add the AI button */}
-          <AIToolbarButton />
+          {/* 只在非媒体块选择时显示AI按钮 */}
+          {!hasMediaBlockSelected && <AIToolbarButton />}
         </FormattingToolbar>
       )}
     />
