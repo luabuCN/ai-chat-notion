@@ -18,8 +18,13 @@ import {
   MessageSquare,
   Edit,
 } from "lucide-react";
+import { LanguageSwitcher } from "../language-switcher";
 
-export function EditorHeader() {
+interface EditorHeaderProps {
+  locale: string;
+}
+
+export function EditorHeader({ locale }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
 
@@ -53,6 +58,8 @@ export function EditorHeader() {
         </div>
 
         <Separator orientation="vertical" className="h-6 mx-2" />
+
+        <LanguageSwitcher currentLocale={locale} />
 
         <Button variant="ghost" size="sm" className="h-8 text-muted-foreground">
           Share
