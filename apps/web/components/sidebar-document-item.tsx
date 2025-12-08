@@ -1,0 +1,238 @@
+"use client";
+
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenu,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui";
+import { Skeleton } from "@repo/ui";
+import { cn } from "@/lib/utils";
+import {
+  ChevronDown,
+  ChevronRight,
+  MoreHorizontal,
+  Plus,
+  Trash,
+  type LucideIcon,
+} from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { useCreateDocument, useArchive } from "@/hooks/use-document-query";
+import { useState } from "react";
+
+interface ItemProps {
+  id?: string;
+  documentIcon?: string | null;
+  active?: boolean;
+  expanded?: boolean;
+  isSearch?: boolean;
+  level?: number;
+  onExpand?: () => void;
+  label: string;
+  onClick?: () => void;
+  icon: LucideIcon;
+}
+
+const Item = ({
+  id,
+  label,
+  onClick,
+  icon: Icon,
+  active,
+  documentIcon,
+  isSearch,
+  level = 0,
+  expanded,
+  onExpand,
+}: ItemProps) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { trigger: mutate } = useCreateDocument();
+  const { trigger: mutateArchive } = useArchive();
+  const [isHovered, setIsHovered] = useState(false);
+
+  const onArchive = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if (!id) return;
+    event.stopPropagation();
+    mutateArchive(id, {
+      onSuccess: () => {
+        toast.success("笔记已移至回收站！");
+        router.push("/editor");
+        // 触发重新加载
+        window.location.reload();
+      },
+      onError: (error: Error) => {
+        toast.error(error.message || "移动到回收站失败");
+      },
+    });
+  };
+
+  const handleExpand = (
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>
+  ) => {
+    event.stopPropagation();
+    onExpand?.();
+  };
+
+  const onCreate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    event.stopPropagation();
+    if (!id) return;
+    mutate(
+      {
+        title: "未命名",
+        parentDocumentId: id,
+      },
+      {
+        onSuccess: (res) => {
+          if (!expanded) {
+            onExpand?.();
+          }
+          router.push(`/editor?documentId=${res.id}`);
+          toast.success("新笔记已创建！");
+          // 触发重新加载
+          window.location.reload();
+        },
+        onError: (error: Error) => {
+          toast.error(error.message || "创建新笔记失败");
+        },
+      }
+    );
+  };
+
+  const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+  const documentId = searchParams.get("documentId");
+  const isActive = active || (id && documentId === id);
+
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        paddingLeft: level ? `${level * 12 + 12}px` : "12px",
+      }}
+      className={cn(
+        "group/item relative min-h-[27px] text-sm py-1 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium",
+        isHovered ? "pr-12" : "pr-3",
+        isActive && " bg-primary/5 text-primary"
+      )}
+    >
+      {!!id && (
+        <div
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleExpand(
+                e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>
+              );
+            }
+          }}
+          className=" h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600 mr-1"
+          onClick={handleExpand}
+        >
+          <ChevronIcon className="h-4 w-4 rounded-sm hover:bg-neutral-300" />
+        </div>
+      )}
+
+      {documentIcon ? (
+        <div className="shrink-0 h-[18px] mr-2 ">{documentIcon}</div>
+      ) : (
+        <Icon className=" shrink-0 h-[18px] w-[18px] mr-2 text-muted-foreground" />
+      )}
+
+      <span className="truncate flex-1 min-w-0">{label}</span>
+      {isSearch && (
+        <kbd className="ml-2 pointer-events-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+          <span className=" text-sx">⌘</span>
+          <p className="text-[14px]">k</p>
+        </kbd>
+      )}
+
+      {!!id && (
+        <div
+          className={cn(
+            "absolute right-2 flex items-center gap-x-2 transition-opacity",
+            isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <div
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                }}
+                className="h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600"
+              >
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className=" w-60"
+              align="start"
+              side="right"
+              forceMount
+            >
+              <DropdownMenuItem onClick={onArchive}>
+                <Trash className="h-4 w-4 mr-2" />
+                删除
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className=" text-xs text-muted-foreground p-2">
+                最后编辑者
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onCreate(
+                  e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>
+                );
+              }
+            }}
+            onClick={onCreate}
+            className="h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600"
+          >
+            <Plus className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+Item.Skeleton = function ItemSkeleton({ level }: { level?: number }) {
+  return (
+    <div
+      style={{
+        paddingLeft: level ? `${level * 12 + 12}px` : "12px",
+      }}
+      className="flex gap-x-2 py-[3px]"
+    >
+      <Skeleton className="h-4 w-4" />
+      <Skeleton className="h-4 w-[30%]" />
+    </div>
+  );
+};
+
+export default Item;

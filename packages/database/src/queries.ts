@@ -441,6 +441,34 @@ export async function deleteDocumentsByIdAfterTimestamp({
   }
 }
 
+export async function getDocumentsByUserId({ userId }: { userId: string }) {
+  try {
+    const documents = await prisma.document.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // 获取每个文档的最新版本（按 id 分组，取最新的 createdAt）
+    const latestDocuments = documents.reduce(
+      (acc, doc) => {
+        const existing = acc.find((d) => d.id === doc.id);
+        if (!existing || doc.createdAt > existing.createdAt) {
+          return [...acc.filter((d) => d.id !== doc.id), doc];
+        }
+        return acc;
+      },
+      [] as Document[]
+    );
+
+    return latestDocuments;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get documents by user id"
+    );
+  }
+}
+
 export async function saveSuggestions({
   suggestions,
 }: {

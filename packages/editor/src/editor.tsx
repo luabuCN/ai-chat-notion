@@ -103,8 +103,6 @@ function FormattingToolbarWithAI(props: {
 
   useEffect(() => {
     const updateSelection = () => {
-      console.log(props.editor.getSelectionCutBlocks(), "selectionCutBlocks");
-
       const selection = props.editor.getSelectionCutBlocks();
       if (selection) {
         const selectedBlocks = selection.blocks;
