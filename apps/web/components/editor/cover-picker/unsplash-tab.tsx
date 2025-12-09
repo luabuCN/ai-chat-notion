@@ -7,7 +7,7 @@ import { toast } from "sonner";
 interface UnsplashPhoto {
   id: string;
   urls: {
-    regular: string;
+    raw: string;
     small: string;
   };
   user: {
@@ -84,27 +84,32 @@ export function UnsplashTab({ onSelectCover, onClose }: UnsplashTabProps) {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {photos.map((photo) => (
-            <button
-              key={photo.id}
-              type="button"
-              className="relative aspect-video rounded-lg overflow-hidden hover:ring-2 hover:ring-primary transition-all group"
-              onClick={() => {
-                onSelectCover(photo.urls.regular);
-                onClose();
-              }}
-            >
-              <Image
-                src={photo.urls.small}
-                alt={`Photo by ${photo.user.name}`}
-                fill
-                className="object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                作者 {photo.user.name}
-              </div>
-            </button>
-          ))}
+          {photos.map((photo) => {
+            const handleSelect = () => {
+              onSelectCover(photo.urls.raw);
+              setTimeout(() => onClose(), 0);
+            };
+
+            return (
+              <button
+                key={photo.id}
+                type="button"
+                className="relative aspect-video rounded-lg overflow-hidden hover:ring-2 hover:ring-primary transition-all group"
+                onClick={handleSelect}
+              >
+                <Image
+                  src={photo.urls.small}
+                  alt={`Photo by ${photo.user.name}`}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  作者 {photo.user.name}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

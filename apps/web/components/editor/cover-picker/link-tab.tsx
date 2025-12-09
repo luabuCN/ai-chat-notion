@@ -17,8 +17,8 @@ export function LinkTab({ onSelectCover, onClose }: LinkTabProps) {
       return;
     }
     onSelectCover(linkUrl);
-    onClose();
     setLinkUrl("");
+    setTimeout(() => onClose(), 0);
   };
 
   return (

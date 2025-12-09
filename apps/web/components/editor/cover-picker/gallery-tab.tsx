@@ -38,6 +38,11 @@ const PRESET_COLORS = [
 ];
 
 export function GalleryTab({ onSelectCover, onClose }: GalleryTabProps) {
+  const handleSelect = (value: string) => {
+    onSelectCover(value);
+    setTimeout(() => onClose(), 0);
+  };
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">颜色和渐变</p>
@@ -48,10 +53,7 @@ export function GalleryTab({ onSelectCover, onClose }: GalleryTabProps) {
             type="button"
             className="aspect-[4/3] rounded-md hover:opacity-80 transition-opacity"
             style={{ background: color.value }}
-            onClick={() => {
-              onSelectCover(color.value);
-              onClose();
-            }}
+            onClick={() => handleSelect(color.value)}
             title={color.name}
           />
         ))}

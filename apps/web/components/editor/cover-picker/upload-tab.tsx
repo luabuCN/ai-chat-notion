@@ -32,11 +32,13 @@ export function UploadTab({ onSelectCover, onClose }: UploadTabProps) {
       if (!response.ok) throw new Error("Upload failed");
 
       const data = await response.json();
-      onSelectCover(data.url);
-      onClose();
-      toast.success("封面上传成功");
+
+      // 使用 queueMicrotask 确保状态更新在下一个微任务中执行
+      queueMicrotask(() => {
+        onSelectCover(data.url);
+        onClose();
+      });
     } catch (error) {
-      toast.error("上传失败，请重试");
       console.error(error);
     } finally {
       setUploading(false);
