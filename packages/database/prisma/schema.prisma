@@ -102,6 +102,7 @@ model EditorDocument {
   content         String?           @default("")
   userId          String            @db.Uuid
   parentDocumentId String?          @db.Uuid
+  icon            String?
   coverImage      String?
   coverImageType  String?           @default("url") @db.VarChar(10)
   isPublished     Boolean           @default(false)

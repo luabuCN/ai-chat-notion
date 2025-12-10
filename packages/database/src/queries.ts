@@ -72,6 +72,7 @@ export type EditorDocument = {
   content: string | null;
   userId: string;
   parentDocumentId: string | null;
+  icon: string | null;
   coverImage: string | null;
   coverImageType: string | null;
   isPublished: boolean;
@@ -682,6 +683,7 @@ export async function createEditorDocument({
   content,
   userId,
   parentDocumentId,
+  icon,
   coverImage,
   coverImageType,
 }: {
@@ -689,6 +691,7 @@ export async function createEditorDocument({
   content?: string;
   userId: string;
   parentDocumentId?: string | null;
+  icon?: string | null;
   coverImage?: string | null;
   coverImageType?: "color" | "url" | null;
 }) {
@@ -699,6 +702,7 @@ export async function createEditorDocument({
         content: content ?? "",
         userId,
         parentDocumentId: parentDocumentId ?? null,
+        icon: icon ?? null,
         coverImage: coverImage ?? null,
         coverImageType: coverImageType ?? "url",
       },
@@ -772,6 +776,7 @@ export async function updateEditorDocument({
   id,
   title,
   content,
+  icon,
   coverImage,
   coverImageType,
   isPublished,
@@ -779,6 +784,7 @@ export async function updateEditorDocument({
   id: string;
   title?: string;
   content?: string;
+  icon?: string | null;
   coverImage?: string | null;
   coverImageType?: "color" | "url" | null;
   isPublished?: boolean;
@@ -787,6 +793,7 @@ export async function updateEditorDocument({
     const updateData: {
       title?: string;
       content?: string;
+      icon?: string | null;
       coverImage?: string | null;
       coverImageType?: string | null;
       isPublished?: boolean;
@@ -794,6 +801,7 @@ export async function updateEditorDocument({
 
     if (title !== undefined) updateData.title = title;
     if (content !== undefined) updateData.content = content;
+    if (icon !== undefined) updateData.icon = icon;
     if (coverImage !== undefined) updateData.coverImage = coverImage;
     if (coverImageType !== undefined) updateData.coverImageType = coverImageType;
     if (isPublished !== undefined) updateData.isPublished = isPublished;

@@ -63,12 +63,14 @@ export async function PATCH(
     const {
       title,
       content,
+      icon,
       coverImage,
       coverImageType,
       isPublished,
     }: {
       title?: string;
       content?: string;
+      icon?: string | null;
       coverImage?: string | null;
       coverImageType?: "color" | "url" | null;
       isPublished?: boolean;
@@ -78,6 +80,7 @@ export async function PATCH(
       id,
       title,
       content,
+      icon,
       coverImage,
       coverImageType,
       isPublished,

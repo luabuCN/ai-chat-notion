@@ -9,6 +9,7 @@ import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryProvider } from "@/lib/query-client";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.vercel.ai"),
@@ -72,12 +73,14 @@ export default async function RootLayout({
           disableTransitionOnChange
           enableSystem
         >
-          <NextIntlClientProvider messages={messages}>
-            <TooltipProvider>
-              <Toaster position="top-center" />
-              <SessionProvider>{children}</SessionProvider>
-            </TooltipProvider>
-          </NextIntlClientProvider>
+          <QueryProvider>
+            <NextIntlClientProvider messages={messages}>
+              <TooltipProvider>
+                <Toaster position="top-center" />
+                <SessionProvider>{children}</SessionProvider>
+              </TooltipProvider>
+            </NextIntlClientProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

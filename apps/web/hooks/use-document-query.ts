@@ -1,235 +1,232 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { EditorDocument } from "@repo/database";
 
-export function useSidebarDocuments(parentDocumentId?: string) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [data, setData] = useState<EditorDocument[]>([]);
-  const [error, setError] = useState<Error | null>(null);
+// Query Keys
+export const documentKeys = {
+  all: ["editor-documents"] as const,
+  lists: () => [...documentKeys.all, "list"] as const,
+  list: (parentDocumentId?: string) =>
+    [...documentKeys.lists(), { parentDocumentId }] as const,
+  details: () => [...documentKeys.all, "detail"] as const,
+  detail: (id: string) => [...documentKeys.details(), id] as const,
+};
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams();
-        if (parentDocumentId) {
-          params.append("parentDocumentId", parentDocumentId);
-        }
-        params.append("includeDeleted", "false");
+// API Functions
+async function fetchDocuments(parentDocumentId?: string): Promise<EditorDocument[]> {
+  const params = new URLSearchParams();
+  if (parentDocumentId) {
+    params.append("parentDocumentId", parentDocumentId);
+  }
+  params.append("includeDeleted", "false");
 
-        const response = await fetch(`/api/editor-documents?${params.toString()}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "获取文档列表失败");
-        }
+  const response = await fetch(`/api/editor-documents?${params.toString()}`);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "获取文档列表失败");
+  }
+  return response.json();
+}
 
-        const documents = await response.json();
-        setData(documents);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error("获取文档列表失败");
-        setError(error);
-        setData([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+async function fetchDocument(documentId: string): Promise<EditorDocument> {
+  const response = await fetch(`/api/editor-documents/${documentId}`);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "获取文档失败");
+  }
+  return response.json();
+}
 
-    void fetchDocuments();
-  }, [parentDocumentId]);
+async function createDocument(
+  arg: { title: string; parentDocumentId?: string }
+): Promise<EditorDocument> {
+  const response = await fetch("/api/editor-documents", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: arg.title,
+      parentDocumentId: arg.parentDocumentId ?? null,
+    }),
+  });
 
-  return {
-    data,
-    isLoading,
-    error,
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "创建文档失败");
+  }
+
+  return response.json();
+}
+
+async function updateDocument({
+  documentId,
+  updates,
+}: {
+  documentId: string;
+  updates: {
+    title?: string;
+    content?: string;
+    icon?: string | null;
+    coverImage?: string | null;
+    coverImageType?: "color" | "url" | null;
+    isPublished?: boolean;
   };
+}): Promise<EditorDocument> {
+  const response = await fetch(`/api/editor-documents/${documentId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "更新文档失败");
+  }
+
+  return response.json();
+}
+
+async function deleteDocument(documentId: string): Promise<void> {
+  const response = await fetch(`/api/editor-documents/${documentId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "删除文档失败");
+  }
+}
+
+async function publishDocument({
+  documentId,
+  publish,
+}: {
+  documentId: string;
+  publish: boolean;
+}): Promise<EditorDocument> {
+  const response = await fetch(
+    `/api/editor-documents/${documentId}/publish`,
+    {
+      method: publish ? "POST" : "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "发布操作失败");
+  }
+
+  return response.json();
+}
+
+// Hooks
+export function useSidebarDocuments(parentDocumentId?: string) {
+  return useQuery({
+    queryKey: documentKeys.list(parentDocumentId),
+    queryFn: () => fetchDocuments(parentDocumentId),
+    enabled: true, // 总是启用，首次加载就会调用
+  });
+}
+
+export function useGetDocument(documentId: string | null | undefined) {
+  return useQuery({
+    queryKey: documentKeys.detail(documentId ?? ""),
+    queryFn: () => fetchDocument(documentId!),
+    enabled: !!documentId, // 只有在有 documentId 时才启用
+  });
 }
 
 export function useCreateDocument() {
-  const trigger = useCallback(
-    async (
-      arg: { title: string; parentDocumentId?: string },
-      options?: {
-        onSuccess?: (res: EditorDocument) => void;
-        onError?: (error: Error) => void;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createDocument,
+    onSuccess: (newDoc) => {
+      // 乐观更新：直接将新文档添加到父文档的列表中
+      if (newDoc.parentDocumentId) {
+        queryClient.setQueryData<EditorDocument[]>(
+          documentKeys.list(newDoc.parentDocumentId),
+          (oldData) => {
+            if (!oldData) return [newDoc];
+            // 检查是否已存在，避免重复
+            if (oldData.some((doc) => doc.id === newDoc.id)) {
+              return oldData;
+            }
+            return [...oldData, newDoc];
+          }
+        );
       }
-    ) => {
-      try {
-        const response = await fetch("/api/editor-documents", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title: arg.title,
-            parentDocumentId: arg.parentDocumentId ?? null,
-          }),
+
+      // 同时使根列表失效（如果有的话）
+      queryClient.invalidateQueries({ queryKey: documentKeys.list() });
+
+      // 如果创建了子文档，也使父文档的列表失效（作为后备，确保数据同步）
+      if (newDoc.parentDocumentId) {
+        queryClient.invalidateQueries({
+          queryKey: documentKeys.list(newDoc.parentDocumentId),
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "创建文档失败");
-        }
-
-        const newDoc = await response.json();
-        options?.onSuccess?.(newDoc);
-        return newDoc;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error("创建文档失败");
-        options?.onError?.(err);
-        throw err;
       }
     },
-    []
-  );
-
-  return useMemo(() => ({ trigger }), [trigger]);
-}
-
-export function useArchive() {
-  const trigger = useCallback(
-    async (
-      documentId: string,
-      options?: {
-        onSuccess?: () => void;
-        onError?: (error: Error) => void;
-      }
-    ) => {
-      try {
-        const response = await fetch(`/api/editor-documents/${documentId}`, {
-          method: "DELETE",
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "删除文档失败");
-        }
-
-        options?.onSuccess?.();
-        return { success: true };
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error("删除文档失败");
-        options?.onError?.(err);
-        throw err;
-      }
-    },
-    []
-  );
-
-  return useMemo(() => ({ trigger }), [trigger]);
+  });
 }
 
 export function useUpdateDocument() {
-  const trigger = useCallback(
-    async (
-      documentId: string,
-      updates: {
-        title?: string;
-        content?: string;
-        coverImage?: string | null;
-        coverImageType?: "color" | "url" | null;
-        isPublished?: boolean;
-      },
-      options?: {
-        onSuccess?: (res: EditorDocument) => void;
-        onError?: (error: Error) => void;
-      }
-    ) => {
-      try {
-        const response = await fetch(`/api/editor-documents/${documentId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updates),
-        });
+  const queryClient = useQueryClient();
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "更新文档失败");
-        }
+  return useMutation({
+    mutationFn: updateDocument,
+    onSuccess: (updatedDoc, variables) => {
+      // 更新单个文档的缓存
+      queryClient.setQueryData(
+        documentKeys.detail(variables.documentId),
+        updatedDoc
+      );
 
-        const updatedDoc = await response.json();
-        options?.onSuccess?.(updatedDoc);
-        return updatedDoc;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error("更新文档失败");
-        options?.onError?.(err);
-        throw err;
+      // 如果更新了标题或图标，需要刷新列表
+      const needsListRefresh =
+        variables.updates.title !== undefined ||
+        variables.updates.icon !== undefined;
+
+      if (needsListRefresh) {
+        // 使所有列表查询失效
+        queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       }
+
+      // 发送事件通知其他组件（保持向后兼容）
+      window.dispatchEvent(
+        new CustomEvent("document-updated", { detail: updatedDoc })
+      );
     },
-    []
-  );
-
-  return useMemo(() => ({ trigger }), [trigger]);
+  });
 }
 
-export function useGetDocument() {
-  const trigger = useCallback(
-    async (
-      documentId: string,
-      options?: {
-        onSuccess?: (res: EditorDocument) => void;
-        onError?: (error: Error) => void;
-      }
-    ) => {
-      try {
-        const response = await fetch(`/api/editor-documents/${documentId}`);
+export function useArchive() {
+  const queryClient = useQueryClient();
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "获取文档失败");
-        }
-
-        const document = await response.json();
-        options?.onSuccess?.(document);
-        return document;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error("获取文档失败");
-        options?.onError?.(err);
-        throw err;
-      }
+  return useMutation({
+    mutationFn: deleteDocument,
+    onSuccess: () => {
+      // 删除后刷新所有列表
+      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },
-    []
-  );
-
-  return useMemo(() => ({ trigger }), [trigger]);
+  });
 }
 
 export function usePublishDocument() {
-  const trigger = useCallback(
-    async (
-      documentId: string,
-      publish: boolean,
-      options?: {
-        onSuccess?: (res: EditorDocument) => void;
-        onError?: (error: Error) => void;
-      }
-    ) => {
-      try {
-        const response = await fetch(
-          `/api/editor-documents/${documentId}/publish`,
-          {
-            method: publish ? "POST" : "DELETE",
-          }
-        );
+  const queryClient = useQueryClient();
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "发布操作失败");
-        }
-
-        const document = await response.json();
-        options?.onSuccess?.(document);
-        return document;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error("发布操作失败");
-        options?.onError?.(err);
-        throw err;
-      }
+  return useMutation({
+    mutationFn: publishDocument,
+    onSuccess: (updatedDoc) => {
+      // 更新单个文档的缓存
+      queryClient.setQueryData(
+        documentKeys.detail(updatedDoc.id),
+        updatedDoc
+      );
+      // 刷新列表
+      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },
-    []
-  );
-
-  return useMemo(() => ({ trigger }), [trigger]);
+  });
 }

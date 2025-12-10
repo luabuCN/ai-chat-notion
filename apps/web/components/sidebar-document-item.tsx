@@ -49,14 +49,14 @@ const Item = ({
 }: ItemProps) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { trigger: mutate } = useCreateDocument();
-  const { trigger: mutateArchive } = useArchive();
+  const createDocumentMutation = useCreateDocument();
+  const archiveMutation = useArchive();
   const [isHovered, setIsHovered] = useState(false);
 
   const onArchive = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (!id) return;
     event.stopPropagation();
-    mutateArchive(id, {
+    archiveMutation.mutate(id, {
       onSuccess: () => {
         toast.success("笔记已移至回收站！");
         // 如果当前正在查看被删除的文档，重定向到编辑器首页
@@ -81,21 +81,31 @@ const Item = ({
   const onCreate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     event.stopPropagation();
     if (!id) return;
-    mutate(
+    createDocumentMutation.mutate(
       {
         title: "未命名",
         parentDocumentId: id,
       },
       {
         onSuccess: (res) => {
+          // 先展开父文档，这样可以看到新创建的子文档
           if (!expanded) {
             onExpand?.();
           }
-          router.push(`/editor/${res.id}`);
+          // 延迟导航，确保列表已经更新
+          setTimeout(() => {
+            router.push(`/editor/${res.id}`);
+          }, 100);
           toast.success("新笔记已创建！");
         },
-        onError: (error: Error) => {
-          toast.error(error.message || "创建新笔记失败");
+        onError: (error) => {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : typeof error === "string"
+                ? error
+                : "创建新笔记失败";
+          toast.error(errorMessage);
         },
       }
     );

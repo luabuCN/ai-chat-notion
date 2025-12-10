@@ -20,11 +20,11 @@ import { cn } from "@/lib/utils";
 
 export function SidebarDocuments() {
   const router = useRouter();
-  const { trigger: mutate } = useCreateDocument();
+  const createDocumentMutation = useCreateDocument();
   const [isLabelHovered, setIsLabelHovered] = useState(false);
 
   const handleAddDocument = () => {
-    mutate(
+    createDocumentMutation.mutate(
       {
         title: "未命名",
       },
@@ -52,16 +52,24 @@ export function SidebarDocuments() {
             <TooltipTrigger asChild>
               <SidebarGroupAction
                 onClick={handleAddDocument}
+                disabled={createDocumentMutation.isPending}
                 className={cn(
                   "transition-opacity",
-                  isLabelHovered ? "opacity-100" : "opacity-0"
+                  isLabelHovered ? "opacity-100" : "opacity-0",
+                  createDocumentMutation.isPending && "opacity-100 cursor-wait"
                 )}
               >
-                <Plus />
+                <Plus
+                  className={cn(
+                    createDocumentMutation.isPending && "animate-spin"
+                  )}
+                />
                 <span className="sr-only">Add</span>
               </SidebarGroupAction>
             </TooltipTrigger>
-            <TooltipContent side="right">添加文档</TooltipContent>
+            <TooltipContent side="right">
+              {createDocumentMutation.isPending ? "创建中..." : "添加文档"}
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </SidebarGroupLabel>

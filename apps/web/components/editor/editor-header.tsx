@@ -16,15 +16,27 @@ import {
   Star,
   MoreHorizontal,
   MessageSquare,
-  Edit,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { LanguageSwitcher } from "../language-switcher";
+import { cn } from "@/lib/utils";
 
 interface EditorHeaderProps {
   locale: string;
+  documentTitle?: string;
+  documentIcon?: string | null;
+  isSaving?: boolean;
+  isSaved?: boolean;
 }
 
-export function EditorHeader({ locale }: EditorHeaderProps) {
+export function EditorHeader({
+  locale,
+  documentTitle,
+  documentIcon,
+  isSaving = false,
+  isSaved = false,
+}: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
 
@@ -35,10 +47,20 @@ export function EditorHeader({ locale }: EditorHeaderProps) {
           <SidebarToggle className="" variant="ghost" />
         )}
         <div className="flex items-center gap-2 px-2">
-          <div className="p-1 bg-muted rounded-sm">
-            <Edit className="h-4 w-4 text-muted-foreground" />
+          <div className="p-1 bg-muted rounded-sm flex items-center justify-center min-w-[24px] min-h-[24px]">
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+            ) : isSaved ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            ) : documentIcon ? (
+              <span className="text-base leading-none">{documentIcon}</span>
+            ) : (
+              <div className="h-4 w-4 rounded-full bg-muted-foreground/20" />
+            )}
           </div>
-          <h1 className="font-semibold text-sm truncate">快速开始 IdeaForge</h1>
+          <h1 className="font-semibold text-sm truncate">
+            {documentTitle || "快速开始 IdeaForge"}
+          </h1>
         </div>
       </div>
 

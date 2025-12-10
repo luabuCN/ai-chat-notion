@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { EditorCover } from "./editor-cover";
 import { EditorTitle } from "./editor-title";
 import { EditorToolbar } from "./editor-toolbar";
@@ -14,7 +14,10 @@ interface EditorPageHeaderProps {
   coverImageType?: "color" | "url" | null;
   onTitleChange?: (title: string) => void;
   onIconChange?: (icon: string | null) => void;
-  onCoverChange?: (cover: string | null, coverImageType?: "color" | "url") => void;
+  onCoverChange?: (
+    cover: string | null,
+    coverImageType?: "color" | "url"
+  ) => void;
 }
 
 export function EditorPageHeader({
@@ -30,6 +33,19 @@ export function EditorPageHeader({
   const [icon, setIcon] = useState<string | null>(initialIcon);
   const [cover, setCover] = useState<string | null>(initialCover);
   const [showCoverPicker, setShowCoverPicker] = useState(false);
+
+  // 同步外部传入的初始值
+  useEffect(() => {
+    setTitle(initialTitle);
+  }, [initialTitle]);
+
+  useEffect(() => {
+    setIcon(initialIcon);
+  }, [initialIcon]);
+
+  useEffect(() => {
+    setCover(initialCover);
+  }, [initialCover]);
 
   const handleTitleChange = useCallback(
     (newTitle: string) => {
@@ -64,7 +80,10 @@ export function EditorPageHeader({
     (newCover: string) => {
       setCover(newCover);
       // 判断是纯色还是 URL
-      const type = newCover.startsWith("#") || newCover.startsWith("linear-gradient") ? "color" : "url";
+      const type =
+        newCover.startsWith("#") || newCover.startsWith("linear-gradient")
+          ? "color"
+          : "url";
       onCoverChange?.(newCover, type);
     },
     [onCoverChange]
@@ -86,7 +105,7 @@ export function EditorPageHeader({
       />
 
       {/* 内容区域 */}
-      <div className="max-w-4xl mx-auto px-6">
+      <div className="max-w-4xl mx-auto px-16">
         {/* 图标区域 - 有封面时显示在封面下方偏移位置 */}
         {icon && (
           <div className={cover ? "-mt-10 mb-4 relative z-10" : "mt-8 mb-4"}>
