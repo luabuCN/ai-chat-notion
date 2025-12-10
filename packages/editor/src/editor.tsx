@@ -1,4 +1,4 @@
-import { BlockNoteEditor } from "@blocknote/core";
+import { BlockNoteEditor, type PartialBlock } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import "@blocknote/core/fonts/inter.css";
 import { en, zh } from "@blocknote/core/locales";
@@ -29,6 +29,7 @@ export interface NoteEditorProps {
   theme?: "light" | "dark";
   uploadFile?: (file: File) => Promise<string>;
   onChange?: (value: string) => void;
+  initialContent?: string;
 }
 
 export function NoteEditor({
@@ -37,7 +38,23 @@ export function NoteEditor({
   theme = "light",
   uploadFile,
   onChange,
+  initialContent,
 }: NoteEditorProps) {
+  // Parse initial content if provided
+  let parsedInitialContent: PartialBlock<any, any, any>[] = [{}];
+  if (initialContent) {
+    try {
+      const parsed = JSON.parse(initialContent);
+      // Ensure it's an array
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsedInitialContent = parsed as PartialBlock<any, any, any>[];
+      }
+    } catch {
+      // If parsing fails, use default empty content
+      parsedInitialContent = [{}];
+    }
+  }
+
   // Creates a new editor instance.
   const editor = useCreateBlockNote({
     dictionary:
@@ -58,8 +75,8 @@ export function NoteEditor({
         }),
       }),
     ],
-    // We set some initial content for demo purposes
-    initialContent: [{}],
+    // Set initial content from props or use default
+    initialContent: parsedInitialContent,
     uploadFile: uploadFile
       ? async (file: File) => {
           const url = await uploadFile(file);

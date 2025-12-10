@@ -30,10 +30,8 @@ export function SidebarDocuments() {
       },
       {
         onSuccess: (res) => {
-          router.push(`/editor?documentId=${res.id}`);
+          router.push(`/editor/${res.id}`);
           toast.success("新笔记已创建！");
-          // 触发重新加载
-          window.location.reload();
         },
         onError: (error: Error) => {
           toast.error(error.message || "创建新笔记失败");

@@ -1,17 +1,17 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import Item from "./sidebar-document-item";
 import { cn } from "@/lib/utils";
 import { FileIcon } from "lucide-react";
-import type { Document } from "@repo/database";
+import type { EditorDocument } from "@repo/database";
 import { useSidebarDocuments } from "@/hooks/use-document-query";
 
 interface DocumentsListProps {
   parentDocumentId?: string;
   level?: number;
-  data?: Document[];
+  data?: EditorDocument[];
 }
 
 const DocumentsList = ({
@@ -20,7 +20,7 @@ const DocumentsList = ({
   data,
 }: DocumentsListProps) => {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const onExpand = (documentId: string) => {
@@ -33,7 +33,7 @@ const DocumentsList = ({
   const { data: documents, isLoading } = useSidebarDocuments(parentDocumentId);
 
   const onRedirect = (documentId: string) => {
-    router.push(`/editor?documentId=${documentId}`);
+    router.push(`/editor/${documentId}`);
   };
 
   // 使用传入的 data 或从 hook 获取的数据
@@ -78,7 +78,7 @@ const DocumentsList = ({
             onClick={() => onRedirect(document.id)}
             label={document.title}
             icon={FileIcon}
-            active={searchParams.get("documentId") === document.id}
+            active={pathname === `/editor/${document.id}`}
             level={level}
             onExpand={() => onExpand(document.id)}
             expanded={expanded[document.id]}

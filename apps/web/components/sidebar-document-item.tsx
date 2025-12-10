@@ -17,7 +17,7 @@ import {
   Trash,
   type LucideIcon,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { useCreateDocument, useArchive } from "@/hooks/use-document-query";
 import { useState } from "react";
@@ -48,7 +48,7 @@ const Item = ({
   onExpand,
 }: ItemProps) => {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { trigger: mutate } = useCreateDocument();
   const { trigger: mutateArchive } = useArchive();
   const [isHovered, setIsHovered] = useState(false);
@@ -59,9 +59,11 @@ const Item = ({
     mutateArchive(id, {
       onSuccess: () => {
         toast.success("笔记已移至回收站！");
-        router.push("/editor");
-        // 触发重新加载
-        window.location.reload();
+        // 如果当前正在查看被删除的文档，重定向到编辑器首页
+        if (pathname === `/editor/${id}`) {
+          router.push("/editor");
+        }
+        router.refresh();
       },
       onError: (error: Error) => {
         toast.error(error.message || "移动到回收站失败");
@@ -89,10 +91,8 @@ const Item = ({
           if (!expanded) {
             onExpand?.();
           }
-          router.push(`/editor?documentId=${res.id}`);
+          router.push(`/editor/${res.id}`);
           toast.success("新笔记已创建！");
-          // 触发重新加载
-          window.location.reload();
         },
         onError: (error: Error) => {
           toast.error(error.message || "创建新笔记失败");
@@ -102,8 +102,7 @@ const Item = ({
   };
 
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
-  const documentId = searchParams.get("documentId");
-  const isActive = active || (id && documentId === id);
+  const isActive = active || (id && pathname === `/editor/${id}`);
 
   return (
     <div

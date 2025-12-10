@@ -11,15 +11,17 @@ interface EditorPageHeaderProps {
   initialTitle?: string;
   initialIcon?: string | null;
   initialCover?: string | null;
+  coverImageType?: "color" | "url" | null;
   onTitleChange?: (title: string) => void;
   onIconChange?: (icon: string | null) => void;
-  onCoverChange?: (cover: string | null) => void;
+  onCoverChange?: (cover: string | null, coverImageType?: "color" | "url") => void;
 }
 
 export function EditorPageHeader({
   initialTitle = "",
   initialIcon = null,
   initialCover = null,
+  coverImageType = "url",
   onTitleChange,
   onIconChange,
   onCoverChange,
@@ -61,7 +63,9 @@ export function EditorPageHeader({
   const handleSelectCover = useCallback(
     (newCover: string) => {
       setCover(newCover);
-      onCoverChange?.(newCover);
+      // 判断是纯色还是 URL
+      const type = newCover.startsWith("#") || newCover.startsWith("linear-gradient") ? "color" : "url";
+      onCoverChange?.(newCover, type);
     },
     [onCoverChange]
   );
@@ -76,6 +80,7 @@ export function EditorPageHeader({
       {/* 封面图片 */}
       <EditorCover
         coverUrl={cover}
+        coverImageType={coverImageType}
         onChangeCover={handleChangeCover}
         onRemoveCover={handleRemoveCover}
       />

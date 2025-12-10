@@ -66,6 +66,20 @@ export type Stream = {
   createdAt: Date;
 };
 
+export type EditorDocument = {
+  id: string;
+  title: string;
+  content: string | null;
+  userId: string;
+  parentDocumentId: string | null;
+  coverImage: string | null;
+  coverImageType: string | null;
+  isPublished: boolean;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export async function getUser(email: string): Promise<User[]> {
   try {
     return await prisma.user.findMany({
@@ -450,10 +464,10 @@ export async function getDocumentsByUserId({ userId }: { userId: string }) {
 
     // 获取每个文档的最新版本（按 id 分组，取最新的 createdAt）
     const latestDocuments = documents.reduce(
-      (acc, doc) => {
-        const existing = acc.find((d) => d.id === doc.id);
+      (acc: Document[], doc: Document) => {
+        const existing = acc.find((d: Document) => d.id === doc.id);
         if (!existing || doc.createdAt > existing.createdAt) {
-          return [...acc.filter((d) => d.id !== doc.id), doc];
+          return [...acc.filter((d: Document) => d.id !== doc.id), doc];
         }
         return acc;
       },
@@ -657,6 +671,210 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get stream ids by chat id"
+    );
+  }
+}
+
+// EditorDocument 相关查询函数
+
+export async function createEditorDocument({
+  title,
+  content,
+  userId,
+  parentDocumentId,
+  coverImage,
+  coverImageType,
+}: {
+  title: string;
+  content?: string;
+  userId: string;
+  parentDocumentId?: string | null;
+  coverImage?: string | null;
+  coverImageType?: "color" | "url" | null;
+}) {
+  try {
+    return await prisma.editorDocument.create({
+      data: {
+        title,
+        content: content ?? "",
+        userId,
+        parentDocumentId: parentDocumentId ?? null,
+        coverImage: coverImage ?? null,
+        coverImageType: coverImageType ?? "url",
+      },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to create editor document"
+    );
+  }
+}
+
+export async function getEditorDocumentById({ id }: { id: string }) {
+  try {
+    const document = await prisma.editorDocument.findUnique({
+      where: { id },
+    });
+
+    if (!document) {
+      throw new ChatSDKError(
+        "not_found:database",
+        `Editor document with id ${id} not found`
+      );
+    }
+
+    return document as EditorDocument;
+  } catch (error) {
+    if (error instanceof ChatSDKError) {
+      throw error;
+    }
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get editor document by id"
+    );
+  }
+}
+
+export async function getEditorDocumentsByUserId({
+  userId,
+  parentDocumentId,
+  includeDeleted = false,
+}: {
+  userId: string;
+  parentDocumentId?: string | null;
+  includeDeleted?: boolean;
+}) {
+  try {
+    const where: {
+      userId: string;
+      parentDocumentId: string | null | undefined;
+      deletedAt: Date | null | undefined;
+    } = {
+      userId,
+      parentDocumentId: parentDocumentId ?? null,
+      deletedAt: includeDeleted ? undefined : null,
+    };
+
+    return await prisma.editorDocument.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get editor documents by user id"
+    );
+  }
+}
+
+export async function updateEditorDocument({
+  id,
+  title,
+  content,
+  coverImage,
+  coverImageType,
+  isPublished,
+}: {
+  id: string;
+  title?: string;
+  content?: string;
+  coverImage?: string | null;
+  coverImageType?: "color" | "url" | null;
+  isPublished?: boolean;
+}) {
+  try {
+    const updateData: {
+      title?: string;
+      content?: string;
+      coverImage?: string | null;
+      coverImageType?: string | null;
+      isPublished?: boolean;
+    } = {};
+
+    if (title !== undefined) updateData.title = title;
+    if (content !== undefined) updateData.content = content;
+    if (coverImage !== undefined) updateData.coverImage = coverImage;
+    if (coverImageType !== undefined) updateData.coverImageType = coverImageType;
+    if (isPublished !== undefined) updateData.isPublished = isPublished;
+
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: updateData,
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to update editor document"
+    );
+  }
+}
+
+export async function softDeleteEditorDocument({ id }: { id: string }) {
+  try {
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to soft delete editor document"
+    );
+  }
+}
+
+export async function restoreEditorDocument({ id }: { id: string }) {
+  try {
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to restore editor document"
+    );
+  }
+}
+
+export async function deleteEditorDocument({ id }: { id: string }) {
+  try {
+    return await prisma.editorDocument.delete({
+      where: { id },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete editor document"
+    );
+  }
+}
+
+export async function publishEditorDocument({ id }: { id: string }) {
+  try {
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: { isPublished: true },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to publish editor document"
+    );
+  }
+}
+
+export async function unpublishEditorDocument({ id }: { id: string }) {
+  try {
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: { isPublished: false },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to unpublish editor document"
     );
   }
 }

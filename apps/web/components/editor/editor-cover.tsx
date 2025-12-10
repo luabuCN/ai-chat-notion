@@ -7,12 +7,14 @@ import Image from "next/image";
 
 interface EditorCoverProps {
   coverUrl: string | null;
+  coverImageType?: "color" | "url" | null;
   onChangeCover: () => void;
   onRemoveCover: () => void;
 }
 
 export function EditorCover({
   coverUrl,
+  coverImageType = "url",
   onChangeCover,
   onRemoveCover,
 }: EditorCoverProps) {
@@ -22,9 +24,9 @@ export function EditorCover({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 判断是否为渐变色或纯色
-  const isGradient = coverUrl
+  const isGradient = coverImageType === "color" || (coverUrl
     ? coverUrl.startsWith("linear-gradient") || coverUrl.startsWith("#")
-    : false;
+    : false);
 
   const handleRepositionStart = () => {
     setIsRepositioning(true);

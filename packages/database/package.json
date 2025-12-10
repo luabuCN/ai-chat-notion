@@ -12,7 +12,7 @@
     "build": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
+    "db:push": "prisma db push --accept-data-loss",
     "db:pull": "prisma db pull",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
