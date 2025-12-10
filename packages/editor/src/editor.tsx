@@ -28,6 +28,7 @@ export interface NoteEditorProps {
   locale?: string;
   theme?: "light" | "dark";
   uploadFile?: (file: File) => Promise<string>;
+  onChange?: (value: string) => void;
 }
 
 export function NoteEditor({
@@ -35,6 +36,7 @@ export function NoteEditor({
   locale = "en",
   theme = "light",
   uploadFile,
+  onChange,
 }: NoteEditorProps) {
   // Creates a new editor instance.
   const editor = useCreateBlockNote({
@@ -65,6 +67,14 @@ export function NoteEditor({
         }
       : undefined,
   });
+
+  useEffect(() => {
+    if (onChange) {
+      return editor.onChange(() => {
+        onChange(JSON.stringify(editor.document));
+      });
+    }
+  }, [editor, onChange]);
 
   // Renders the editor instance using a React component.
   return (

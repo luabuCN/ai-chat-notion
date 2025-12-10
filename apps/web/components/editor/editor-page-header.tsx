@@ -81,7 +81,7 @@ export function EditorPageHeader({
       />
 
       {/* 内容区域 */}
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-6">
         {/* 图标区域 - 有封面时显示在封面下方偏移位置 */}
         {icon && (
           <div className={cover ? "-mt-10 mb-4 relative z-10" : "mt-8 mb-4"}>
