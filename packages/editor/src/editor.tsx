@@ -21,7 +21,7 @@ import {
 import { en as aiEn, zh as aiZh } from "@blocknote/xl-ai/locales";
 import "@blocknote/xl-ai/style.css";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export interface NoteEditorProps {
   apiUrl?: string;
@@ -84,6 +84,51 @@ export function NoteEditor({
         }
       : undefined,
   });
+
+  // Track the last initialContent that was set to avoid unnecessary updates
+  const lastInitialContentRef = useRef<string | undefined>(initialContent);
+  const isInitializedRef = useRef(!!initialContent);
+
+  // Update editor content when initialContent changes from empty to having content
+  useEffect(() => {
+    // Skip if initialContent hasn't changed
+    if (initialContent === lastInitialContentRef.current) {
+      return;
+    }
+
+    // If we have initialContent and it's different from what's currently in the editor
+    if (initialContent) {
+      try {
+        const parsed = JSON.parse(initialContent);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const currentContent = JSON.stringify(editor.document);
+
+          // Only update if the content is actually different
+          // This prevents overwriting user edits
+          if (currentContent !== initialContent) {
+            // Check if editor is empty (only has one empty block)
+            const isEmpty =
+              editor.document.length === 1 &&
+              (!editor.document[0]?.content ||
+                (Array.isArray(editor.document[0].content) &&
+                  editor.document[0].content.length === 0));
+
+            // Only update if editor is empty or this is the first initialization
+            // This handles the case where initialContent loads after editor creation
+            if (isEmpty || !isInitializedRef.current) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              editor.replaceBlocks(editor.document, parsed as any);
+              isInitializedRef.current = true;
+            }
+          }
+        }
+      } catch {
+        // If parsing fails, ignore
+      }
+    }
+
+    lastInitialContentRef.current = initialContent;
+  }, [initialContent, editor]);
 
   useEffect(() => {
     if (onChange) {

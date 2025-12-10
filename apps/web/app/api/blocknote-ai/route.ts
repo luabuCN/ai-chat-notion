@@ -12,8 +12,7 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   try {
     const { messages, toolDefinitions } = await req.json();
-    const modelSlug = await getFirstModelSlug();
-    const model = getProviderWithModel(modelSlug);
+    const model = getProviderWithModel('alibaba/tongyi-deepresearch-30b-a3b:free');
     const tools = toolDefinitionsToToolSet(toolDefinitions);
     
     const result = streamText({

@@ -623,9 +623,20 @@ export async function getMessageCountByUserId({
       Date.now() - differenceInHours * 60 * 60 * 1000
     );
 
+    const chats = await prisma.chat.findMany({
+      where: { userId: id },
+      select: { id: true },
+    });
+
+    if (chats.length === 0) {
+      return 0;
+    }
+
+    const chatIds = chats.map(({ id: chatId }) => chatId);
+
     const count = await prisma.message.count({
       where: {
-        chat: { userId: id },
+        chatId: { in: chatIds },
         createdAt: { gte: twentyFourHoursAgo },
         role: "user",
       },

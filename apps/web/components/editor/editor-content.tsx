@@ -34,25 +34,30 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
   const prevContentRef = useRef<string>("");
 
   useEffect(() => {
-    if (document && documentId !== prevDocumentIdRef.current) {
-      prevDocumentIdRef.current = documentId;
-      const newTitle = document.title ?? "";
-      const newIcon = document.icon ?? null;
-      const newContent = document.content ?? "";
+    // 当文档加载完成且 documentId 发生变化时，更新本地 state
+    if (document) {
+      const isDocumentChanged = documentId !== prevDocumentIdRef.current;
       
-      setTitle(newTitle);
-      setIcon(newIcon);
-      setContent(newContent);
-      
-      // 重置 refs，避免下次比较时误判
-      prevTitleRef.current = newTitle;
-      prevIconRef.current = newIcon;
-      prevContentRef.current = newContent;
-      
-      // 发送文档加载事件，通知其他组件
-      window.dispatchEvent(
-        new CustomEvent("document-loaded", { detail: document })
-      );
+      if (isDocumentChanged) {
+        prevDocumentIdRef.current = documentId;
+        const newTitle = document.title ?? "";
+        const newIcon = document.icon ?? null;
+        const newContent = document.content ?? "";
+        
+        setTitle(newTitle);
+        setIcon(newIcon);
+        setContent(newContent);
+        
+        // 重置 refs，避免下次比较时误判
+        prevTitleRef.current = newTitle;
+        prevIconRef.current = newIcon;
+        prevContentRef.current = newContent;
+        
+        // 发送文档加载事件，通知其他组件
+        window.dispatchEvent(
+          new CustomEvent("document-loaded", { detail: document })
+        );
+      }
     }
   }, [document, documentId]);
 
@@ -268,12 +273,15 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">
-        <EditorClient
-          locale={locale}
-          apiUrl="/api/blocknote-ai"
-          initialContent={content}
-          onChange={handleContentChange}
-        />
+        {document && (
+          <EditorClient
+            key={`${documentId}-${content ? "loaded" : "empty"}`}
+            locale={locale}
+            apiUrl="/api/blocknote-ai"
+            initialContent={content}
+            onChange={handleContentChange}
+          />
+        )}
       </div>
     </div>
   );
