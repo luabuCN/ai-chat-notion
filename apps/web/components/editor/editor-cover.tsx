@@ -76,6 +76,7 @@ export function EditorCover({
               objectPosition: `center ${position}%`,
             }}
             priority
+            unoptimized
           />
         </div>
       )}
