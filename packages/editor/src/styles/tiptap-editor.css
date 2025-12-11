@@ -1,3 +1,5 @@
+/* Editor package styles - relies on parent project's Tailwind theme */
+
 .drag-handle {
   align-items: center;
   border-radius: 0.25rem;

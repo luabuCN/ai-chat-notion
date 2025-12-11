@@ -14,9 +14,16 @@ const TiptapEditor = dynamic(
 interface EditorClientProps {
   locale?: string;
   apiUrl?: string;
+  initialContent?: any;
+  onChange?: (content: any) => void;
 }
 
-export function EditorClient({ locale, apiUrl }: EditorClientProps) {
+export function EditorClient({
+  locale,
+  apiUrl,
+  initialContent,
+  onChange,
+}: EditorClientProps) {
   const { resolvedTheme } = useTheme();
 
   const uploadFile = useCallback(async (file: File) => {
@@ -45,7 +52,18 @@ export function EditorClient({ locale, apiUrl }: EditorClientProps) {
     }
   }, []);
 
+  // 解析 JSON 字符串为对象
+  const parsedContent = initialContent ? JSON.parse(initialContent) : undefined;
+
   return (
-    <TiptapEditor placeholder="Type / for commands..." showAiTools={true} />
+    <TiptapEditor
+      content={parsedContent}
+      placeholder="Type / for commands..."
+      showAiTools={true}
+      onUpdate={(editor) => {
+        // 序列化为 JSON 字符串
+        onChange?.(JSON.stringify(editor.getJSON()));
+      }}
+    />
   );
 }
