@@ -1,17 +1,22 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { NoteEditorOptions } from "@repo/editor";
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import "@repo/editor/styles";
 
-const BlockNoteEditor = dynamic(
-  () => import("@repo/editor").then((mod) => mod.NoteEditor),
+const TiptapEditor = dynamic(
+  () => import("@repo/editor").then((mod) => mod.TiptapEditor),
   { ssr: false }
 );
 
-export function EditorClient(props: NoteEditorOptions) {
+interface EditorClientProps {
+  locale?: string;
+  apiUrl?: string;
+}
+
+export function EditorClient({ locale, apiUrl }: EditorClientProps) {
   const { resolvedTheme } = useTheme();
 
   const uploadFile = useCallback(async (file: File) => {
@@ -41,11 +46,6 @@ export function EditorClient(props: NoteEditorOptions) {
   }, []);
 
   return (
-    <BlockNoteEditor
-      key={props.locale}
-      {...props}
-      theme={resolvedTheme === "dark" ? "dark" : "light"}
-      uploadFile={uploadFile}
-    />
+    <TiptapEditor placeholder="Type / for commands..." showAiTools={true} />
   );
 }

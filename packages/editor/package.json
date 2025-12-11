@@ -3,20 +3,54 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./styles": "./src/styles/tiptap-editor.css"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.45",
     "@blocknote/core": "^0.44.0",
-    "@blocknote/react": "^0.44.0",
     "@blocknote/mantine": "^0.44.0",
+    "@blocknote/react": "^0.44.0",
     "@blocknote/xl-ai": "^0.44.0",
+    "@floating-ui/dom": "^1.7.2",
     "@openrouter/ai-sdk-provider": "^1.2.6",
     "@repo/ai": "workspace:*",
-    "ai": "5.0.28"
+    "@repo/ui": "workspace:*",
+    "@tiptap/core": "^3.13.0",
+    "@tiptap/extension-code-block-lowlight": "^3.0.7",
+    "@tiptap/extension-drag-handle-react": "^3.0.7",
+    "@tiptap/extension-heading": "^3.0.7",
+    "@tiptap/extension-image": "^3.0.7",
+    "@tiptap/extension-table": "^3.10.4",
+    "@tiptap/extension-text-align": "^3.0.7",
+    "@tiptap/extension-text-style": "^3.0.7",
+    "@tiptap/extension-youtube": "^3.0.7",
+    "@tiptap/extensions": "^3.10.4",
+    "@tiptap/markdown": "^3.10.4",
+    "@tiptap/pm": "^3.10.4",
+    "@tiptap/react": "^3.10.4",
+    "@tiptap/starter-kit": "^3.10.4",
+    "@tiptap/suggestion": "^3.0.7",
+    "ai": "5.0.28",
+    "chart.js": "^4.5.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.21",
+    "lowlight": "^3.3.0",
+    "lucide-react": "^0.554.0",
+    "mermaid": "^11.12.1",
+    "next-themes": "^0.3.0",
+    "react-hook-form": "^7.68.0",
+    "react-markdown": "^10.1.0",
+    "sonner": "^2.0.3",
+    "tailwind-merge": "^3.3.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.8.6",
@@ -29,4 +63,3 @@
     "react-dom": "^18 || ^19"
   }
 }
-
