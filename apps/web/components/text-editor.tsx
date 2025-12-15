@@ -1,5 +1,7 @@
 "use client";
 
+console.log("=== text-editor.tsx module loaded ===");
+
 import { exampleSetup } from "prosemirror-example-setup";
 import { inputRules } from "prosemirror-inputrules";
 import { EditorState } from "prosemirror-state";
@@ -13,7 +15,6 @@ import {
   headingRule,
 } from "@/lib/editor/config";
 import {
-  buildContentFromDocument,
   buildDocumentFromContent,
   createDecorations,
 } from "@/lib/editor/functions";
@@ -40,11 +41,36 @@ function PureEditor({
 }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorView | null>(null);
+  const lastContentRef = useRef<string>("");
 
   useEffect(() => {
     if (containerRef.current && !editorRef.current) {
+      // Ensure we're in browser environment before creating editor
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      let initialDoc;
+      try {
+        if (content && content.trim() !== "") {
+          initialDoc = buildDocumentFromContent(content);
+          lastContentRef.current = content;
+        } else {
+          initialDoc = documentSchema.nodeFromJSON({
+            type: "doc",
+            content: [{ type: "paragraph" }],
+          });
+        }
+      } catch (error) {
+        console.error("Error creating initial document:", error);
+        initialDoc = documentSchema.nodeFromJSON({
+          type: "doc",
+          content: [{ type: "paragraph" }],
+        });
+      }
+
       const state = EditorState.create({
-        doc: buildDocumentFromContent(content),
+        doc: initialDoc,
         plugins: [
           ...exampleSetup({ schema: documentSchema, menuBar: false }),
           inputRules({
@@ -64,6 +90,8 @@ function PureEditor({
       editorRef.current = new EditorView(containerRef.current, {
         state,
       });
+
+      console.log("Editor initialized:", editorRef.current);
     }
 
     return () => {
@@ -74,7 +102,7 @@ function PureEditor({
     };
     // NOTE: we only want to run this effect once
     // eslint-disable-next-line
-  }, [content]);
+  }, []);
 
   useEffect(() => {
     if (editorRef.current) {
@@ -91,37 +119,30 @@ function PureEditor({
   }, [onSaveContent]);
 
   useEffect(() => {
-    if (editorRef.current && content) {
-      const currentContent = buildContentFromDocument(
-        editorRef.current.state.doc
-      );
-
-      if (status === "streaming") {
+    if (!editorRef.current) {
+      return;
+    }
+    try {
+      // Always update during streaming or when content changes
+      if (status === "streaming" || lastContentRef.current !== content) {
+        console.log("Updating editor content");
         const newDocument = buildDocumentFromContent(content);
 
-        const transaction = editorRef.current.state.tr.replaceWith(
-          0,
-          editorRef.current.state.doc.content.size,
-          newDocument.content
-        );
+        if (newDocument && newDocument.content) {
+          const transaction = editorRef.current.state.tr.replaceWith(
+            0,
+            editorRef.current.state.doc.content.size,
+            newDocument.content
+          );
 
-        transaction.setMeta("no-save", true);
-        editorRef.current.dispatch(transaction);
-        return;
+          transaction.setMeta("no-save", true);
+          editorRef.current.dispatch(transaction);
+          lastContentRef.current = content;
+          console.log("Content updated successfully");
+        }
       }
-
-      if (currentContent !== content) {
-        const newDocument = buildDocumentFromContent(content);
-
-        const transaction = editorRef.current.state.tr.replaceWith(
-          0,
-          editorRef.current.state.doc.content.size,
-          newDocument.content
-        );
-
-        transaction.setMeta("no-save", true);
-        editorRef.current.dispatch(transaction);
-      }
+    } catch (error) {
+      console.error("Error updating editor content:", error);
     }
   }, [content, status]);
 

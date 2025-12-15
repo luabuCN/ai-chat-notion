@@ -7,13 +7,14 @@ import { NextResponse } from "next/server";
 
 interface OpenRouterEndpoint {
   supported_parameters?: string[];
+  model_variant_slug: string;
 }
 
 interface OpenRouterModel {
   slug: string;
   input_modalities?: string[];
   output_modalities?: string[];
-  endpoint?: OpenRouterEndpoint;
+  endpoint: OpenRouterEndpoint;
 }
 
 export interface ModelInfo {
@@ -54,7 +55,7 @@ export async function GET() {
       return {
         provider,
         model,
-        full_slug: slug,
+        full_slug: m.endpoint?.model_variant_slug,
         input_modalities: m.input_modalities ?? [],
         output_modalities: m.output_modalities ?? [],
         supported_parameters: m.endpoint?.supported_parameters ?? []

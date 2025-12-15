@@ -34,13 +34,13 @@ export async function getFirstModelSlug(): Promise<string> {
       if (Array.isArray(jsonData)) {
         // 来自 /api/models 路由的格式
         if (jsonData.length > 0) {
-          return jsonData[0].full_slug;
+          return jsonData[0].endpoint.model_variant_slug;
         }
       } else {
         // 直接调用 OpenRouter API 的格式
         const models = jsonData?.data?.models ?? [];
         if (models.length > 0) {
-          return models[0].slug;
+          return models[0].endpoint.model_variant_slug;
         }
       }
     }
