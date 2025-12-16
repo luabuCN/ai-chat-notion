@@ -14,6 +14,7 @@ export interface AiStorage {
 }
 
 export interface AiOptions {
+  apiUrl?: string;
   onLoading?: () => void;
   onError?: (error: Error) => void;
 }
@@ -52,12 +53,13 @@ export const Ai = Extension.create<AiOptions, AiStorage>({
             return `Please ${command} this text: "${prompt}". Use markdown formatting when appropriate.`;
           };
 
-          const { onLoading, onError } = this.options;
+          const { apiUrl, onLoading, onError } = this.options;
 
           // let update = false;
 
           requestCompletion({
             prompt: question(),
+            apiUrl,
             onLoading: () => {
               editor.storage.ai = {
                 status: "loading",

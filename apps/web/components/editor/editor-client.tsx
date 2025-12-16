@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useTheme } from "next-themes";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import "@repo/editor/styles";
@@ -12,20 +11,11 @@ const TiptapEditor = dynamic(
 );
 
 interface EditorClientProps {
-  locale?: string;
-  apiUrl?: string;
   initialContent?: any;
   onChange?: (content: any) => void;
 }
 
-export function EditorClient({
-  locale,
-  apiUrl,
-  initialContent,
-  onChange,
-}: EditorClientProps) {
-  const { resolvedTheme } = useTheme();
-
+export function EditorClient({ initialContent, onChange }: EditorClientProps) {
   const uploadFile = useCallback(async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);

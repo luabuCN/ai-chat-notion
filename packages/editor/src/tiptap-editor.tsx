@@ -17,6 +17,7 @@ export interface TiptapEditorProps {
   onUpdate?: (editor: Editor) => void;
   className?: string;
   showAiTools?: boolean;
+  aiApiUrl?: string;
 }
 
 export function TiptapEditor({
@@ -26,6 +27,7 @@ export function TiptapEditor({
   onUpdate,
   className = "",
   showAiTools = true,
+  aiApiUrl,
 }: TiptapEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -36,6 +38,7 @@ export function TiptapEditor({
         emptyNodeClass: "is-empty text-gray-400",
       }),
       Ai.configure({
+        apiUrl: aiApiUrl,
         onError: (error) => {
           console.error(error);
           toast.error("Error", {

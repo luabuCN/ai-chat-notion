@@ -2,6 +2,7 @@ import generateAiResponse from "./ai-adapter";
 
 interface RequestCompletionProps {
   prompt: string;
+  apiUrl?: string;
   onLoading?: () => void;
   onChunk?: (chunk: string) => void;
   onSuccess?: (completion: string) => void;
@@ -11,6 +12,7 @@ interface RequestCompletionProps {
 
 export const requestCompletion = async ({
   prompt,
+  apiUrl,
   onLoading,
   onChunk,
   onSuccess,
@@ -19,7 +21,7 @@ export const requestCompletion = async ({
 }: RequestCompletionProps) => {
   try {
     onLoading?.();
-    const response = await generateAiResponse({ prompt });
+    const response = await generateAiResponse({ prompt, apiUrl });
 
     if (!response.ok) {
       throw Error(await response.text());
