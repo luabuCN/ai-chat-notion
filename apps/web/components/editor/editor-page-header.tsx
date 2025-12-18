@@ -12,12 +12,14 @@ interface EditorPageHeaderProps {
   initialIcon?: string | null;
   initialCover?: string | null;
   coverImageType?: "color" | "url" | null;
+  coverPosition?: number;
   onTitleChange?: (title: string) => void;
   onIconChange?: (icon: string | null) => void;
   onCoverChange?: (
     cover: string | null,
     coverImageType?: "color" | "url"
   ) => void;
+  onCoverPositionChange?: (position: number) => void;
 }
 
 export function EditorPageHeader({
@@ -25,9 +27,11 @@ export function EditorPageHeader({
   initialIcon = null,
   initialCover = null,
   coverImageType = "url",
+  coverPosition = 50,
   onTitleChange,
   onIconChange,
   onCoverChange,
+  onCoverPositionChange,
 }: EditorPageHeaderProps) {
   const [title, setTitle] = useState(initialTitle);
   const [icon, setIcon] = useState<string | null>(initialIcon);
@@ -100,8 +104,10 @@ export function EditorPageHeader({
       <EditorCover
         coverUrl={cover}
         coverImageType={coverImageType}
+        coverPosition={coverPosition}
         onChangeCover={handleChangeCover}
         onRemoveCover={handleRemoveCover}
+        onPositionChange={onCoverPositionChange}
       />
 
       {/* 内容区域 */}

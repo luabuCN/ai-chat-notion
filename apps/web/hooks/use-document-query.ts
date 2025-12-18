@@ -69,6 +69,7 @@ async function updateDocument({
     icon?: string | null;
     coverImage?: string | null;
     coverImageType?: "color" | "url" | null;
+    coverImagePosition?: number | null;
     isPublished?: boolean;
   };
 }): Promise<EditorDocument> {

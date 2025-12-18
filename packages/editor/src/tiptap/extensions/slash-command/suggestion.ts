@@ -1,6 +1,5 @@
 import { ReactRenderer } from "@tiptap/react";
 import { SuggestionOptions } from "@tiptap/suggestion";
-import tippy, { Instance } from "tippy.js";
 import {
   ChartPieIcon,
   CodeIcon,
@@ -239,6 +238,36 @@ const uploadItems: CommandSuggestionItem[] = [
   },
 ];
 
+const updatePopupPosition = (
+  popup: HTMLDivElement,
+  clientRect: (() => DOMRect | null) | null
+) => {
+  if (!clientRect) return;
+
+  const rect = clientRect();
+  if (!rect) return;
+
+  const viewportHeight = window.innerHeight;
+  const popupHeight = popup.offsetHeight || 320;
+  const spaceBelow = viewportHeight - rect.bottom;
+  const spaceAbove = rect.top;
+
+  // Determine placement: prefer bottom, flip to top if not enough space
+  const placement = spaceBelow >= popupHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+
+  let top: number;
+  if (placement === "bottom") {
+    top = rect.bottom + window.scrollY;
+  } else {
+    top = rect.top + window.scrollY - popupHeight;
+  }
+
+  popup.style.position = "absolute";
+  popup.style.left = `${rect.left + window.scrollX}px`;
+  popup.style.top = `${top}px`;
+  popup.style.zIndex = "50";
+};
+
 const getSuggestion = ({
   ai,
   uploadFile,
@@ -258,7 +287,7 @@ const getSuggestion = ({
     },
     render: () => {
       let component: ReactRenderer<SuggestionListHandle, SuggestionListProps>;
-      let popup: Instance | undefined;
+      let popup: HTMLDivElement | null = null;
 
       return {
         onStart: (props) => {
@@ -271,45 +300,28 @@ const getSuggestion = ({
             return;
           }
 
-          const { element: editorElement } = props.editor.options;
+          popup = document.createElement("div");
+          popup.appendChild(component.element);
+          document.body.appendChild(popup);
 
-          popup = tippy(editorElement, {
-            getReferenceClientRect: props.clientRect as () => DOMRect,
-            content: component.element,
-            showOnCreate: true,
-            interactive: true,
-            trigger: "manual",
-            placement: "bottom-start",
-            appendTo: () => document.body,
-            popperOptions: {
-              strategy: "fixed",
-              modifiers: [
-                {
-                  name: "flip",
-                  options: {
-                    fallbackPlacements: ["top-start"],
-                  },
-                },
-              ],
-            },
-          });
+          updatePopupPosition(popup, props.clientRect);
         },
 
         onUpdate(props) {
           component.updateProps({ ...props, uploadFile });
 
-          if (!props.clientRect) {
+          if (!props.clientRect || !popup) {
             return;
           }
 
-          popup?.setProps({
-            getReferenceClientRect: props.clientRect as () => DOMRect,
-          });
+          updatePopupPosition(popup, props.clientRect);
         },
 
         onKeyDown(props) {
           if (props.event.key === "Escape") {
-            popup?.hide();
+            if (popup) {
+              popup.style.display = "none";
+            }
             return true;
           }
 
@@ -317,7 +329,10 @@ const getSuggestion = ({
         },
 
         onExit() {
-          popup?.destroy();
+          if (popup) {
+            popup.remove();
+            popup = null;
+          }
           component?.destroy();
         },
       };

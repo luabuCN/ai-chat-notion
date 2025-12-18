@@ -37,22 +37,22 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     // 当文档加载完成且 documentId 发生变化时，更新本地 state
     if (document) {
       const isDocumentChanged = documentId !== prevDocumentIdRef.current;
-      
+
       if (isDocumentChanged) {
         prevDocumentIdRef.current = documentId;
         const newTitle = document.title ?? "";
         const newIcon = document.icon ?? null;
         const newContent = document.content ?? "";
-        
+
         setTitle(newTitle);
         setIcon(newIcon);
         setContent(newContent);
-        
+
         // 重置 refs，避免下次比较时误判
         prevTitleRef.current = newTitle;
         prevIconRef.current = newIcon;
         prevContentRef.current = newContent;
-        
+
         // 发送文档加载事件，通知其他组件
         window.dispatchEvent(
           new CustomEvent("document-loaded", { detail: document })
@@ -107,7 +107,12 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         },
       }
     );
-  }, [titleDebounced, documentId, document?.title, updateDocumentMutation.mutate]);
+  }, [
+    titleDebounced,
+    documentId,
+    document?.title,
+    updateDocumentMutation.mutate,
+  ]);
 
   // 防抖保存icon
   useEffect(() => {
@@ -147,7 +152,12 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         },
       }
     );
-  }, [iconDebounced, documentId, document?.icon, updateDocumentMutation.mutate]);
+  }, [
+    iconDebounced,
+    documentId,
+    document?.icon,
+    updateDocumentMutation.mutate,
+  ]);
 
   // 防抖保存内容
   useEffect(() => {
@@ -187,7 +197,12 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         },
       }
     );
-  }, [contentDebounced, documentId, document?.content, updateDocumentMutation.mutate]);
+  }, [
+    contentDebounced,
+    documentId,
+    document?.content,
+    updateDocumentMutation.mutate,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -246,6 +261,41 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     [documentId, updateDocumentMutation.mutate]
   );
 
+  const handleCoverPositionChange = useCallback(
+    async (position: number) => {
+      if (!documentId) return;
+
+      setIsSaving(true);
+      setIsSaved(false);
+      window.dispatchEvent(new CustomEvent("document-saving"));
+      updateDocumentMutation.mutate(
+        {
+          documentId,
+          updates: { coverImagePosition: Math.round(position) },
+        },
+        {
+          onSuccess: () => {
+            setIsSaving(false);
+            setIsSaved(true);
+            window.dispatchEvent(new CustomEvent("document-saved"));
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current);
+            }
+            saveTimeoutRef.current = setTimeout(() => {
+              setIsSaved(false);
+            }, 2000);
+          },
+          onError: (error) => {
+            setIsSaving(false);
+            setIsSaved(false);
+            toast.error(error.message || "更新封面位置失败");
+          },
+        }
+      );
+    },
+    [documentId, updateDocumentMutation.mutate]
+  );
+
   const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
   }, []);
@@ -267,9 +317,11 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         coverImageType={
           (document?.coverImageType as "color" | "url" | null) ?? "url"
         }
+        coverPosition={document?.coverImagePosition ?? 50}
         onTitleChange={handleTitleChange}
         onIconChange={handleIconChange}
         onCoverChange={handleCoverChange}
+        onCoverPositionChange={handleCoverPositionChange}
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">

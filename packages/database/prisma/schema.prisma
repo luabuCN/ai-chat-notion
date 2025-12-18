@@ -105,6 +105,7 @@ model EditorDocument {
   icon            String?
   coverImage      String?
   coverImageType  String?           @default("url") @db.VarChar(10)
+  coverImagePosition Int?           @default(50)
   isPublished     Boolean           @default(false)
   deletedAt       DateTime?         @db.Timestamp(6)
   createdAt       DateTime          @default(now()) @db.Timestamp(6)

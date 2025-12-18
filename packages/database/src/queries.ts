@@ -75,6 +75,7 @@ export type EditorDocument = {
   icon: string | null;
   coverImage: string | null;
   coverImageType: string | null;
+  coverImagePosition: number | null;
   isPublished: boolean;
   deletedAt: Date | null;
   createdAt: Date;
@@ -790,6 +791,7 @@ export async function updateEditorDocument({
   icon,
   coverImage,
   coverImageType,
+  coverImagePosition,
   isPublished,
 }: {
   id: string;
@@ -798,6 +800,7 @@ export async function updateEditorDocument({
   icon?: string | null;
   coverImage?: string | null;
   coverImageType?: "color" | "url" | null;
+  coverImagePosition?: number | null;
   isPublished?: boolean;
 }) {
   try {
@@ -807,6 +810,7 @@ export async function updateEditorDocument({
       icon?: string | null;
       coverImage?: string | null;
       coverImageType?: string | null;
+      coverImagePosition?: number | null;
       isPublished?: boolean;
     } = {};
 
@@ -815,6 +819,7 @@ export async function updateEditorDocument({
     if (icon !== undefined) updateData.icon = icon;
     if (coverImage !== undefined) updateData.coverImage = coverImage;
     if (coverImageType !== undefined) updateData.coverImageType = coverImageType;
+    if (coverImagePosition !== undefined) updateData.coverImagePosition = coverImagePosition;
     if (isPublished !== undefined) updateData.isPublished = isPublished;
 
     return await prisma.editorDocument.update({

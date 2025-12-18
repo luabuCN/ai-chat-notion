@@ -1,32 +1,41 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@repo/ui";
 import { RefreshCw, X, Move } from "lucide-react";
 import Image from "next/image";
 
+const CONTAINER_HEIGHT_VH = 100;
+
 interface EditorCoverProps {
   coverUrl: string | null;
   coverImageType?: "color" | "url" | null;
+  coverPosition?: number;
   onChangeCover: () => void;
   onRemoveCover: () => void;
+  onPositionChange?: (position: number) => void;
 }
 
 export function EditorCover({
   coverUrl,
   coverImageType = "url",
+  coverPosition = 50,
   onChangeCover,
   onRemoveCover,
+  onPositionChange,
 }: EditorCoverProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isRepositioning, setIsRepositioning] = useState(false);
-  const [position, setPosition] = useState(50); // 0-100, 默认居中
+  const [position, setPosition] = useState(coverPosition);
+  const [startY, setStartY] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 判断是否为渐变色或纯色
-  const isGradient = coverImageType === "color" || (coverUrl
-    ? coverUrl.startsWith("linear-gradient") || coverUrl.startsWith("#")
-    : false);
+  const isGradient =
+    coverImageType === "color" ||
+    (coverUrl
+      ? coverUrl.startsWith("linear-gradient") || coverUrl.startsWith("#")
+      : false);
 
   const handleRepositionStart = () => {
     setIsRepositioning(true);
@@ -34,21 +43,45 @@ export function EditorCover({
 
   const handleRepositionEnd = () => {
     setIsRepositioning(false);
+    onPositionChange?.(position);
   };
 
-  // 滚轮调整位置
-  const handleWheel = (e: React.WheelEvent) => {
-    if (!isRepositioning) return;
+  // 同步外部传入的位置
+  useEffect(() => {
+    setPosition(coverPosition);
+  }, [coverPosition]);
 
-    e.preventDefault();
+  // 拖拽调整位置
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isRepositioning) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setStartY(e.clientY);
+    }
+  };
 
-    // deltaY > 0 向下滚动，position 增加（显示图片更下方的内容）
-    // deltaY < 0 向上滚动，position 减少（显示图片更上方的内容）
-    const sensitivity = 5; // 调整灵敏度
-    setPosition((prev) => {
-      const newPosition = prev + (e.deltaY > 0 ? sensitivity : -sensitivity);
-      return Math.max(0, Math.min(100, newPosition));
-    });
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isRepositioning && e.buttons === 1) {
+      e.preventDefault();
+      e.stopPropagation();
+      const containerHeight = window.innerHeight * (CONTAINER_HEIGHT_VH / 100);
+      const deltaY = e.clientY - startY;
+      const percentageDelta = (deltaY / containerHeight) * -100;
+      const newPosition = Math.max(
+        0,
+        Math.min(100, position + percentageDelta)
+      );
+      setPosition(newPosition);
+      setStartY(e.clientY);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isRepositioning) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      setStartY(0);
+    }
   };
 
   if (!coverUrl) return null;
@@ -57,11 +90,13 @@ export function EditorCover({
     <div
       ref={containerRef}
       className={`relative w-full h-[30vh] min-h-[200px] max-h-[300px] group overflow-hidden ${
-        isRepositioning ? "cursor-ns-resize" : ""
+        isRepositioning ? "cursor-move" : ""
       }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
     >
       {isGradient ? (
         <div className="w-full h-full" style={{ background: coverUrl }} />
@@ -71,12 +106,13 @@ export function EditorCover({
             src={coverUrl}
             alt="Cover"
             fill
-            className="object-cover"
+            className="object-cover select-none pointer-events-none"
             style={{
               objectPosition: `center ${position}%`,
             }}
             priority
             unoptimized
+            draggable={false}
           />
         </div>
       )}
@@ -85,7 +121,7 @@ export function EditorCover({
       {isRepositioning && (
         <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none">
           <div className="bg-background/90 px-4 py-2 rounded-md text-sm">
-            滚动滑轮调整位置
+            拖拽图片调整位置
           </div>
         </div>
       )}
@@ -95,6 +131,7 @@ export function EditorCover({
         className={`absolute top-4 right-4 flex items-center gap-2 transition-opacity duration-200 ${
           isHovered ? "opacity-100" : "opacity-0"
         }`}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {!isGradient && (
           <Button

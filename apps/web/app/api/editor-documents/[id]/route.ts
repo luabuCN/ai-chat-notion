@@ -66,6 +66,7 @@ export async function PATCH(
       icon,
       coverImage,
       coverImageType,
+      coverImagePosition,
       isPublished,
     }: {
       title?: string;
@@ -73,6 +74,7 @@ export async function PATCH(
       icon?: string | null;
       coverImage?: string | null;
       coverImageType?: "color" | "url" | null;
+      coverImagePosition?: number | null;
       isPublished?: boolean;
     } = body;
 
@@ -83,6 +85,7 @@ export async function PATCH(
       icon,
       coverImage,
       coverImageType,
+      coverImagePosition,
       isPublished,
     });
 
