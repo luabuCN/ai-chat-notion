@@ -17,6 +17,7 @@ import { CustomTable } from "./extensions/table";
 import { Markdown } from "@tiptap/markdown";
 import { Mermaid } from "./extensions/mermaid";
 import { Chart } from "./extensions/chart";
+import { Attachment } from "./extensions/attachment";
 
 const TiptapStarterKit = StarterKit.configure({
   bulletList: {
@@ -64,8 +65,10 @@ const TiptapStarterKit = StarterKit.configure({
       class: cn(
         "!text-foreground underline underline-offset-[3px] transition-colors cursor-pointer"
       ),
+      target: "_blank",
+      rel: "noopener noreferrer",
     },
-    openOnClick: false,
+    openOnClick: true,
   },
 });
 
@@ -209,7 +212,11 @@ const chart = Chart.configure({
   HTMLAttributes: {
     class: cn("border p-2 my-4 w-full flex items-center justify-center aspect-video"),
   },
-})
+});
+
+const attachment = Attachment.configure({
+  HTMLAttributes: {},
+});
 
 export const defaultExtensions = [
   TiptapStarterKit,
@@ -229,5 +236,6 @@ export const defaultExtensions = [
   aiPlaceholder,
   aiWriter,
   mermaid,
-  chart
+  chart,
+  attachment,
 ];

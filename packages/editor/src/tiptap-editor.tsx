@@ -3,11 +3,13 @@ import DragHandle from "@tiptap/extension-drag-handle-react";
 import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon } from "lucide-react";
+import { useRef } from "react";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { Ai } from "./tiptap/extensions/ai";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
+import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
 
 export interface TiptapEditorProps {
@@ -18,6 +20,7 @@ export interface TiptapEditorProps {
   className?: string;
   showAiTools?: boolean;
   aiApiUrl?: string;
+  uploadFile?: (file: File) => Promise<string>;
 }
 
 export function TiptapEditor({
@@ -28,7 +31,19 @@ export function TiptapEditor({
   className = "",
   showAiTools = true,
   aiApiUrl,
+  uploadFile,
 }: TiptapEditorProps) {
+  // Use ref to store uploadFile to avoid editor recreation on every render
+  const uploadFileRef = useRef(uploadFile);
+  uploadFileRef.current = uploadFile;
+
+  const stableUploadFile = useRef(async (file: File) => {
+    if (uploadFileRef.current) {
+      return uploadFileRef.current(file);
+    }
+    throw new Error("Upload function not available");
+  }).current;
+
   const editor = useEditor({
     extensions: [
       ...defaultExtensions,
@@ -47,7 +62,10 @@ export function TiptapEditor({
         },
       }),
       SlashCommand.configure({
-        suggestion: getSuggestion({ ai: showAiTools }),
+        suggestion: getSuggestion({
+          ai: showAiTools,
+          uploadFile: uploadFile ? stableUploadFile : undefined,
+        }),
       }),
     ],
     content: content,
@@ -86,6 +104,7 @@ export function TiptapEditor({
       />
       <TableHandle editor={editor} />
       <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
+      <MediaBubbleMenu editor={editor} />
     </div>
   );
 }

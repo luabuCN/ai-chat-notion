@@ -48,6 +48,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
           }
           return true;
         },
+        allowedPrefixes: [" ", "\n", "\r", "\t", "(", "[", "{", '"', "'", "`"],
       },
     };
   },

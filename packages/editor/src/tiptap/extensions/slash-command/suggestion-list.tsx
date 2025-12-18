@@ -5,6 +5,7 @@ import { LucideIcon } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { MermaidInputDialog } from "../mermaid";
 import { ChartEditDialog } from "../chart";
+import { UploadDialog, UploadType } from "../upload";
 
 export interface CommandSuggestionItem extends SuggestionItem {
   icon: LucideIcon;
@@ -13,7 +14,9 @@ export interface CommandSuggestionItem extends SuggestionItem {
 export type SuggestionListProps = SuggestionProps<
   CommandSuggestionItem,
   SlashCommandNodeAttrs
->;
+> & {
+  uploadFile?: (file: File) => Promise<string>;
+};
 
 export interface SuggestionListHandle {
   onKeyDown: (props: SuggestionKeyDownProps) => boolean;
@@ -24,6 +27,8 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [openMermaidInputDialog, setOpenMermaidInputDialog] = useState(false);
     const [openChartEditDialog, setOpenChartEditDialog] = useState(false);
+    const [openUploadDialog, setOpenUploadDialog] = useState(false);
+    const [uploadType, setUploadType] = useState<UploadType>("image");
 
     const selectItem = (index: number) => {
       const item = props.items[index];
@@ -38,6 +43,18 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
 
       if (item.id === "chart") {
         setOpenChartEditDialog(true);
+        return;
+      }
+
+      if (item.id === "image") {
+        setUploadType("image");
+        setOpenUploadDialog(true);
+        return;
+      }
+
+      if (item.id === "attachment") {
+        setUploadType("attachment");
+        setOpenUploadDialog(true);
         return;
       }
 
@@ -107,6 +124,18 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
                       return;
                     }
 
+                    if (item.id === "image") {
+                      setUploadType("image");
+                      setOpenUploadDialog(true);
+                      return;
+                    }
+
+                    if (item.id === "attachment") {
+                      setUploadType("attachment");
+                      setOpenUploadDialog(true);
+                      return;
+                    }
+
                     props.command(item);
                   }}
                 >
@@ -161,6 +190,44 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
               },
             });
             setOpenChartEditDialog(false);
+          }}
+        />
+
+        <UploadDialog
+          isOpen={openUploadDialog}
+          onOpenChange={setOpenUploadDialog}
+          type={uploadType}
+          uploadFile={props.uploadFile}
+          onInsert={(url, fileName, fileSize, fileType) => {
+            if (uploadType === "image") {
+              props.command({
+                command: ({ editor, range }) => {
+                  editor
+                    .chain()
+                    .focus()
+                    .deleteRange(range)
+                    .setImage({ src: url })
+                    .run();
+                },
+              });
+            } else {
+              props.command({
+                command: ({ editor, range }) => {
+                  editor
+                    .chain()
+                    .focus()
+                    .deleteRange(range)
+                    .setAttachment({
+                      url,
+                      fileName: fileName || "attachment",
+                      fileSize,
+                      fileType,
+                    })
+                    .run();
+                },
+              });
+            }
+            setOpenUploadDialog(false);
           }}
         />
       </>

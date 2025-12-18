@@ -50,6 +50,7 @@ export function EditorClient({ initialContent, onChange }: EditorClientProps) {
       content={parsedContent}
       placeholder="Type / for commands..."
       showAiTools={true}
+      uploadFile={uploadFile}
       onUpdate={(editor) => {
         // 序列化为 JSON 字符串
         onChange?.(JSON.stringify(editor.getJSON()));
