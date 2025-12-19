@@ -328,8 +328,6 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         {document && (
           <EditorClient
             key={`${documentId}-${content ? "loaded" : "empty"}`}
-            locale={locale}
-            apiUrl="/api/blocknote-ai"
             initialContent={content}
             onChange={handleContentChange}
           />

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import "@repo/editor/styles";
 
@@ -15,7 +15,24 @@ interface EditorClientProps {
   onChange?: (content: any) => void;
 }
 
-export function EditorClient({ initialContent, onChange }: EditorClientProps) {
+export const EditorClient = memo(function EditorClient({
+  initialContent,
+  onChange,
+}: EditorClientProps) {
+  // 用 ref 存储 onChange，避免回调变化导致重渲染
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // 只在挂载时解析 initialContent
+  const initialContentRef = useRef(initialContent);
+  const parsedContent = useMemo(
+    () =>
+      initialContentRef.current
+        ? JSON.parse(initialContentRef.current)
+        : undefined,
+    []
+  );
+
   const uploadFile = useCallback(async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -42,8 +59,9 @@ export function EditorClient({ initialContent, onChange }: EditorClientProps) {
     }
   }, []);
 
-  // 解析 JSON 字符串为对象
-  const parsedContent = initialContent ? JSON.parse(initialContent) : undefined;
+  const handleUpdate = useCallback((editor: any) => {
+    onChangeRef.current?.(JSON.stringify(editor.getJSON()));
+  }, []);
 
   return (
     <TiptapEditor
@@ -51,10 +69,7 @@ export function EditorClient({ initialContent, onChange }: EditorClientProps) {
       placeholder="Type / for commands..."
       showAiTools={true}
       uploadFile={uploadFile}
-      onUpdate={(editor) => {
-        // 序列化为 JSON 字符串
-        onChange?.(JSON.stringify(editor.getJSON()));
-      }}
+      onUpdate={handleUpdate}
     />
   );
-}
+});

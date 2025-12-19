@@ -15,6 +15,7 @@ import { CustomCodeBlock } from "./extensions/code-block";
 import { Mathematics } from "./extensions/mathematics";
 import { CustomTable } from "./extensions/table";
 import { Markdown } from "@tiptap/markdown";
+import { MarkdownPaste } from "./extensions/markdown-paste";
 import { Mermaid } from "./extensions/mermaid";
 import { Chart } from "./extensions/chart";
 import { Attachment } from "./extensions/attachment";
@@ -230,6 +231,7 @@ export const defaultExtensions = [
   TiptapCharacterCount,
   TiptapImage,
   TipTapMarkdown,
+  MarkdownPaste,
   TextStyle,
   mathematics,
   codeBlock,
