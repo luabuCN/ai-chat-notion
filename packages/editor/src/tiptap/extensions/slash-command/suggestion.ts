@@ -13,6 +13,7 @@ import {
   ListOrderedIcon,
   PaperclipIcon,
   ShapesIcon,
+  Smile,
   SparklesIcon,
   SquarePlayIcon,
   TableIcon,
@@ -193,6 +194,14 @@ const list: CommandSuggestionItem[] = [
         }
       }
     },
+  },
+  {
+    id: "emoji",
+    title: "Emoji",
+    description: "Insert an emoji.",
+    keywords: ["emoji", "smile", "face"],
+    icon: Smile,
+    command: () => {},
   },
   {
     id: "divider",

@@ -6,6 +6,9 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { MermaidInputDialog } from "../mermaid";
 import { ChartEditDialog } from "../chart";
 import { UploadDialog, UploadType } from "../upload";
+import data from "@emoji-mart/data";
+import Picker from "@emoji-mart/react";
+import { useTheme } from "next-themes";
 
 export interface CommandSuggestionItem extends SuggestionItem {
   icon: LucideIcon;
@@ -29,6 +32,8 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
     const [openChartEditDialog, setOpenChartEditDialog] = useState(false);
     const [openUploadDialog, setOpenUploadDialog] = useState(false);
     const [uploadType, setUploadType] = useState<UploadType>("image");
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const { resolvedTheme } = useTheme();
 
     const selectItem = (index: number) => {
       const item = props.items[index];
@@ -55,6 +60,11 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
       if (item.id === "attachment") {
         setUploadType("attachment");
         setOpenUploadDialog(true);
+        return;
+      }
+
+      if (item.id === "emoji") {
+        setShowEmojiPicker(true);
         return;
       }
 
@@ -99,64 +109,90 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
     }));
     return (
       <>
-        <div className="z-20 flex flex-col space-y-1 bg-popover rounded-md border shadow-md transition-all p-1 max-h-[320px] w-72 overflow-y-auto">
-          {props.items.length > 0 ? (
-            props.items.map((item, i) => {
-              return (
-                <div
-                  key={i}
-                  className={cn(
-                    [
-                      "flex space-x-2 hover:bg-accent p-1 rounded-md cursor-pointer text-foreground",
-                    ],
-                    {
-                      "bg-accent": i === selectedIndex,
-                    }
-                  )}
-                  onClick={() => {
-                    if (item.id === "mermaid") {
-                      setOpenMermaidInputDialog(true);
-                      return;
-                    }
+        {showEmojiPicker ? (
+          <div className="z-20 shadow-md rounded-md overflow-hidden">
+            <Picker
+              data={data}
+              theme={resolvedTheme === "dark" ? "dark" : "light"}
+              onEmojiSelect={(emoji: any) => {
+                props.command({
+                  command: ({ editor, range }) => {
+                    editor
+                      .chain()
+                      .focus()
+                      .deleteRange(range)
+                      .insertContent(emoji.native)
+                      .run();
+                  },
+                });
+              }}
+            />
+          </div>
+        ) : (
+          <div className="z-20 flex flex-col space-y-1 bg-popover rounded-md border shadow-md transition-all p-1 max-h-[320px] w-72 overflow-y-auto">
+            {props.items.length > 0 ? (
+              props.items.map((item, i) => {
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      [
+                        "flex space-x-2 hover:bg-accent p-1 rounded-md cursor-pointer text-foreground",
+                      ],
+                      {
+                        "bg-accent": i === selectedIndex,
+                      }
+                    )}
+                    onClick={() => {
+                      if (item.id === "mermaid") {
+                        setOpenMermaidInputDialog(true);
+                        return;
+                      }
 
-                    if (item.id === "chart") {
-                      setOpenChartEditDialog(true);
-                      return;
-                    }
+                      if (item.id === "chart") {
+                        setOpenChartEditDialog(true);
+                        return;
+                      }
 
-                    if (item.id === "image") {
-                      setUploadType("image");
-                      setOpenUploadDialog(true);
-                      return;
-                    }
+                      if (item.id === "image") {
+                        setUploadType("image");
+                        setOpenUploadDialog(true);
+                        return;
+                      }
 
-                    if (item.id === "attachment") {
-                      setUploadType("attachment");
-                      setOpenUploadDialog(true);
-                      return;
-                    }
+                      if (item.id === "attachment") {
+                        setUploadType("attachment");
+                        setOpenUploadDialog(true);
+                        return;
+                      }
 
-                    props.command(item);
-                  }}
-                >
-                  <div className="size-10 flex items-center justify-center border bg-popover rounded-md">
-                    <item.icon className="size-4" />
+                      if (item.id === "emoji") {
+                        setShowEmojiPicker(true);
+                        return;
+                      }
+
+                      props.command(item);
+                    }}
+                  >
+                    <div className="size-10 flex items-center justify-center border bg-popover rounded-md">
+                      <item.icon className="size-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <p className="font-medium text-sm">{item.title}</p>
+                      <span className="text-xs text-muted-foreground">
+                        {item.description}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {item.description}
-                    </span>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="px-3 py-2 text-sm text-muted-foreground">
-              No results
-            </div>
-          )}
-        </div>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                No results
+              </div>
+            )}
+          </div>
+        )}
         <MermaidInputDialog
           isOpen={openMermaidInputDialog}
           onOpenChange={setOpenMermaidInputDialog}
