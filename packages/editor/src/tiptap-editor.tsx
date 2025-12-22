@@ -2,7 +2,7 @@ import { offset } from "@floating-ui/dom";
 import DragHandle from "@tiptap/extension-drag-handle-react";
 import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
-import { GripVerticalIcon } from "lucide-react";
+import { GripVerticalIcon, Plus } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
@@ -92,11 +92,47 @@ export function TiptapEditor({
     <div className={className}>
       <DragHandle
         editor={editor}
+        className="transition-all duration-300 ease-in-out"
         computePositionConfig={{
           middleware: [offset(20)],
         }}
       >
-        <GripVerticalIcon className="text-muted-foreground" />
+        <div className="flex items-center gap-1 -ml-2">
+          <div
+            className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
+            onClick={(e) => {
+              if (!editor) return;
+              e.preventDefault();
+              const buttonRect = e.currentTarget.getBoundingClientRect();
+              const editorRect = editor.view.dom.getBoundingClientRect();
+
+              // Use a position inside the editor content area (50px offset from left)
+              const posInfo = editor.view.posAtCoords({
+                left: editorRect.left + 50,
+                top: buttonRect.top + buttonRect.height / 2,
+              });
+
+              if (!posInfo || posInfo.pos === undefined) return;
+
+              const $pos = editor.state.doc.resolve(posInfo.pos);
+              const isBlockEmpty = $pos.parent.content.size === 0;
+
+              if (isBlockEmpty) {
+                editor.chain().focus(posInfo.pos).run();
+              } else {
+                const endPos = $pos.end();
+                editor.chain().focus(endPos).splitBlock().run();
+              }
+              // Insert the slash command trigger
+              editor.commands.insertContent("/");
+            }}
+          >
+            <Plus className="size-3.5 text-muted-foreground" />
+          </div>
+          <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
+            <GripVerticalIcon className="size-3.5 text-muted-foreground" />
+          </div>
+        </div>
       </DragHandle>
       <EditorContent
         editor={editor}

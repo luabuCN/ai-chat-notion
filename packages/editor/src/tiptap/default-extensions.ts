@@ -61,15 +61,15 @@ const TiptapStarterKit = StarterKit.configure({
   },
   // gapcursor: false,
   heading: false,
-  link: {
+    link: {
     HTMLAttributes: {
       class: cn(
-        "!text-foreground underline underline-offset-[3px] transition-colors cursor-pointer"
+        "!text-primary underline underline-offset-[3px] transition-colors cursor-pointer"
       ),
       target: "_blank",
       rel: "noopener noreferrer",
     },
-    openOnClick: true,
+    openOnClick: false,
   },
 });
 

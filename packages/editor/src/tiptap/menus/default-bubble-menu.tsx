@@ -7,7 +7,7 @@ import {
   TextAlignSelector,
   TextButtons,
 } from "./selectors";
-import { ScrollArea, ScrollBar } from "@repo/ui/scroll-area";
+
 import { Separator } from "@repo/ui/separator";
 
 export const DefaultBubbleMenu = ({
@@ -51,8 +51,8 @@ export const DefaultBubbleMenu = ({
         return true;
       }}
     >
-      <ScrollArea className="max-w-[90vw] rounded-md border bg-popover shadow-xl">
-        <div className="flex h-9">
+      <div className="flex w-fit max-w-[90vw] overflow-x-auto rounded-md border bg-popover shadow-xl overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex h-9 items-center shrink-0">
           {showAiTools && (
             <>
               <AiSelector editor={editor} />
@@ -67,8 +67,7 @@ export const DefaultBubbleMenu = ({
           <Separator orientation="vertical" />
           <TextAlignSelector editor={editor} />
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
     </BubbleMenu>
   );
 };
