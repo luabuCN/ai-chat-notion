@@ -13,11 +13,13 @@ const TiptapEditor = dynamic(
 interface EditorClientProps {
   initialContent?: any;
   onChange?: (content: any) => void;
+  readonly?: boolean;
 }
 
 export const EditorClient = memo(function EditorClient({
   initialContent,
   onChange,
+  readonly,
 }: EditorClientProps) {
   // 用 ref 存储 onChange，避免回调变化导致重渲染
   const onChangeRef = useRef(onChange);
@@ -70,6 +72,7 @@ export const EditorClient = memo(function EditorClient({
       showAiTools={true}
       uploadFile={uploadFile}
       onUpdate={handleUpdate}
+      readonly={readonly}
     />
   );
 });

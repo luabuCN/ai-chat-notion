@@ -9,6 +9,7 @@ export const documentKeys = {
     [...documentKeys.lists(), { parentDocumentId }] as const,
   details: () => [...documentKeys.all, "detail"] as const,
   detail: (id: string) => [...documentKeys.details(), id] as const,
+  updates: () => [...documentKeys.all, "update"] as const,
 };
 
 // API Functions
@@ -71,6 +72,7 @@ async function updateDocument({
     coverImageType?: "color" | "url" | null;
     coverImagePosition?: number | null;
     isPublished?: boolean;
+    isFavorite?: boolean;
   };
 }): Promise<EditorDocument> {
   const response = await fetch(`/api/editor-documents/${documentId}`, {
@@ -177,6 +179,7 @@ export function useUpdateDocument() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: documentKeys.updates(),
     mutationFn: updateDocument,
     onSuccess: (updatedDoc, variables) => {
       // 更新单个文档的缓存

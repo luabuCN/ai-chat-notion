@@ -14,17 +14,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-
-  if (!session?.user) {
-    return new ChatSDKError("unauthorized:document").toResponse();
-  }
-
   const { id } = await params;
 
   try {
     const document = await getEditorDocumentById({ id });
 
-    if (document.userId !== session.user.id) {
+    // Allow access if user is owner OR document is published
+    const isOwner = session?.user?.id === document.userId;
+    const isPublished = document.isPublished;
+
+    if (!isOwner && !isPublished) {
+      if (!session?.user) {
+        return new ChatSDKError("unauthorized:document").toResponse();
+      }
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
@@ -68,6 +70,7 @@ export async function PATCH(
       coverImageType,
       coverImagePosition,
       isPublished,
+      isFavorite,
     }: {
       title?: string;
       content?: string;
@@ -76,6 +79,7 @@ export async function PATCH(
       coverImageType?: "color" | "url" | null;
       coverImagePosition?: number | null;
       isPublished?: boolean;
+      isFavorite?: boolean;
     } = body;
 
     const updatedDocument = await updateEditorDocument({
@@ -87,6 +91,7 @@ export async function PATCH(
       coverImageType,
       coverImagePosition,
       isPublished,
+      isFavorite,
     });
 
     return Response.json(updatedDocument, { status: 200 });

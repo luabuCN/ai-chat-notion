@@ -14,6 +14,7 @@ interface EditorCoverProps {
   onChangeCover: () => void;
   onRemoveCover: () => void;
   onPositionChange?: (position: number) => void;
+  preview?: boolean;
 }
 
 export function EditorCover({
@@ -23,6 +24,7 @@ export function EditorCover({
   onChangeCover,
   onRemoveCover,
   onPositionChange,
+  preview = false,
 }: EditorCoverProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isRepositioning, setIsRepositioning] = useState(false);
@@ -53,6 +55,7 @@ export function EditorCover({
 
   // 拖拽调整位置
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (preview) return;
     if (isRepositioning) {
       e.preventDefault();
       e.stopPropagation();
@@ -62,6 +65,7 @@ export function EditorCover({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (preview) return;
     if (isRepositioning && e.buttons === 1) {
       e.preventDefault();
       e.stopPropagation();
@@ -91,7 +95,7 @@ export function EditorCover({
       ref={containerRef}
       className={`relative w-full h-[30vh] min-h-[200px] max-h-[300px] group overflow-hidden ${
         isRepositioning ? "cursor-move" : ""
-      }`}
+      } ${preview ? "" : "cursor-default"}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onPointerDown={handlePointerDown}
@@ -127,44 +131,46 @@ export function EditorCover({
       )}
 
       {/* 悬浮时显示的操作按钮 */}
-      <div
-        className={`absolute top-4 right-4 flex items-center gap-2 transition-opacity duration-200 ${
-          isHovered ? "opacity-100" : "opacity-0"
-        }`}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {!isGradient && (
+      {!preview && (
+        <div
+          className={`absolute top-4 right-4 flex items-center gap-2 transition-opacity duration-200 ${
+            isHovered ? "opacity-100" : "opacity-0"
+          }`}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {!isGradient && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 text-xs bg-background/80 hover:bg-background"
+              onClick={
+                isRepositioning ? handleRepositionEnd : handleRepositionStart
+              }
+            >
+              <Move className="h-3 w-3 mr-1" />
+              {isRepositioning ? "完成" : "调整位置"}
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
             className="h-8 text-xs bg-background/80 hover:bg-background"
-            onClick={
-              isRepositioning ? handleRepositionEnd : handleRepositionStart
-            }
+            onClick={onChangeCover}
           >
-            <Move className="h-3 w-3 mr-1" />
-            {isRepositioning ? "完成" : "调整位置"}
+            <RefreshCw className="h-3 w-3 mr-1" />
+            更换封面
           </Button>
-        )}
-        <Button
-          variant="secondary"
-          size="sm"
-          className="h-8 text-xs bg-background/80 hover:bg-background"
-          onClick={onChangeCover}
-        >
-          <RefreshCw className="h-3 w-3 mr-1" />
-          更换封面
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="h-8 text-xs bg-background/80 hover:bg-background"
-          onClick={onRemoveCover}
-        >
-          <X className="h-3 w-3 mr-1" />
-          删除封面
-        </Button>
-      </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-8 text-xs bg-background/80 hover:bg-background"
+            onClick={onRemoveCover}
+          >
+            <X className="h-3 w-3 mr-1" />
+            删除封面
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

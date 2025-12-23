@@ -15,8 +15,7 @@ interface EditorContentProps {
 export function EditorContent({ locale, documentId }: EditorContentProps) {
   const { data: document, isLoading, error } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
@@ -80,9 +79,6 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
       return;
 
     prevTitleRef.current = titleDebounced;
-    window.dispatchEvent(new CustomEvent("document-saving"));
-    setIsSaving(true);
-    setIsSaved(false);
     updateDocumentMutation.mutate(
       {
         documentId,
@@ -90,19 +86,11 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
       },
       {
         onSuccess: () => {
-          setIsSaving(false);
-          setIsSaved(true);
-          window.dispatchEvent(new CustomEvent("document-saved"));
           if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
           }
-          saveTimeoutRef.current = setTimeout(() => {
-            setIsSaved(false);
-          }, 2000);
         },
         onError: (error) => {
-          setIsSaving(false);
-          setIsSaved(false);
           toast.error(error.message || "更新标题失败");
         },
       }
@@ -125,9 +113,6 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
       return;
 
     prevIconRef.current = iconDebounced;
-    window.dispatchEvent(new CustomEvent("document-saving"));
-    setIsSaving(true);
-    setIsSaved(false);
     updateDocumentMutation.mutate(
       {
         documentId,
@@ -135,19 +120,11 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
       },
       {
         onSuccess: () => {
-          setIsSaving(false);
-          setIsSaved(true);
-          window.dispatchEvent(new CustomEvent("document-saved"));
           if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
           }
-          saveTimeoutRef.current = setTimeout(() => {
-            setIsSaved(false);
-          }, 2000);
         },
         onError: (error) => {
-          setIsSaving(false);
-          setIsSaved(false);
           toast.error(error.message || "更新图标失败");
         },
       }
@@ -170,9 +147,6 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
       return;
 
     prevContentRef.current = contentDebounced;
-    window.dispatchEvent(new CustomEvent("document-saving"));
-    setIsSaving(true);
-    setIsSaved(false);
     updateDocumentMutation.mutate(
       {
         documentId,
@@ -180,19 +154,11 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
       },
       {
         onSuccess: () => {
-          setIsSaving(false);
-          setIsSaved(true);
-          window.dispatchEvent(new CustomEvent("document-saved"));
           if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
           }
-          saveTimeoutRef.current = setTimeout(() => {
-            setIsSaved(false);
-          }, 2000);
         },
         onError: (error) => {
-          setIsSaving(false);
-          setIsSaved(false);
           toast.error(error.message || "保存内容失败");
         },
       }
@@ -224,15 +190,12 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     async (cover: string | null, coverImageType?: "color" | "url") => {
       if (!documentId) return;
 
-      setIsSaving(true);
-      setIsSaved(false);
       const type =
         coverImageType ||
         (cover?.startsWith("#") || cover?.startsWith("linear-gradient")
           ? "color"
           : "url");
 
-      window.dispatchEvent(new CustomEvent("document-saving"));
       updateDocumentMutation.mutate(
         {
           documentId,
@@ -240,19 +203,11 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         },
         {
           onSuccess: () => {
-            setIsSaving(false);
-            setIsSaved(true);
-            window.dispatchEvent(new CustomEvent("document-saved"));
             if (saveTimeoutRef.current) {
               clearTimeout(saveTimeoutRef.current);
             }
-            saveTimeoutRef.current = setTimeout(() => {
-              setIsSaved(false);
-            }, 2000);
           },
           onError: (error) => {
-            setIsSaving(false);
-            setIsSaved(false);
             toast.error(error.message || "更新封面失败");
           },
         }
@@ -265,9 +220,6 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     async (position: number) => {
       if (!documentId) return;
 
-      setIsSaving(true);
-      setIsSaved(false);
-      window.dispatchEvent(new CustomEvent("document-saving"));
       updateDocumentMutation.mutate(
         {
           documentId,
@@ -275,19 +227,11 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         },
         {
           onSuccess: () => {
-            setIsSaving(false);
-            setIsSaved(true);
-            window.dispatchEvent(new CustomEvent("document-saved"));
             if (saveTimeoutRef.current) {
               clearTimeout(saveTimeoutRef.current);
             }
-            saveTimeoutRef.current = setTimeout(() => {
-              setIsSaved(false);
-            }, 2000);
           },
           onError: (error) => {
-            setIsSaving(false);
-            setIsSaved(false);
             toast.error(error.message || "更新封面位置失败");
           },
         }

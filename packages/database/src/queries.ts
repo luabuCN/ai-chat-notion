@@ -77,6 +77,7 @@ export type EditorDocument = {
   coverImageType: string | null;
   coverImagePosition: number | null;
   isPublished: boolean;
+  isFavorite: boolean;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -793,6 +794,7 @@ export async function updateEditorDocument({
   coverImageType,
   coverImagePosition,
   isPublished,
+  isFavorite,
 }: {
   id: string;
   title?: string;
@@ -802,29 +804,23 @@ export async function updateEditorDocument({
   coverImageType?: "color" | "url" | null;
   coverImagePosition?: number | null;
   isPublished?: boolean;
+  isFavorite?: boolean;
 }) {
   try {
-    const updateData: {
-      title?: string;
-      content?: string;
-      icon?: string | null;
-      coverImage?: string | null;
-      coverImageType?: string | null;
-      coverImagePosition?: number | null;
-      isPublished?: boolean;
-    } = {};
-
-    if (title !== undefined) updateData.title = title;
-    if (content !== undefined) updateData.content = content;
-    if (icon !== undefined) updateData.icon = icon;
-    if (coverImage !== undefined) updateData.coverImage = coverImage;
-    if (coverImageType !== undefined) updateData.coverImageType = coverImageType;
-    if (coverImagePosition !== undefined) updateData.coverImagePosition = coverImagePosition;
-    if (isPublished !== undefined) updateData.isPublished = isPublished;
+    const data: any = {};
+    if (title !== undefined) data.title = title;
+    if (content !== undefined) data.content = content;
+    if (icon !== undefined) data.icon = icon;
+    if (coverImage !== undefined) data.coverImage = coverImage;
+    if (coverImageType !== undefined) data.coverImageType = coverImageType;
+    if (coverImagePosition !== undefined)
+      data.coverImagePosition = coverImagePosition;
+    if (isPublished !== undefined) data.isPublished = isPublished;
+    if (isFavorite !== undefined) data.isFavorite = isFavorite;
 
     return await prisma.editorDocument.update({
       where: { id },
-      data: updateData,
+      data,
     });
   } catch (_error) {
     throw new ChatSDKError(

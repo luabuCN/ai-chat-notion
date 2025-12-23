@@ -11,6 +11,8 @@ import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
+import { TableOfContents } from "./components/table-of-contents";
+import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 
 export interface TiptapEditorProps {
   content?: Content;
@@ -21,6 +23,7 @@ export interface TiptapEditorProps {
   showAiTools?: boolean;
   aiApiUrl?: string;
   uploadFile?: (file: File) => Promise<string>;
+  readonly?: boolean;
 }
 
 export function TiptapEditor({
@@ -32,6 +35,7 @@ export function TiptapEditor({
   showAiTools = true,
   aiApiUrl,
   uploadFile,
+  readonly = false,
 }: TiptapEditorProps) {
   // Use ref to store uploadFile to avoid editor recreation on every render
   const uploadFileRef = useRef(uploadFile);
@@ -45,6 +49,7 @@ export function TiptapEditor({
   }).current;
 
   const editor = useEditor({
+    editable: !readonly,
     extensions: [
       ...defaultExtensions,
       Placeholder.configure({
@@ -88,6 +93,20 @@ export function TiptapEditor({
     },
   });
 
+  const { handleSlashCommand } = useSlashCommandTrigger(editor);
+
+  if (readonly) {
+    return (
+      <div className={className}>
+        <EditorContent
+          editor={editor}
+          className="prose dark:prose-invert focus:outline-none max-w-full z-0"
+        />
+        <TableOfContents editor={editor} />
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
       <DragHandle
@@ -100,32 +119,7 @@ export function TiptapEditor({
         <div className="flex items-center gap-1 -ml-2">
           <div
             className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
-            onClick={(e) => {
-              if (!editor) return;
-              e.preventDefault();
-              const buttonRect = e.currentTarget.getBoundingClientRect();
-              const editorRect = editor.view.dom.getBoundingClientRect();
-
-              // Use a position inside the editor content area (50px offset from left)
-              const posInfo = editor.view.posAtCoords({
-                left: editorRect.left + 50,
-                top: buttonRect.top + buttonRect.height / 2,
-              });
-
-              if (!posInfo || posInfo.pos === undefined) return;
-
-              const $pos = editor.state.doc.resolve(posInfo.pos);
-              const isBlockEmpty = $pos.parent.content.size === 0;
-
-              if (isBlockEmpty) {
-                editor.chain().focus(posInfo.pos).run();
-              } else {
-                const endPos = $pos.end();
-                editor.chain().focus(endPos).splitBlock().run();
-              }
-              // Insert the slash command trigger
-              editor.commands.insertContent("/");
-            }}
+            onClick={handleSlashCommand}
           >
             <Plus className="size-3.5 text-muted-foreground" />
           </div>
@@ -141,6 +135,7 @@ export function TiptapEditor({
       <TableHandle editor={editor} />
       <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
       <MediaBubbleMenu editor={editor} />
+      <TableOfContents editor={editor} />
     </div>
   );
 }

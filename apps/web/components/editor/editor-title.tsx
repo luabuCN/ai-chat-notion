@@ -7,12 +7,14 @@ interface EditorTitleProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export function EditorTitle({
   value,
   onChange,
   placeholder = "无标题",
+  disabled = false,
 }: EditorTitleProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -29,7 +31,10 @@ export function EditorTitle({
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
-      className="w-full resize-none appearance-none overflow-hidden bg-transparent text-4xl font-bold focus:outline-none text-foreground placeholder:text-muted-foreground/50"
+      disabled={disabled}
+      className={`w-full resize-none appearance-none overflow-hidden bg-transparent text-4xl font-bold focus:outline-none text-foreground placeholder:text-muted-foreground/50 ${
+        disabled ? "cursor-default" : ""
+      }`}
     />
   );
 }

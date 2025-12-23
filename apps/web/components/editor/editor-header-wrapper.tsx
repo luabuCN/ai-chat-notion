@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMutationState } from "@tanstack/react-query";
 import { EditorHeader } from "./editor-header";
-import { useGetDocument } from "@/hooks/use-document-query";
+import { useGetDocument, documentKeys } from "@/hooks/use-document-query";
 
 interface EditorHeaderWrapperProps {
   locale: string;
@@ -14,34 +15,37 @@ export function EditorHeaderWrapper({
   documentId,
 }: EditorHeaderWrapperProps) {
   const { data: document } = useGetDocument(documentId);
-  const [isSaving, setIsSaving] = useState(false);
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const mutations = useMutationState({
+    filters: { mutationKey: documentKeys.updates() },
+    select: (mutation: any) => mutation.state,
+  });
+
+  const latestMutation = mutations
+    .filter((m) => (m.variables as any)?.documentId === documentId)
+    .pop();
+
+  const isSaving = latestMutation?.status === "pending";
   const [isSaved, setIsSaved] = useState(false);
 
-  // 监听保存状态
   useEffect(() => {
-    const handleSaving = () => setIsSaving(true);
-    const handleSaved = () => {
-      setIsSaving(false);
+    if (latestMutation?.status === "success") {
       setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2000);
-    };
-
-    window.addEventListener("document-saving", handleSaving);
-    window.addEventListener("document-saved", handleSaved);
-    return () => {
-      window.removeEventListener("document-saving", handleSaving);
-      window.removeEventListener("document-saved", handleSaved);
-    };
-  }, []);
+      const timer = setTimeout(() => setIsSaved(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [latestMutation?.submittedAt, latestMutation?.status]);
 
   return (
     <EditorHeader
       locale={locale}
       documentTitle={document?.title}
       documentIcon={document?.icon ?? null}
+      documentId={documentId}
+      isPublished={document?.isPublished}
+      isFavorite={document?.isFavorite}
       isSaving={isSaving}
       isSaved={isSaved}
     />
   );
 }
-

@@ -20,6 +20,7 @@ interface EditorPageHeaderProps {
     coverImageType?: "color" | "url"
   ) => void;
   onCoverPositionChange?: (position: number) => void;
+  readonly?: boolean;
 }
 
 export function EditorPageHeader({
@@ -32,6 +33,7 @@ export function EditorPageHeader({
   onIconChange,
   onCoverChange,
   onCoverPositionChange,
+  readonly = false,
 }: EditorPageHeaderProps) {
   const [title, setTitle] = useState(initialTitle);
   const [icon, setIcon] = useState<string | null>(initialIcon);
@@ -108,6 +110,7 @@ export function EditorPageHeader({
         onChangeCover={handleChangeCover}
         onRemoveCover={handleRemoveCover}
         onPositionChange={onCoverPositionChange}
+        preview={readonly}
       />
 
       {/* 内容区域 */}
@@ -115,32 +118,44 @@ export function EditorPageHeader({
         {/* 图标区域 - 有封面时显示在封面下方偏移位置 */}
         {icon && (
           <div className={cover ? "-mt-10 mb-4 relative z-10" : "mt-8 mb-4"}>
-            <EmojiPicker onEmojiSelect={handleAddIcon}>
-              <button
-                type="button"
-                className="text-6xl hover:opacity-80 transition-opacity cursor-pointer"
-                title="点击更换图标"
-              >
+            {readonly ? (
+              <div className="text-6xl cursor-default select-none" title="Icon">
                 {icon}
-              </button>
-            </EmojiPicker>
+              </div>
+            ) : (
+              <EmojiPicker onEmojiSelect={handleAddIcon}>
+                <button
+                  type="button"
+                  className="text-6xl hover:opacity-80 transition-opacity cursor-pointer"
+                  title="点击更换图标"
+                >
+                  {icon}
+                </button>
+              </EmojiPicker>
+            )}
           </div>
         )}
 
         {/* 工具栏 - hover时显示 */}
-        <div className={`group ${!icon && !cover ? "mt-8" : "mt-2"}`}>
-          <EditorToolbar
-            visible={true}
-            hasIcon={!!icon}
-            hasCover={!!cover}
-            onAddIcon={handleAddIcon}
-            onAddCover={handleAddCover}
-          />
-        </div>
+        {!readonly && (
+          <div className={`group ${!icon && !cover ? "mt-8" : "mt-2"}`}>
+            <EditorToolbar
+              visible={true}
+              hasIcon={!!icon}
+              hasCover={!!cover}
+              onAddIcon={handleAddIcon}
+              onAddCover={handleAddCover}
+            />
+          </div>
+        )}
 
         {/* 标题输入 */}
         <div className="mt-2 mb-4">
-          <EditorTitle value={title} onChange={handleTitleChange} />
+          <EditorTitle
+            value={title}
+            onChange={handleTitleChange}
+            disabled={readonly}
+          />
         </div>
       </div>
 

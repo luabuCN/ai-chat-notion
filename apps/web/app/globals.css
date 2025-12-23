@@ -319,3 +319,47 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  @page {
+    margin: 0;
+  }
+  
+  body {
+    background: white;
+  }
+
+  /* Hide everything by default */
+  body > * {
+    display: none !important;
+  }
+
+  /* Only show the editor content */
+  /* We need to target the specific container that holds the editor content */
+  /* Assuming there is a main content wrapper or we can target via a class */
+  /* For now, let's try to unhide the nextjs root and key layout elements if we can identify them, 
+     but a better approach is often to hide specific UI elements (sidebar, header) */
+     
+  /* Alternative Strategy: Hide Sidebar and Header specifically */
+  aside, 
+  header,
+  .sidebar-container,
+  button, 
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset layout for main content */
+  main {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    overflow: visible !important;
+  }
+  
+  /* Reset body children display for the main content path */
+  body > div {
+    display: block !important;
+  }
+}

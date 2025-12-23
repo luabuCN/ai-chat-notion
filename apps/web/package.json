@@ -125,7 +125,8 @@
     "use-file-picker": "2.1.2",
     "use-stick-to-bottom": "^1.1.1",
     "usehooks-ts": "^3.1.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@tiptap/core": "^3.13.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
