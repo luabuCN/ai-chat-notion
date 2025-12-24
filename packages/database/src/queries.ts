@@ -1,6 +1,5 @@
 import "server-only";
 
-
 import { ChatSDKError } from "./errors";
 import type { AppUsage } from "./usage";
 import { generateUUID } from "./utils";
@@ -896,5 +895,139 @@ export async function unpublishEditorDocument({ id }: { id: string }) {
       "bad_request:database",
       "Failed to unpublish editor document"
     );
+  }
+}
+
+export async function duplicateEditorDocument({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}) {
+  try {
+    // Get original document
+    const original = await prisma.editorDocument.findUnique({
+      where: { id },
+    });
+
+    if (!original) {
+      throw new ChatSDKError(
+        "not_found:database",
+        `Editor document with id ${id} not found`
+      );
+    }
+
+    // Verify ownership
+    if (original.userId !== userId) {
+      throw new ChatSDKError(
+        "forbidden:database",
+        "You don't have permission to duplicate this document"
+      );
+    }
+
+    // Create duplicate with " copy" suffix
+    return await prisma.editorDocument.create({
+      data: {
+        title: `${original.title} copy`,
+        content: original.content ?? "",
+        userId: original.userId,
+        parentDocumentId: original.parentDocumentId,
+        icon: original.icon,
+        coverImage: original.coverImage,
+        coverImageType: original.coverImageType,
+        coverImagePosition: original.coverImagePosition,
+      },
+    });
+  } catch (error) {
+    if (error instanceof ChatSDKError) {
+      throw error;
+    }
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to duplicate editor document"
+    );
+  }
+}
+
+export async function moveEditorDocument({
+  id,
+  parentDocumentId,
+}: {
+  id: string;
+  parentDocumentId: string | null;
+}) {
+  try {
+    // Prevent moving document to itself
+    if (id === parentDocumentId) {
+      throw new ChatSDKError(
+        "bad_request:database",
+        "Cannot move document to itself"
+      );
+    }
+
+    // Check for circular reference (cannot move to own descendant)
+    if (parentDocumentId) {
+      let currentParent = parentDocumentId;
+      while (currentParent) {
+        if (currentParent === id) {
+          throw new ChatSDKError(
+            "bad_request:database",
+            "Cannot move document to its own descendant"
+          );
+        }
+        const parent = await prisma.editorDocument.findUnique({
+          where: { id: currentParent },
+          select: { parentDocumentId: true },
+        });
+        currentParent = parent?.parentDocumentId ?? null;
+      }
+    }
+
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: { parentDocumentId },
+    });
+  } catch (error) {
+    if (error instanceof ChatSDKError) {
+      throw error;
+    }
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to move editor document"
+    );
+  }
+}
+
+export async function getEditorDocumentPath(id: string) {
+  try {
+    const path: string[] = [];
+    let currentId = id;
+
+    // Safety break to prevent infinite loops in case of malformed data
+    let depth = 0;
+    const MAX_DEPTH = 20;
+
+    while (currentId && depth < MAX_DEPTH) {
+      const doc = await prisma.editorDocument.findUnique({
+        where: { id: currentId },
+        select: { id: true, parentDocumentId: true },
+      });
+
+      if (!doc) break;
+
+      if (doc.parentDocumentId) {
+        path.unshift(doc.parentDocumentId);
+        currentId = doc.parentDocumentId;
+      } else {
+        break;
+      }
+      depth++;
+    }
+
+    return path;
+  } catch (error) {
+    console.error("Error fetching document path:", error);
+    return [];
   }
 }

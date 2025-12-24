@@ -24,7 +24,7 @@ import {
 import { LanguageSwitcher } from "../language-switcher";
 import { cn } from "@/lib/utils";
 import { PublishPopover } from "./publish-popover";
-import { ExportMenu } from "./export-menu";
+import { DocumentActionsMenu } from "./document-actions-menu";
 
 interface EditorHeaderProps {
   locale: string;
@@ -137,7 +137,7 @@ export function EditorHeader({
           />
         </Button>
 
-        <ExportMenu
+        <DocumentActionsMenu
           documentId={documentId}
           title={documentTitle || "Untitled"}
         />

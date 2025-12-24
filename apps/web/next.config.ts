@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   experimental: {
     ppr: true,
   },
+  reactStrictMode: false,
   transpilePackages: ["@repo/database"],
   images: {
     remotePatterns: [

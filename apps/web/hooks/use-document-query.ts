@@ -13,7 +13,9 @@ export const documentKeys = {
 };
 
 // API Functions
-async function fetchDocuments(parentDocumentId?: string): Promise<EditorDocument[]> {
+async function fetchDocuments(
+  parentDocumentId?: string
+): Promise<EditorDocument[]> {
   const params = new URLSearchParams();
   if (parentDocumentId) {
     params.append("parentDocumentId", parentDocumentId);
@@ -37,9 +39,10 @@ async function fetchDocument(documentId: string): Promise<EditorDocument> {
   return response.json();
 }
 
-async function createDocument(
-  arg: { title: string; parentDocumentId?: string }
-): Promise<EditorDocument> {
+async function createDocument(arg: {
+  title: string;
+  parentDocumentId?: string;
+}): Promise<EditorDocument> {
   const response = await fetch("/api/editor-documents", {
     method: "POST",
     headers: {
@@ -109,16 +112,52 @@ async function publishDocument({
   documentId: string;
   publish: boolean;
 }): Promise<EditorDocument> {
+  const response = await fetch(`/api/editor-documents/${documentId}/publish`, {
+    method: publish ? "POST" : "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "发布操作失败");
+  }
+
+  return response.json();
+}
+
+async function duplicateDocument(documentId: string): Promise<EditorDocument> {
   const response = await fetch(
-    `/api/editor-documents/${documentId}/publish`,
+    `/api/editor-documents/${documentId}/duplicate`,
     {
-      method: publish ? "POST" : "DELETE",
+      method: "POST",
     }
   );
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.message || "发布操作失败");
+    throw new Error(errorData.message || "复制文档失败");
+  }
+
+  return response.json();
+}
+
+async function moveDocument({
+  documentId,
+  parentDocumentId,
+}: {
+  documentId: string;
+  parentDocumentId: string | null;
+}): Promise<EditorDocument> {
+  const response = await fetch(`/api/editor-documents/${documentId}/move`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ parentDocumentId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "移动文档失败");
   }
 
   return response.json();
@@ -146,7 +185,7 @@ export function useCreateDocument() {
 
   return useMutation({
     mutationFn: createDocument,
-    onSuccess: (newDoc) => {
+    onSuccess: async (newDoc) => {
       // 乐观更新：直接将新文档添加到父文档的列表中
       if (newDoc.parentDocumentId) {
         queryClient.setQueryData<EditorDocument[]>(
@@ -163,11 +202,11 @@ export function useCreateDocument() {
       }
 
       // 同时使根列表失效（如果有的话）
-      queryClient.invalidateQueries({ queryKey: documentKeys.list() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.list() });
 
       // 如果创建了子文档，也使父文档的列表失效（作为后备，确保数据同步）
       if (newDoc.parentDocumentId) {
-        queryClient.invalidateQueries({
+        await queryClient.invalidateQueries({
           queryKey: documentKeys.list(newDoc.parentDocumentId),
         });
       }
@@ -181,7 +220,7 @@ export function useUpdateDocument() {
   return useMutation({
     mutationKey: documentKeys.updates(),
     mutationFn: updateDocument,
-    onSuccess: (updatedDoc, variables) => {
+    onSuccess: async (updatedDoc, variables) => {
       // 更新单个文档的缓存
       queryClient.setQueryData(
         documentKeys.detail(variables.documentId),
@@ -195,7 +234,7 @@ export function useUpdateDocument() {
 
       if (needsListRefresh) {
         // 使所有列表查询失效
-        queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+        await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       }
 
       // 发送事件通知其他组件（保持向后兼容）
@@ -211,9 +250,9 @@ export function useArchive() {
 
   return useMutation({
     mutationFn: deleteDocument,
-    onSuccess: () => {
+    onSuccess: async () => {
       // 删除后刷新所有列表
-      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },
   });
 }
@@ -223,14 +262,58 @@ export function usePublishDocument() {
 
   return useMutation({
     mutationFn: publishDocument,
-    onSuccess: (updatedDoc) => {
+    onSuccess: async (updatedDoc) => {
       // 更新单个文档的缓存
-      queryClient.setQueryData(
-        documentKeys.detail(updatedDoc.id),
-        updatedDoc
-      );
+      queryClient.setQueryData(documentKeys.detail(updatedDoc.id), updatedDoc);
       // 刷新列表
-      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },
+  });
+}
+
+export function useDuplicateDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: duplicateDocument,
+    onSuccess: async (newDoc) => {
+      // 刷新所有列表以显示新复制的文档
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      // 如果复制的是子文档,也刷新父文档的列表
+      if (newDoc.parentDocumentId) {
+        await queryClient.invalidateQueries({
+          queryKey: documentKeys.list(newDoc.parentDocumentId),
+        });
+      }
+    },
+  });
+}
+
+export function useMoveDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: moveDocument,
+    onSuccess: async () => {
+      // 移动后刷新所有列表
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+    },
+  });
+}
+
+async function fetchDocumentPath(documentId: string): Promise<string[]> {
+  const response = await fetch(`/api/editor-documents/${documentId}/path`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch document path");
+  }
+  return response.json();
+}
+
+export function useDocumentPath(documentId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...documentKeys.details(), "path", documentId],
+    queryFn: () => fetchDocumentPath(documentId!),
+    enabled: !!documentId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

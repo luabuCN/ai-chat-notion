@@ -17,6 +17,7 @@ import DocumentsList from "./sidebar-documents-list";
 import { useCreateDocument } from "@/hooks/use-document-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SidebarDocumentsProvider } from "./sidebar-documents-context";
 
 export function SidebarDocuments() {
   const router = useRouter();
@@ -73,9 +74,11 @@ export function SidebarDocuments() {
           </Tooltip>
         </TooltipProvider>
       </SidebarGroupLabel>
-      <SidebarMenu>
-        <DocumentsList />
-      </SidebarMenu>
+      <SidebarDocumentsProvider>
+        <SidebarMenu>
+          <DocumentsList />
+        </SidebarMenu>
+      </SidebarDocumentsProvider>
     </SidebarGroup>
   );
 }

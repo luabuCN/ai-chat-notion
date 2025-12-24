@@ -1,4 +1,3 @@
-import { Toaster } from "sonner";
 import { EditorHeaderWrapper } from "@/components/editor/editor-header-wrapper";
 import { EditorContent } from "@/components/editor/editor-content";
 import { getUserLocale } from "@/i18n/service";
@@ -19,7 +18,6 @@ export default async function Page({
         </div>
         <EditorContent locale={locale} documentId={id} />
       </div>
-      <Toaster />
     </div>
   );
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useSidebarDocumentsContext } from "./sidebar-documents-context";
 import Item from "./sidebar-document-item";
-import { cn } from "@/lib/utils";
 import { FileIcon } from "lucide-react";
 import type { EditorDocument } from "@repo/database";
 import { useSidebarDocuments } from "@/hooks/use-document-query";
@@ -21,14 +20,7 @@ const DocumentsList = ({
 }: DocumentsListProps) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  const onExpand = (documentId: string) => {
-    setExpanded((prev) => ({
-      ...prev,
-      [documentId]: !prev[documentId],
-    }));
-  };
+  const { expanded, onExpand } = useSidebarDocumentsContext();
 
   // useSidebarDocuments hook 已经内置了监听 document-updated 事件的逻辑，会自动刷新
   const {
