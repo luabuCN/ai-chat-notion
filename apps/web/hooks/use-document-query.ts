@@ -10,6 +10,7 @@ export const documentKeys = {
   details: () => [...documentKeys.all, "detail"] as const,
   detail: (id: string) => [...documentKeys.details(), id] as const,
   updates: () => [...documentKeys.all, "update"] as const,
+  trash: () => [...documentKeys.all, "trash"] as const,
 };
 
 // API Functions
@@ -250,9 +251,15 @@ export function useArchive() {
 
   return useMutation({
     mutationFn: deleteDocument,
-    onSuccess: async () => {
+    onSuccess: async (_, documentId) => {
       // 删除后刷新所有列表
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      // 刷新垃圾箱列表
+      await queryClient.invalidateQueries({ queryKey: documentKeys.trash() });
+      // 刷新当前文档详情（以便 UI 更新为已删除状态）
+      await queryClient.invalidateQueries({
+        queryKey: documentKeys.detail(documentId),
+      });
     },
   });
 }
@@ -315,5 +322,82 @@ export function useDocumentPath(documentId: string | null | undefined) {
     queryFn: () => fetchDocumentPath(documentId!),
     enabled: !!documentId,
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Trash Hooks
+
+async function fetchTrashDocuments(): Promise<EditorDocument[]> {
+  const response = await fetch("/api/editor-documents?onlyDeleted=true");
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to fetch trash documents");
+  }
+  return response.json();
+}
+
+async function restoreDocument(documentId: string): Promise<EditorDocument> {
+  const response = await fetch(`/api/editor-documents/${documentId}/restore`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to restore document");
+  }
+
+  return response.json();
+}
+
+async function permanentDeleteDocument(documentId: string): Promise<void> {
+  const response = await fetch(
+    `/api/editor-documents/${documentId}?permanent=true`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(
+      errorData.message || "Failed to permanently delete document"
+    );
+  }
+}
+
+export function useTrashDocuments() {
+  return useQuery({
+    queryKey: documentKeys.trash(),
+    queryFn: fetchTrashDocuments,
+  });
+}
+
+export function useRestoreDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: restoreDocument,
+    onSuccess: async (updatedDoc) => {
+      // Refresh trash list
+      await queryClient.invalidateQueries({ queryKey: documentKeys.trash() });
+      // Refresh main lists as document reappears
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      // Refresh the specific document details
+      await queryClient.invalidateQueries({
+        queryKey: documentKeys.detail(updatedDoc.id),
+      });
+    },
+  });
+}
+
+export function usePermanentDeleteDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: permanentDeleteDocument,
+    onSuccess: async () => {
+      // Refresh trash list
+      await queryClient.invalidateQueries({ queryKey: documentKeys.trash() });
+    },
   });
 }

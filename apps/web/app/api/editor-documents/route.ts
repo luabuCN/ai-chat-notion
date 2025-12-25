@@ -15,12 +15,14 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const parentDocumentId = searchParams.get("parentDocumentId");
   const includeDeleted = searchParams.get("includeDeleted") === "true";
+  const onlyDeleted = searchParams.get("onlyDeleted") === "true";
 
   try {
     const documents = await getEditorDocumentsByUserId({
       userId: session.user.id,
       parentDocumentId: parentDocumentId ?? null,
       includeDeleted,
+      onlyDeleted,
     });
 
     return Response.json(documents, { status: 200 });
@@ -85,4 +87,3 @@ export async function POST(request: Request) {
     ).toResponse();
   }
 }
-

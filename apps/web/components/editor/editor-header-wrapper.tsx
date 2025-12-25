@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutationState } from "@tanstack/react-query";
 import { EditorHeader } from "./editor-header";
+import { TrashBanner } from "./trash-banner";
 import { useGetDocument, documentKeys } from "@/hooks/use-document-query";
 
 interface EditorHeaderWrapperProps {
@@ -35,6 +36,14 @@ export function EditorHeaderWrapper({
       return () => clearTimeout(timer);
     }
   }, [latestMutation?.submittedAt, latestMutation?.status]);
+
+  if (document?.deletedAt) {
+    return (
+      <div className="flex flex-col">
+        <TrashBanner documentId={documentId} />
+      </div>
+    );
+  }
 
   return (
     <EditorHeader

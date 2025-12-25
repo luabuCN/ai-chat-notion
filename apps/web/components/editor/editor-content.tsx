@@ -141,6 +141,7 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     if (
       !documentId ||
       !document ||
+      document.deletedAt || // Prevent saving if deleted
       contentDebounced === document.content ||
       contentDebounced === prevContentRef.current
     )
@@ -167,6 +168,7 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     contentDebounced,
     documentId,
     document?.content,
+    document?.deletedAt,
     updateDocumentMutation.mutate,
   ]);
 
@@ -244,6 +246,8 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     setContent(newContent);
   }, []);
 
+  const isReadOnly = !!document?.deletedAt;
+
   if (isLoading) {
     return (
       <div className="min-h-full flex items-center justify-center">
@@ -266,6 +270,7 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
         onIconChange={handleIconChange}
         onCoverChange={handleCoverChange}
         onCoverPositionChange={handleCoverPositionChange}
+        readonly={isReadOnly}
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">
@@ -274,6 +279,7 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
             key={`${documentId}-${content ? "loaded" : "empty"}`}
             initialContent={content}
             onChange={handleContentChange}
+            readonly={isReadOnly}
           />
         )}
       </div>

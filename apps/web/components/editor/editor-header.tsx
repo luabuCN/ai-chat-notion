@@ -35,6 +35,7 @@ interface EditorHeaderProps {
   isFavorite?: boolean;
   isSaving?: boolean;
   isSaved?: boolean;
+  isDeleted?: boolean;
 }
 
 export function EditorHeader({
@@ -46,6 +47,7 @@ export function EditorHeader({
   isFavorite = false,
   isSaving = false,
   isSaved = false,
+  isDeleted = false,
 }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
@@ -122,25 +124,29 @@ export function EditorHeader({
           <MessageSquare className="h-4 w-4" />
         </Button> */}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground"
-          onClick={toggleFavorite}
-          disabled={isUpdatingFavorite}
-        >
-          <Star
-            className={cn(
-              "h-4 w-4 transition-colors",
-              isFavorite && "fill-yellow-400 text-yellow-400"
-            )}
-          />
-        </Button>
+        {!isDeleted && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              onClick={toggleFavorite}
+              disabled={isUpdatingFavorite}
+            >
+              <Star
+                className={cn(
+                  "h-4 w-4 transition-colors",
+                  isFavorite && "fill-yellow-400 text-yellow-400"
+                )}
+              />
+            </Button>
 
-        <DocumentActionsMenu
-          documentId={documentId}
-          title={documentTitle || "Untitled"}
-        />
+            <DocumentActionsMenu
+              documentId={documentId}
+              title={documentTitle || "Untitled"}
+            />
+          </>
+        )}
       </div>
     </header>
   );

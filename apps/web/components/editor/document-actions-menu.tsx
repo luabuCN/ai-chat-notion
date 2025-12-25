@@ -93,12 +93,14 @@ export function DocumentActionsMenu({
     }
   };
 
-  const handleArchive = async () => {
+  const handleArchive = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
     try {
       await archiveMutation.mutateAsync(documentId);
       toast.success("文档已移至垃圾箱");
-      // Navigate away from the deleted document
-      router.push("/editor");
+      setTimeout(() => {
+        router.push("/editor");
+      }, 0);
     } catch (error) {
       toast.error("删除文档失败");
       console.error("Failed to archive document:", error);

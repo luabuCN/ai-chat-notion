@@ -9,11 +9,8 @@ import { SidebarHistory } from "@/components/sidebar-history";
 import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { SidebarToggle } from "@/components/sidebar-toggle";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@repo/ui";
+import { SidebarTrash } from "@/components/sidebar-trash";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import {
   Sidebar,
   SidebarContent,
@@ -86,6 +83,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             </SidebarGroupContent>
           </SidebarGroup>
           <SidebarDocuments />
+          <SidebarTrash />
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
       </Sidebar>

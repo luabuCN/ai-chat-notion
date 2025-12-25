@@ -756,20 +756,26 @@ export async function getEditorDocumentsByUserId({
   userId,
   parentDocumentId,
   includeDeleted = false,
+  onlyDeleted = false,
 }: {
   userId: string;
   parentDocumentId?: string | null;
   includeDeleted?: boolean;
+  onlyDeleted?: boolean;
 }) {
   try {
     const where: {
       userId: string;
-      parentDocumentId: string | null | undefined;
-      deletedAt: Date | null | undefined;
+      parentDocumentId?: string | null | undefined;
+      deletedAt: Date | object | null | undefined;
     } = {
       userId,
-      parentDocumentId: parentDocumentId ?? null,
-      deletedAt: includeDeleted ? undefined : null,
+      parentDocumentId: onlyDeleted ? undefined : parentDocumentId ?? null, // searching trash ignores folder structure for now
+      deletedAt: onlyDeleted
+        ? { not: null }
+        : includeDeleted
+        ? undefined
+        : null,
     };
 
     return await prisma.editorDocument.findMany({
