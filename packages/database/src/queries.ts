@@ -289,6 +289,19 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
+export async function getChatTitle({ id }: { id: string }) {
+  try {
+    const chat = await prisma.chat.findUnique({
+      where: { id },
+      select: { title: true, userId: true },
+    });
+
+    return chat;
+  } catch (_error) {
+    throw new ChatSDKError("bad_request:database", "Failed to get chat title");
+  }
+}
+
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
   try {
     return await prisma.message.createMany({

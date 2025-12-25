@@ -25,7 +25,7 @@ import {
   useArchive,
 } from "@/hooks/use-document-query";
 import { useEditorExport } from "@repo/editor";
-import { MoveDocumentDialog } from "./move-document-dialog";
+import { DocumentSelectorDialog } from "./document-selector-dialog";
 import { toast } from "sonner";
 
 interface DocumentActionsMenuProps {
@@ -158,13 +158,14 @@ export function DocumentActionsMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <MoveDocumentDialog
+      <DocumentSelectorDialog
         open={isMoveDialogOpen}
         onOpenChange={setIsMoveDialogOpen}
-        documentId={documentId}
-        documentTitle={title}
-        onMove={handleMove}
-        isMoving={moveMutation.isPending}
+        onSelect={handleMove}
+        isLoading={moveMutation.isPending}
+        title="移动文档"
+        placeholder="将页面移至..."
+        excludeDocumentId={documentId}
       />
     </>
   );
