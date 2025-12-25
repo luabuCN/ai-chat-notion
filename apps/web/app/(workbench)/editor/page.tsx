@@ -1,4 +1,3 @@
-import { Toaster } from "sonner";
 export default async function Page() {
   // 如果没有文档 ID，重定向到创建新文档或显示空状态
   // 这里可以显示一个欢迎页面或自动创建新文档
@@ -12,7 +11,6 @@ export default async function Page() {
           </div>
         </div>
       </div>
-      <Toaster />
     </div>
   );
 }

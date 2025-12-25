@@ -120,7 +120,7 @@ const AiWriterView = ({ editor, node, getPos }: NodeViewProps) => {
     <NodeViewWrapper>
       <div className="ai-writer relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-b from-background to-muted/20 shadow-lg">
         {/* Header */}
-        <div className="flex items-center gap-2 border-b border-border/50 bg-muted/30 px-4 py-3">
+        <div className="flex items-center gap-2 border-b border-border/50 bg-muted/30 px-4 py-3 h-16">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm">
             <SparklesIcon className="h-4 w-4 text-white" />
           </div>

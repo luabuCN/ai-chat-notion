@@ -46,6 +46,7 @@ export function DocumentActionsMenu({
 
   const [isExporting, setIsExporting] = useState(false);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const isLoading =
     isExporting ||
@@ -55,6 +56,7 @@ export function DocumentActionsMenu({
 
   const handleDuplicate = async () => {
     try {
+      setIsMenuOpen(false);
       const newDoc = await duplicateMutation.mutateAsync(documentId);
       toast.success("文档已复制");
       // Navigate to the new document
@@ -70,6 +72,7 @@ export function DocumentActionsMenu({
       await moveMutation.mutateAsync({ documentId, parentDocumentId });
       toast.success("文档已移动");
       setIsMoveDialogOpen(false);
+      setIsMenuOpen(false);
       router.refresh();
     } catch (error) {
       toast.error("移动文档失败");
@@ -81,6 +84,7 @@ export function DocumentActionsMenu({
     if (!document?.content) return;
 
     try {
+      setIsMenuOpen(false);
       setIsExporting(true);
       const content = JSON.parse(document.content);
       await exportDocument(content, title);
@@ -95,6 +99,7 @@ export function DocumentActionsMenu({
 
   const handleArchive = async (e?: React.MouseEvent) => {
     e?.preventDefault();
+    setIsMenuOpen(false);
     try {
       await archiveMutation.mutateAsync(documentId);
       toast.success("文档已移至垃圾箱");
@@ -109,7 +114,7 @@ export function DocumentActionsMenu({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
