@@ -103,8 +103,8 @@ const Item = ({
             error instanceof Error
               ? error.message
               : typeof error === "string"
-                ? error
-                : "创建新笔记失败";
+              ? error
+              : "创建新笔记失败";
           toast.error(errorMessage);
         },
       }
@@ -131,35 +131,46 @@ const Item = ({
         paddingLeft: level ? `${level * 12 + 12}px` : "12px",
       }}
       className={cn(
-        "group/item relative min-h-[27px] text-sm py-1 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium",
+        "group/item relative min-h-[27px] text-sm py-1 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium cursor-pointer",
         isHovered ? "pr-12" : "pr-3",
         isActive && " bg-primary/5 text-primary"
       )}
     >
-      {!!id && (
+      <div
+        role={!!id ? "button" : undefined}
+        tabIndex={!!id ? 0 : -1}
+        className={cn(
+          "shrink-0 h-[18px] w-[18px] mr-2 text-muted-foreground relative",
+          !!id && "cursor-pointer"
+        )}
+        onClick={(e) => !!id && handleExpand(e)}
+        onKeyDown={(e) => {
+          if (!!id && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            handleExpand(
+              e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>
+            );
+          }
+        }}
+      >
+        {!!id && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity z-10 hover:bg-neutral-300 dark:hover:bg-neutral-600 rounded-sm">
+            <ChevronIcon className="h-4 w-4 text-muted-foreground" />
+          </div>
+        )}
         <div
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleExpand(
-                e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>
-              );
-            }
-          }}
-          className=" h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600 mr-1"
-          onClick={handleExpand}
+          className={cn(
+            "h-full w-full flex items-center justify-center transition-opacity",
+            !!id && "group-hover/item:opacity-0"
+          )}
         >
-          <ChevronIcon className="h-4 w-4 rounded-sm hover:bg-neutral-300" />
+          {documentIcon ? (
+            <div className="shrink-0">{documentIcon}</div>
+          ) : (
+            <Icon className="shrink-0 h-[18px] w-[18px]" />
+          )}
         </div>
-      )}
-
-      {documentIcon ? (
-        <div className="shrink-0 h-[18px] mr-2 ">{documentIcon}</div>
-      ) : (
-        <Icon className=" shrink-0 h-[18px] w-[18px] mr-2 text-muted-foreground" />
-      )}
+      </div>
 
       <span className="truncate flex-1 min-w-0">{label}</span>
       {isSearch && (

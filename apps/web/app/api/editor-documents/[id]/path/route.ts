@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -12,7 +12,8 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const path = await getEditorDocumentPath(params.id);
+    const { id } = await params;
+    const path = await getEditorDocumentPath(id);
 
     return NextResponse.json(path);
   } catch (error) {
