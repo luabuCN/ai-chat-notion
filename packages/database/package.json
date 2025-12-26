@@ -10,12 +10,12 @@
   },
   "scripts": {
     "build": "prisma generate",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push --accept-data-loss",
-    "db:pull": "prisma db pull",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset",
+    "db:generate": "dotenv -e ../../.env.local -- prisma generate",
+    "db:migrate": "dotenv -e ../../.env.local -- prisma migrate dev",
+    "db:push": "dotenv -e ../../.env.local -- prisma db push --accept-data-loss",
+    "db:pull": "dotenv -e ../../.env.local -- prisma db pull",
+    "db:studio": "dotenv -e ../../.env.local -- prisma studio",
+    "db:reset": "dotenv -e ../../.env.local -- prisma migrate reset",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,5 +30,15 @@
   "devDependencies": {
     "prisma": "6",
     "typescript": "^5.6.3"
+  },
+  "turbo": {
+    "extends": [
+      "//"
+    ],
+    "tasks": {
+      "build": {
+        "outputs": []
+      }
+    }
   }
 }

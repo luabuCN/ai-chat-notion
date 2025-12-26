@@ -646,7 +646,7 @@ export async function getMessageCountByUserId({
       return 0;
     }
 
-    const chatIds = chats.map(({ id: chatId }) => chatId);
+    const chatIds = chats.map(({ id: chatId }: { id: string }) => chatId);
 
     const count = await prisma.message.count({
       where: {
@@ -987,7 +987,7 @@ export async function moveEditorDocument({
 
     // Check for circular reference (cannot move to own descendant)
     if (parentDocumentId) {
-      let currentParent = parentDocumentId;
+      let currentParent: string | null = parentDocumentId;
       while (currentParent) {
         if (currentParent === id) {
           throw new ChatSDKError(
@@ -995,7 +995,7 @@ export async function moveEditorDocument({
             "Cannot move document to its own descendant"
           );
         }
-        const parent = await prisma.editorDocument.findUnique({
+        const parent: any = await prisma.editorDocument.findUnique({
           where: { id: currentParent },
           select: { parentDocumentId: true },
         });

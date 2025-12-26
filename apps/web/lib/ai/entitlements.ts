@@ -1,5 +1,5 @@
 import type { UserType } from "@/app/(auth)/auth";
-import type { ChatModel } from "./models";
+import type { ChatModel } from "@repo/ai";
 
 type Entitlements = {
   maxMessagesPerDay: number;
