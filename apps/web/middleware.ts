@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
+import {
+  guestRegex,
+  isDevelopmentEnvironment,
+  isLocalHttpEnvironment,
+} from "./lib/constants";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,14 +17,18 @@ export async function middleware(request: NextRequest) {
     return new Response("pong", { status: 200 });
   }
 
-  if (pathname.startsWith("/api/auth") || pathname.startsWith("/api/uploadthing") || pathname.startsWith("/api/models")) {
+  if (
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/uploadthing") ||
+    pathname.startsWith("/api/models")
+  ) {
     return NextResponse.next();
   }
 
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
-    secureCookie: !isDevelopmentEnvironment,
+    secureCookie: !isDevelopmentEnvironment && !isLocalHttpEnvironment,
   });
 
   if (!token) {
