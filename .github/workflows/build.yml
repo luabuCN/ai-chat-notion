@@ -38,15 +38,23 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          # 构建需要的环境变量
+          # 构建需要的环境变量 (须与 GitHub Secrets 中配置的名称一致)
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
-          AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.API_KEY }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          UPLOADTHING_TOKEN: ${{ secrets.UPLOADTHING_TOKEN }}
+
+      - name: Verify standalone output
+        run: |
+          echo "=== Checking standalone output structure ==="
+          ls -la apps/web/.next/standalone/ || echo "standalone folder not found"
+          ls -la apps/web/.next/standalone/apps/web/ || echo "apps/web folder not found"
 
       - name: Copy static assets for standalone
         run: |
+          # Create .next directory in standalone if it doesn't exist
+          mkdir -p apps/web/.next/standalone/apps/web/.next
           cp -r apps/web/public apps/web/.next/standalone/apps/web/public
           cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
 
