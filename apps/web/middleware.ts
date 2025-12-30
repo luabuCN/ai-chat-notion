@@ -31,15 +31,37 @@ export async function middleware(request: NextRequest) {
     secureCookie: !isDevelopmentEnvironment && !isLocalHttpEnvironment,
   });
 
-  if (!token) {
-    const redirectUrl = encodeURIComponent(request.url);
+  // 公开路由：首页和预览页允许访客访问
+  const publicRoutes = ["/", "/preview"];
+  const isPublicRoute =
+    pathname === "/" ||
+    publicRoutes.some((route) => route !== "/" && pathname.startsWith(route));
 
+  if (!token) {
+    // 公开路由：自动创建访客账户
+    if (isPublicRoute) {
+      const redirectUrl = encodeURIComponent(request.url);
+      return NextResponse.redirect(
+        new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url)
+      );
+    }
+
+    // 其他路由：重定向到登录页
+    const callbackUrl = encodeURIComponent(request.url);
     return NextResponse.redirect(
-      new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url)
+      new URL(`/login?callbackUrl=${callbackUrl}`, request.url)
     );
   }
 
   const isGuest = guestRegex.test(token?.email ?? "");
+
+  // 访客用户访问非公开路由时，重定向到登录页
+  if (isGuest && !isPublicRoute) {
+    const callbackUrl = encodeURIComponent(request.url);
+    return NextResponse.redirect(
+      new URL(`/login?callbackUrl=${callbackUrl}`, request.url)
+    );
+  }
 
   if (token && !isGuest && ["/login", "/register"].includes(pathname)) {
     return NextResponse.redirect(new URL("/", request.url));

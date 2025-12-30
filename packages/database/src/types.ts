@@ -2,7 +2,6 @@ import type { UIMessage } from "ai";
 import type { Suggestion } from "./queries";
 import type { AppUsage } from "./usage";
 
-export type VisibilityType = "public" | "private";
 export type ArtifactKind = "text" | "code" | "image" | "sheet";
 
 export type ChatTools = any;

@@ -6,7 +6,6 @@ import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@repo/ai";
 import { getChatById, getMessagesByChatId } from "@repo/database";
-import type { VisibilityType } from "@/components/visibility-selector";
 import { convertToUIMessages } from "@/lib/utils";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
@@ -23,14 +22,13 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     redirect("/api/auth/guest");
   }
 
-  if (chat.visibility === "private") {
-    if (!session.user) {
-      return notFound();
-    }
+  // 聊天现在都是私有的，只有所有者可以访问
+  if (!session.user) {
+    return notFound();
+  }
 
-    if (session.user.id !== chat.userId) {
-      return notFound();
-    }
+  if (session.user.id !== chat.userId) {
+    return notFound();
   }
 
   const messagesFromDb = await getMessagesByChatId({
@@ -52,7 +50,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           initialChatModel={DEFAULT_CHAT_MODEL}
           initialLastContext={chat.lastContext ?? undefined}
           initialMessages={uiMessages}
-          initialVisibilityType={chat.visibility as VisibilityType}
           isReadonly={session?.user?.id !== chat.userId}
         />
         <DataStreamHandler />
@@ -68,7 +65,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         initialChatModel={chatModelFromCookie.value}
         initialLastContext={chat.lastContext ?? undefined}
         initialMessages={uiMessages}
-        initialVisibilityType={chat.visibility as VisibilityType}
         isReadonly={session?.user?.id !== chat.userId}
       />
       <DataStreamHandler />

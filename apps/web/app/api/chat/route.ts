@@ -13,7 +13,6 @@ import {
   type ResumableStreamContext,
 } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
-import type { VisibilityType } from "@/components/visibility-selector";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import type { ChatModel } from "@repo/ai";
 import { type RequestHints, systemPrompt } from "@repo/ai";
@@ -72,8 +71,8 @@ export async function POST(request: Request) {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
   } catch (_) {
-    console.log('error', _);
-    
+    console.log("error", _);
+
     return new ChatSDKError("bad_request:api").toResponse();
   }
 
@@ -81,20 +80,18 @@ export async function POST(request: Request) {
     const {
       id,
       message,
-      selectedVisibilityType,
       selectedModelSlug,
       enableReasoning,
       modelSupportedParameters,
     }: {
       id: string;
       message: ChatMessage;
-      selectedVisibilityType: VisibilityType;
       selectedModelSlug?: string;
       enableReasoning?: boolean;
       modelSupportedParameters?: string[];
     } = requestBody;
-    console.log(requestBody,'requestBody--------');
-    
+    console.log(requestBody, "requestBody--------");
+
     const session = await auth();
 
     if (!session?.user) {
@@ -130,25 +127,24 @@ export async function POST(request: Request) {
         id,
         userId: session.user.id,
         title,
-        visibility: selectedVisibilityType,
       });
       // New chat - no need to fetch messages, it's empty
     }
 
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
-    
+
     // 确保每个 assistant 消息至少有一个非空的文本部分
     // 这可以防止 Amazon Bedrock 报错："The text field in the ContentBlock object is blank"
     const sanitizedMessages = uiMessages.map((msg) => {
       if (msg.role === "assistant") {
         const parts = msg.parts || [];
         console.log(JSON.stringify(parts), "parts");
-        
+
         const hasTextPart = parts.some(
           (part) => part.type === "text" && part.text?.trim()
         );
-        const hasToolParts = parts.some(
-          (part) => part.type.startsWith("tool-")
+        const hasToolParts = parts.some((part) =>
+          part.type.startsWith("tool-")
         );
 
         // 如果只有工具调用而没有文本内容，添加一个占位符文本
@@ -197,7 +193,7 @@ export async function POST(request: Request) {
     let finalMergedUsage: AppUsage | undefined;
 
     // Use custom model if provided, otherwise use first available model
-    const modelSlug = selectedModelSlug || await getFirstModelSlug();
+    const modelSlug = selectedModelSlug || (await getFirstModelSlug());
     const modelProvider = getProviderWithModel(modelSlug);
 
     // Check if model supports tools based on supported_parameters from frontend
@@ -211,27 +207,27 @@ export async function POST(request: Request) {
           messages: convertToModelMessages(sanitizedMessages),
           stopWhen: stepCountIs(5),
           maxOutputTokens: 5000,
-          experimental_activeTools:
-          !supportsTools
-              ? []
-              : [
-                  "getWeather",
-                  "createDocument",
-                  "updateDocument",
-                  "requestSuggestions",
-                ],
+          experimental_activeTools: !supportsTools
+            ? []
+            : [
+                "getWeather",
+                "createDocument",
+                "updateDocument",
+                "requestSuggestions",
+              ],
           experimental_transform: smoothStream({ chunking: "word" }),
-          ...(supportsTools && !enableReasoning && {
-            tools: {
-              getWeather,
-              createDocument: createDocument({ session, dataStream }),
-              updateDocument: updateDocument({ session, dataStream }),
-              requestSuggestions: requestSuggestions({
-                session,
-                dataStream,
-              }),
-            },
-          }),
+          ...(supportsTools &&
+            !enableReasoning && {
+              tools: {
+                getWeather,
+                createDocument: createDocument({ session, dataStream }),
+                updateDocument: updateDocument({ session, dataStream }),
+                requestSuggestions: requestSuggestions({
+                  session,
+                  dataStream,
+                }),
+              },
+            }),
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
@@ -280,7 +276,6 @@ export async function POST(request: Request) {
         return "Oops, an error occurred!";
       },
     });
-
 
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {

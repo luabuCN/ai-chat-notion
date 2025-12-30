@@ -5,7 +5,7 @@ import type { AppUsage } from "./usage";
 import { generateUUID } from "./utils";
 import { prisma } from "./client";
 import { generateHashedPassword } from "./password";
-import type { VisibilityType, ArtifactKind } from "./types";
+import type { ArtifactKind } from "./types";
 
 // Types
 export type User = {
@@ -19,7 +19,6 @@ export type Chat = {
   createdAt: Date;
   title: string;
   userId: string;
-  visibility: string;
   lastContext: AppUsage | null;
 };
 
@@ -130,12 +129,10 @@ export async function saveChat({
   id,
   userId,
   title,
-  visibility,
 }: {
   id: string;
   userId: string;
   title: string;
-  visibility: VisibilityType;
 }) {
   try {
     return await prisma.chat.create({
@@ -144,7 +141,6 @@ export async function saveChat({
         createdAt: new Date(),
         userId,
         title,
-        visibility,
       },
     });
   } catch (_error) {
@@ -583,26 +579,6 @@ export async function deleteMessagesByChatIdAfterTimestamp({
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to delete messages by chat id after timestamp"
-    );
-  }
-}
-
-export async function updateChatVisibilityById({
-  chatId,
-  visibility,
-}: {
-  chatId: string;
-  visibility: "private" | "public";
-}) {
-  try {
-    return await prisma.chat.update({
-      where: { id: chatId },
-      data: { visibility },
-    });
-  } catch (_error) {
-    throw new ChatSDKError(
-      "bad_request:database",
-      "Failed to update chat visibility by id"
     );
   }
 }

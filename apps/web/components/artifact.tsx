@@ -27,7 +27,6 @@ import { MultimodalInput } from "./multimodal-input";
 import { Toolbar } from "./toolbar";
 import { useSidebar } from "@repo/ui";
 import { VersionFooter } from "./version-footer";
-import type { VisibilityType } from "./visibility-selector";
 
 export const artifactDefinitions = [
   textArtifact,
@@ -66,7 +65,6 @@ function PureArtifact({
   regenerate,
   votes,
   isReadonly,
-  selectedVisibilityType,
   selectedModelId,
 }: {
   chatId: string;
@@ -82,7 +80,6 @@ function PureArtifact({
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
-  selectedVisibilityType: VisibilityType;
   selectedModelId: string;
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
@@ -338,7 +335,6 @@ function PureArtifact({
                     input={input}
                     messages={messages}
                     selectedModelId={selectedModelId}
-                    selectedVisibilityType={selectedVisibilityType}
                     sendMessage={sendMessage}
                     setAttachments={setAttachments}
                     setInput={setInput}
@@ -519,9 +515,6 @@ export const Artifact = memo(PureArtifact, (prevProps, nextProps) => {
     return false;
   }
   if (!equal(prevProps.messages, nextProps.messages)) {
-    return false;
-  }
-  if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
     return false;
   }
 

@@ -20,7 +20,6 @@ model Chat {
   createdAt   DateTime
   userId      String
   title       String
-  visibility  String   @default("private") @db.VarChar(10)
   lastContext Json?
 }
 

@@ -7,7 +7,9 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "turbo format",
-    "db:generate": "turbo db:generate"
+    "db:generate": "turbo db:generate",
+    "db:push": "turbo db:push",
+    "db:studio": "turbo db:studio"
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0",
