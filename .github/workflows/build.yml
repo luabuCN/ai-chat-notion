@@ -44,9 +44,15 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.API_KEY }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
           UPLOADTHING_TOKEN: ${{ secrets.UPLOADTHING_TOKEN }}
+          # 禁用 Turbo 缓存，确保每次都重新构建
+          TURBO_FORCE: true
 
-      - name: Verify standalone output
+      - name: Debug - Check build output
         run: |
+          echo "=== Checking apps/web directory ==="
+          ls -la apps/web/ || echo "apps/web folder not found"
+          echo "=== Checking apps/web/.next directory ==="
+          ls -la apps/web/.next/ || echo ".next folder not found"
           echo "=== Checking standalone output structure ==="
           ls -la apps/web/.next/standalone/ || echo "standalone folder not found"
           ls -la apps/web/.next/standalone/apps/web/ || echo "apps/web folder not found"
@@ -78,7 +84,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: standalone-build
+          name: build-package
           path: standalone
 
       - name: Set up Docker Buildx
