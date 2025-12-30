@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import path from "path";
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -8,6 +9,7 @@ const nextConfig: NextConfig = {
   experimental: {
     ppr: true,
   },
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   reactStrictMode: false,
   transpilePackages: ["@repo/database"],
   images: {

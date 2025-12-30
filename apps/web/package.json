@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "dotenv -e ../../.env.local -- next dev --turbo --port 3000",
     "build": "dotenv -e ../../.env.local -- next build",
+    "postbuild": "powershell -Command \"New-Item -ItemType Directory -Force -Path .next/standalone/apps/web/.next | Out-Null; Copy-Item -Recurse -Force .next/static .next/standalone/apps/web/.next/; Copy-Item -Recurse -Force public .next/standalone/apps/web/\"",
     "start": "dotenv -e ../../.env.local -- next start",
     "lint": "npx ultracite@latest check",
     "format": "npx ultracite@latest fix"
@@ -16,7 +17,6 @@
     "@ai-sdk/react": "2.0.28",
     "@ai-sdk/xai": "2.0.13",
     "@ariakit/react": "^0.4.20",
-    "@blocknote/xl-ai": "^0.44.0",
     "@codemirror/lang-javascript": "^6.2.2",
     "@codemirror/lang-python": "^6.1.6",
     "@codemirror/state": "^6.5.0",

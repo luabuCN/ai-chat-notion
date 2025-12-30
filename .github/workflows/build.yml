@@ -62,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: standalone-build
-          path: apps/web/.next/standalone
+          path: apps/web/.next
           retention-days: 7
 
   # 发布到 Docker Registry（可选）

@@ -12,7 +12,6 @@
   "dependencies": {
     "ai": "5.0.28",
     "@ai-sdk/gateway": "^1.0.15",
-    "@blocknote/xl-ai": "^0.44.0",
     "@openrouter/ai-sdk-provider": "^1.2.6",
     "@repo/database": "workspace:*",
     "@vercel/functions": "^2.0.0"
