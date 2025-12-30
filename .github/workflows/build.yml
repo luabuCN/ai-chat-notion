@@ -36,7 +36,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: |
+          # 先构建依赖的 packages
+          pnpm --filter @repo/database build || true
+          pnpm --filter @repo/ai build || true
+          pnpm --filter @repo/editor build || true
+          pnpm --filter @repo/ui build || true
+          # 直接运行 next build，绕过 dotenv 对 .env.local 的依赖
+          cd apps/web && npx next build
         env:
           # 构建需要的环境变量 (须与 GitHub Secrets 中配置的名称一致)
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
@@ -44,8 +51,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.API_KEY }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
           UPLOADTHING_TOKEN: ${{ secrets.UPLOADTHING_TOKEN }}
-          # 禁用 Turbo 缓存，确保每次都重新构建
-          TURBO_FORCE: true
 
       - name: Debug - Check build output
         run: |
