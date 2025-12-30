@@ -46,7 +46,8 @@ export async function GET(
     return new ChatSDKError("not_found:chat").toResponse();
   }
 
-  if (chat.visibility === "private" && chat.userId !== session.user.id) {
+  // 聊天现在都是私有的，只有所有者可以访问
+  if (chat.userId !== session.user.id) {
     return new ChatSDKError("forbidden:chat").toResponse();
   }
 
