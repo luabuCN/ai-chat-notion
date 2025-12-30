@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "dotenv -e ../../.env.local -- next dev --turbo --port 3000",
     "build": "dotenv -e ../../.env.local -- next build",
-    "postbuild": "powershell -Command \"New-Item -ItemType Directory -Force -Path .next/standalone/apps/web/.next | Out-Null; Copy-Item -Recurse -Force .next/static .next/standalone/apps/web/.next/; Copy-Item -Recurse -Force public .next/standalone/apps/web/\"",
     "start": "dotenv -e ../../.env.local -- next start",
     "lint": "npx ultracite@latest check",
     "format": "npx ultracite@latest fix"
