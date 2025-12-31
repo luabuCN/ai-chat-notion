@@ -4,7 +4,7 @@ import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import type { User } from "next-auth";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
 import { useSWRConfig } from "swr";
@@ -85,6 +85,33 @@ const groupChatsByDate = (chats: Chat[]): GroupedChats => {
   );
 };
 
+// 创建一个工厂函数，返回带 workspace 参数的 pagination key 函数
+export function createChatHistoryPaginationKey(workspaceSlug?: string) {
+  return function getChatHistoryPaginationKey(
+    pageIndex: number,
+    previousPageData: ChatHistory
+  ) {
+    if (previousPageData && previousPageData.hasMore === false) {
+      return null;
+    }
+
+    const workspaceParam = workspaceSlug ? `&workspace=${workspaceSlug}` : "";
+
+    if (pageIndex === 0) {
+      return `/api/history?limit=${PAGE_SIZE}${workspaceParam}`;
+    }
+
+    const firstChatFromPage = previousPageData.chats.at(-1);
+
+    if (!firstChatFromPage) {
+      return null;
+    }
+
+    return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}${workspaceParam}`;
+  };
+}
+
+// 保留原函数作为默认导出，不带 workspace 过滤
 export function getChatHistoryPaginationKey(
   pageIndex: number,
   previousPageData: ChatHistory
@@ -108,8 +135,16 @@ export function getChatHistoryPaginationKey(
 
 export function SidebarHistory({ user }: { user: User | undefined }) {
   const { setOpenMobile } = useSidebar();
-  const { id } = useParams();
+  const { id, slug } = useParams();
+  const workspaceSlug =
+    typeof slug === "string" ? slug : Array.isArray(slug) ? slug[0] : "";
   const { mutate: mutateSWR } = useSWRConfig();
+
+  // 使用 useMemo 缓存 pagination key 函数，当 workspaceSlug 变化时重新创建
+  const getPaginationKey = useMemo(
+    () => createChatHistoryPaginationKey(workspaceSlug),
+    [workspaceSlug]
+  );
 
   const {
     data: paginatedChatHistories,
@@ -117,7 +152,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     isValidating,
     isLoading,
     mutate,
-  } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
+  } = useSWRInfinite<ChatHistory>(getPaginationKey, fetcher, {
     fallbackData: [],
   });
 
@@ -159,7 +194,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     setShowDeleteDialog(false);
 
     if (deleteId === id) {
-      router.push("/chat");
+      router.push(`/${workspaceSlug}/chat`);
     }
   };
 
@@ -172,7 +207,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       loading: "Deleting all chats...",
       success: () => {
         mutateSWR(unstable_serialize(getChatHistoryPaginationKey));
-        router.push("/chat");
+        router.push(`/${workspaceSlug}/chat`);
         setShowDeleteAllDialog(false);
         return "All chats deleted successfully";
       },
@@ -288,6 +323,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setShowDeleteDialog(true);
                             }}
                             setOpenMobile={setOpenMobile}
+                            workspaceSlug={workspaceSlug}
                           />
                         ))}
                       </div>
@@ -308,6 +344,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setShowDeleteDialog(true);
                             }}
                             setOpenMobile={setOpenMobile}
+                            workspaceSlug={workspaceSlug}
                           />
                         ))}
                       </div>
@@ -328,6 +365,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setShowDeleteDialog(true);
                             }}
                             setOpenMobile={setOpenMobile}
+                            workspaceSlug={workspaceSlug}
                           />
                         ))}
                       </div>
@@ -348,6 +386,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setShowDeleteDialog(true);
                             }}
                             setOpenMobile={setOpenMobile}
+                            workspaceSlug={workspaceSlug}
                           />
                         ))}
                       </div>
@@ -368,6 +407,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setShowDeleteDialog(true);
                             }}
                             setOpenMobile={setOpenMobile}
+                            workspaceSlug={workspaceSlug}
                           />
                         ))}
                       </div>

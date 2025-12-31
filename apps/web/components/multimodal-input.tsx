@@ -63,6 +63,7 @@ function PureMultimodalInput({
   selectedModelId,
   onModelChange,
   usage,
+  workspaceSlug,
 }: {
   chatId: string;
   input: string;
@@ -78,6 +79,7 @@ function PureMultimodalInput({
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
+  workspaceSlug: string;
 }) {
   const [enableReasoning, setEnableReasoning] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -166,7 +168,7 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
   const submitForm = useCallback(() => {
-    window.history.pushState({}, "", `/chat/${chatId}`);
+    window.history.pushState({}, "", `/${workspaceSlug}/chat/${chatId}`);
 
     sendMessage(
       {
@@ -213,6 +215,7 @@ function PureMultimodalInput({
     enableReasoning,
     supportsReasoning,
     selectedModel,
+    workspaceSlug,
   ]);
 
   const uploadFile = useCallback(async (file: File) => {
@@ -333,7 +336,11 @@ function PureMultimodalInput({
       {messages.length === 0 &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
-          <SuggestedActions chatId={chatId} sendMessage={sendMessage} />
+          <SuggestedActions
+            chatId={chatId}
+            workspaceSlug={workspaceSlug}
+            sendMessage={sendMessage}
+          />
         )}
 
       <input

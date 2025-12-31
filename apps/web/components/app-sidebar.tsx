@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 
@@ -10,6 +9,11 @@ import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { SidebarTrash } from "@/components/sidebar-trash";
+import {
+  WorkspaceSwitcher,
+  type Workspace,
+} from "@/components/workspace-switcher";
+import { useWorkspace } from "@/components/workspace-provider";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import {
   Sidebar,
@@ -28,6 +32,17 @@ import {
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
+  const { currentWorkspace, workspaces } = useWorkspace();
+
+  const handleWorkspaceSwitch = (workspace: Workspace) => {
+    router.push(`/${workspace.slug}/chat`);
+    router.refresh();
+  };
+
+  const handleSettingsClick = (workspace: Workspace) => {
+    // TODO: 创建空间设置页面
+    console.log("Settings for workspace:", workspace.slug);
+  };
 
   return (
     <>
@@ -35,17 +50,15 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         <SidebarHeader>
           <SidebarMenu>
             <div className="flex flex-row items-center justify-between">
-              <Link
-                className="flex flex-row items-center gap-3"
-                href="/chat"
-                onClick={() => {
-                  setOpenMobile(false);
-                }}
-              >
-                <span className="cursor-pointer rounded-md px-2 text-lg font-semibold hover:bg-muted">
-                  Chatbot
-                </span>
-              </Link>
+              {/* 空间切换器 - 登录用户始终显示 */}
+              {user && (
+                <WorkspaceSwitcher
+                  currentWorkspace={currentWorkspace}
+                  workspaces={workspaces}
+                  onSwitch={handleWorkspaceSwitch}
+                  onSettingsClick={handleSettingsClick}
+                />
+              )}
               <div className="flex flex-row gap-1">
                 <SidebarToggle variant="ghost" />
               </div>
@@ -60,7 +73,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   <SidebarMenuButton
                     onClick={() => {
                       setOpenMobile(false);
-                      router.push("/chat");
+                      if (currentWorkspace) {
+                        router.push(`/${currentWorkspace.slug}/chat`);
+                      } else if (workspaces.length > 0) {
+                        router.push(`/${workspaces[0].slug}/chat`);
+                      }
                       router.refresh();
                     }}
                   >

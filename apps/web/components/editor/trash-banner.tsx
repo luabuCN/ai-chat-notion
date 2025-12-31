@@ -7,7 +7,7 @@ import {
   usePermanentDeleteDocument,
 } from "@/hooks/use-document-query";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
 interface TrashBannerProps {
   documentId: string;
@@ -15,6 +15,13 @@ interface TrashBannerProps {
 
 export function TrashBanner({ documentId }: TrashBannerProps) {
   const router = useRouter();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
   const restoreMutation = useRestoreDocument();
   const permanentDeleteMutation = usePermanentDeleteDocument();
 
@@ -22,7 +29,7 @@ export function TrashBanner({ documentId }: TrashBannerProps) {
     try {
       await restoreMutation.mutateAsync(documentId);
       toast.success("文档已还原");
-      router.push(`/editor/${documentId}`);
+      router.push(`/${workspaceSlug}/editor/${documentId}`);
     } catch (error) {
       toast.error("还原文档失败");
     }
@@ -33,7 +40,7 @@ export function TrashBanner({ documentId }: TrashBannerProps) {
       try {
         await permanentDeleteMutation.mutateAsync(documentId);
         toast.success("文档已永久删除");
-        router.push("/editor"); // Redirect to home/editor list
+        router.push(`/${workspaceSlug}/editor`); // Redirect to home/editor list
       } catch (error) {
         toast.error("永久删除失败");
       }

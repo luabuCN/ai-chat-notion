@@ -60,14 +60,14 @@ export const systemPrompt = ({
   enableReasoning,
   requestHints,
 }: {
-  enableReasoning?: Boolean,
+  enableReasoning?: Boolean;
   requestHints: RequestHints;
 }) => {
   const requestPrompt = getRequestPromptFromHints(requestHints);
   if (enableReasoning) {
     return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
   }
-  return `${regularPrompt}\n\n${requestPrompt}` ;
+  return `${regularPrompt}\n\n${requestPrompt}`;
 };
 
 export const codePrompt = `
@@ -125,9 +125,27 @@ export const updateDocumentPrompt = (
 ${currentContent}`;
 };
 
-export const titlePrompt = `\n
-    - you will generate a short title based on the first message a user begins a conversation with
-    - ensure it is not more than 40 characters long
-    - the title should be a summary of the user's message
-    - do not use quotes or colons
-    - generate the title in the same language as the user's message`
+export const titlePrompt = `
+你是一个标题生成器。根据用户的第一条消息生成一个简短的对话标题。
+
+规则：
+- 标题必须简洁，最多20个字（中文）或60个字符（英文）
+- 直接提取核心主题词，不要解释
+- 不要使用引号、冒号或标点符号
+- 不要生成完整句子，只生成关键词组合
+- 使用与用户消息相同的语言
+
+示例：
+用户消息: "什么是基本盘"
+好的标题: 基本盘概念
+坏的标题: "基本盘"这一个词在中文的语境中有很多种意思
+
+用户消息: "帮我写一个冒泡排序"  
+好的标题: 冒泡排序代码
+坏的标题: 帮你写一个冒泡排序算法
+
+用户消息: "How does React work?"
+好的标题: React工作原理
+坏的标题: Explaining how React works
+
+直接输出标题，不要有任何其他内容。`;

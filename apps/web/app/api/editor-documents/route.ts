@@ -4,6 +4,7 @@ import {
   getEditorDocumentsByUserId,
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
+import { verifyWorkspaceAccess } from "@/lib/workspace-access";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -14,12 +15,25 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const parentDocumentId = searchParams.get("parentDocumentId");
+  const workspaceId = searchParams.get("workspaceId");
   const includeDeleted = searchParams.get("includeDeleted") === "true";
   const onlyDeleted = searchParams.get("onlyDeleted") === "true";
+
+  // 如果指定了 workspaceId，验证访问权限
+  if (workspaceId) {
+    const hasAccess = await verifyWorkspaceAccess(workspaceId);
+    if (!hasAccess) {
+      return new ChatSDKError(
+        "unauthorized:document",
+        "Access denied"
+      ).toResponse();
+    }
+  }
 
   try {
     const documents = await getEditorDocumentsByUserId({
       userId: session.user.id,
+      workspaceId: workspaceId ?? undefined,
       parentDocumentId: parentDocumentId ?? null,
       includeDeleted,
       onlyDeleted,
@@ -49,12 +63,14 @@ export async function POST(request: Request) {
     const {
       title,
       content,
+      workspaceId,
       parentDocumentId,
       coverImage,
       coverImageType,
     }: {
       title: string;
       content?: string;
+      workspaceId?: string | null;
       parentDocumentId?: string | null;
       coverImage?: string | null;
       coverImageType?: "color" | "url" | null;
@@ -67,10 +83,22 @@ export async function POST(request: Request) {
       ).toResponse();
     }
 
+    // 如果指定了 workspaceId，验证访问权限
+    if (workspaceId) {
+      const hasAccess = await verifyWorkspaceAccess(workspaceId);
+      if (!hasAccess) {
+        return new ChatSDKError(
+          "unauthorized:document",
+          "Access denied"
+        ).toResponse();
+      }
+    }
+
     const document = await createEditorDocument({
       title,
       content,
       userId: session.user.id,
+      workspaceId: workspaceId ?? null,
       parentDocumentId: parentDocumentId ?? null,
       coverImage: coverImage ?? null,
       coverImageType: coverImageType ?? "url",

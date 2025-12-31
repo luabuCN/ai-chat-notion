@@ -5,6 +5,7 @@ import { ChevronRight, File, Search, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, Input } from "@repo/ui";
 import { useSidebarDocuments } from "@/hooks/use-document-query";
 import { cn } from "@repo/ui";
+import { useWorkspace } from "../workspace-provider";
 
 interface DocumentTreeItemProps {
   document: {
@@ -26,7 +27,11 @@ function DocumentTreeItem({
   level = 0,
 }: DocumentTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data: children } = useSidebarDocuments(document.id);
+  const { currentWorkspace } = useWorkspace();
+  const { data: children } = useSidebarDocuments(
+    document.id,
+    currentWorkspace?.id
+  );
 
   const hasChildren = children && children.length > 0;
   const isSelected = selectedId === document.id;
@@ -104,7 +109,11 @@ export function MoveDocumentDialog({
   isMoving = false,
 }: MoveDocumentDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: rootDocuments } = useSidebarDocuments(undefined);
+  const { currentWorkspace } = useWorkspace();
+  const { data: rootDocuments } = useSidebarDocuments(
+    undefined,
+    currentWorkspace?.id
+  );
 
   useEffect(() => {
     if (open) {

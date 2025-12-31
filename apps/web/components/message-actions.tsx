@@ -10,8 +10,9 @@ import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
 import { FilePlus, Loader2 } from "lucide-react";
 import { DocumentSelectorDialog } from "./editor/document-selector-dialog";
 import { useCreateDocument } from "@/hooks/use-document-query";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { markdownToTiptap } from "@repo/editor";
+import { useWorkspace } from "./workspace-provider";
 
 export function PureMessageActions({
   chatId,
@@ -30,6 +31,14 @@ export function PureMessageActions({
   const [_, copyToClipboard] = useCopyToClipboard();
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
   const router = useRouter();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
+  const { currentWorkspace } = useWorkspace();
   const createMutation = useCreateDocument();
 
   if (isLoading) {
@@ -88,6 +97,7 @@ export function PureMessageActions({
       const newDoc = await createMutation.mutateAsync({
         title,
         parentDocumentId: parentDocumentId ?? undefined,
+        workspaceId: currentWorkspace?.id,
       });
 
       // Update content
@@ -100,7 +110,7 @@ export function PureMessageActions({
       toast.dismiss(toastId);
       toast.success("文档生成成功");
       setIsGenerateDialogOpen(false);
-      router.push(`/editor/${newDoc.id}`);
+      router.push(`/${workspaceSlug}/editor/${newDoc.id}`);
     } catch (error) {
       toast.dismiss();
       toast.error("生成文档失败");

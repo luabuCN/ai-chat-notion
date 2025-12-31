@@ -31,6 +31,16 @@ export async function middleware(request: NextRequest) {
     secureCookie: !isDevelopmentEnvironment && !isLocalHttpEnvironment,
   });
 
+  // 认证页面：直接放行，不需要检查 token
+  const authPages = ["/login", "/register"];
+  if (authPages.includes(pathname)) {
+    // 如果已登录且不是访客，重定向到首页
+    if (token && !guestRegex.test(token?.email ?? "")) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.next();
+  }
+
   // 公开路由：首页和预览页允许访客访问
   const publicRoutes = ["/", "/preview"];
   const isPublicRoute =
@@ -61,10 +71,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(
       new URL(`/login?callbackUrl=${callbackUrl}`, request.url)
     );
-  }
-
-  if (token && !isGuest && ["/login", "/register"].includes(pathname)) {
-    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

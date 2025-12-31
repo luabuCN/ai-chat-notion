@@ -11,6 +11,7 @@ import {
 } from "@repo/ui";
 import { useSidebarDocuments } from "@/hooks/use-document-query";
 import { cn } from "@repo/ui";
+import { useWorkspace } from "../workspace-provider";
 
 interface DocumentTreeItemProps {
   document: {
@@ -33,12 +34,15 @@ function DocumentTreeItem({
   level = 0,
 }: DocumentTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data: children } = useSidebarDocuments(document.id);
+  const { currentWorkspace } = useWorkspace();
+  const { data: children } = useSidebarDocuments(
+    document.id,
+    currentWorkspace?.id
+  );
 
   const hasChildren = children && children.length > 0;
   const isSelected = selectedId === document.id;
   const isExcluded = document.id === excludeId;
-
   // If this document is the specific one to exclude, don't render it.
   // Note: We might still want to render its children if we were just disabling selection,
   // but typically "move to self" or "move to descendant" is invalid.
@@ -111,7 +115,6 @@ interface DocumentSelectorDialogProps {
   excludeDocumentId?: string;
   isLoading?: boolean;
 }
-
 export function DocumentSelectorDialog({
   open,
   onOpenChange,
@@ -123,7 +126,11 @@ export function DocumentSelectorDialog({
   isLoading = false,
 }: DocumentSelectorDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: rootDocuments } = useSidebarDocuments(undefined);
+  const { currentWorkspace } = useWorkspace();
+  const { data: rootDocuments } = useSidebarDocuments(
+    undefined,
+    currentWorkspace?.id
+  );
 
   useEffect(() => {
     if (open) {
@@ -144,6 +151,7 @@ export function DocumentSelectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* ... */}
       <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden outline-none">
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{description}</DialogDescription>

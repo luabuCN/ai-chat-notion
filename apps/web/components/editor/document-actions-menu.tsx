@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   MoreHorizontal,
   FileText,
@@ -38,6 +38,13 @@ export function DocumentActionsMenu({
   title,
 }: DocumentActionsMenuProps) {
   const router = useRouter();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
   const { data: document } = useGetDocument(documentId);
   const { exportDocument } = useEditorExport();
   const duplicateMutation = useDuplicateDocument();
@@ -60,7 +67,7 @@ export function DocumentActionsMenu({
       const newDoc = await duplicateMutation.mutateAsync(documentId);
       toast.success("文档已复制");
       // Navigate to the new document
-      router.push(`/documents/${newDoc.id}`);
+      router.push(`/${workspaceSlug}/editor/${newDoc.id}`);
     } catch (error) {
       toast.error("复制文档失败");
       console.error("Failed to duplicate document:", error);
@@ -104,7 +111,7 @@ export function DocumentActionsMenu({
       await archiveMutation.mutateAsync(documentId);
       toast.success("文档已移至垃圾箱");
       setTimeout(() => {
-        router.push("/editor");
+        router.push(`/${workspaceSlug}/editor`);
       }, 0);
     } catch (error) {
       toast.error("删除文档失败");

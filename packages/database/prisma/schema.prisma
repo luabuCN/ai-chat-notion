@@ -9,18 +9,83 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email           String           @db.VarChar(64)
-  password        String?          @db.VarChar(64)
-  editorDocuments EditorDocument[]
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email              String            @db.VarChar(64)
+  password           String?           @db.VarChar(64)
+  name               String?           @db.VarChar(100)
+  avatarUrl          String?
+  currentWorkspaceId String?           @db.Uuid
+  editorDocuments    EditorDocument[]
+  ownedWorkspaces    Workspace[]       @relation("OwnedWorkspaces")
+  memberships        WorkspaceMember[]
+}
+
+// 空间模型
+model Workspace {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(100)
+  slug      String   @unique @db.VarChar(20)
+  icon      String?  @db.VarChar(10)
+  ownerId   String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
+
+  owner     User                @relation("OwnedWorkspaces", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   WorkspaceMember[]
+  chats     Chat[]
+  documents EditorDocument[]
+  invites   WorkspaceInvite[]
+
+  @@index([ownerId])
+  @@index([slug])
+  @@map("Workspace")
+}
+
+// 空间成员关系
+model WorkspaceMember {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String   @db.Uuid
+  userId      String   @db.Uuid
+  role        String   @default("member") @db.VarChar(20)
+  joinedAt    DateTime @default(now()) @db.Timestamp(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("WorkspaceMember")
+}
+
+// 空间邀请
+model WorkspaceInvite {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @db.Uuid
+  email       String    @db.VarChar(100)
+  role        String    @default("member") @db.VarChar(20)
+  token       String    @unique @db.VarChar(64)
+  expiresAt   DateTime  @db.Timestamp(6)
+  acceptedAt  DateTime? @db.Timestamp(6)
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([workspaceId])
+  @@map("WorkspaceInvite")
 }
 
 model Chat {
   id          String   @id @default(uuid())
   createdAt   DateTime
-  userId      String
+  userId      String   @db.Uuid
+  workspaceId String?  @db.Uuid
   title       String
   lastContext Json?
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
 }
 
 model Message_deprecated {
@@ -97,26 +162,29 @@ model Stream {
 }
 
 model EditorDocument {
-  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title           String
-  content         String?           @default("")
-  userId          String            @db.Uuid
-  parentDocumentId String?          @db.Uuid
-  icon            String?
-  coverImage      String?
-  coverImageType  String?           @default("url") @db.VarChar(10)
-  coverImagePosition Int?           @default(50)
-  isPublished     Boolean           @default(false)
-  isFavorite      Boolean           @default(false)
-  deletedAt       DateTime?         @db.Timestamp(6)
-  createdAt       DateTime          @default(now()) @db.Timestamp(6)
-  updatedAt       DateTime          @updatedAt @db.Timestamp(6)
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String
+  content            String?   @default("")
+  userId             String    @db.Uuid
+  workspaceId        String?   @db.Uuid
+  parentDocumentId   String?   @db.Uuid
+  icon               String?
+  coverImage         String?
+  coverImageType     String?   @default("url") @db.VarChar(10)
+  coverImagePosition Int?      @default(50)
+  isPublished        Boolean   @default(false)
+  isFavorite         Boolean   @default(false)
+  deletedAt          DateTime? @db.Timestamp(6)
+  createdAt          DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamp(6)
 
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parentDocument  EditorDocument?   @relation("DocumentHierarchy", fields: [parentDocumentId], references: [id], onDelete: Cascade)
-  childDocuments  EditorDocument[]  @relation("DocumentHierarchy")
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentDocument EditorDocument?  @relation("DocumentHierarchy", fields: [parentDocumentId], references: [id], onDelete: Cascade)
+  childDocuments EditorDocument[] @relation("DocumentHierarchy")
 
   @@index([userId, deletedAt])
   @@index([parentDocumentId])
+  @@index([workspaceId, deletedAt])
   @@map("EditorDocument")
 }

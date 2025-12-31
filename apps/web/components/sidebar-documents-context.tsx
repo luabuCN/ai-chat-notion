@@ -32,7 +32,8 @@ export function SidebarDocumentsProvider({
   const pathname = usePathname();
 
   // Extract document ID from pathname
-  const match = pathname?.match(/\/editor\/([^\/]+)/);
+  // 匹配 /[slug]/editor/[id] 格式的路径
+  const match = pathname?.match(/\/[^\/]+\/editor\/([^\/]+)/);
   const currentDocumentId = match ? match[1] : null;
 
   // Fetch ancestor path

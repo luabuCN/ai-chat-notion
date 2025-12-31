@@ -1,6 +1,10 @@
 import type { NextRequest } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import { getChatsByUserId, deleteAllChatsByUserId } from "@repo/database";
+import {
+  getChatsByUserId,
+  deleteAllChatsByUserId,
+  getWorkspaceBySlug,
+} from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 
 export async function GET(request: NextRequest) {
@@ -9,6 +13,7 @@ export async function GET(request: NextRequest) {
   const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
   const startingAfter = searchParams.get("starting_after");
   const endingBefore = searchParams.get("ending_before");
+  const workspaceSlug = searchParams.get("workspace");
 
   if (startingAfter && endingBefore) {
     return new ChatSDKError(
@@ -23,8 +28,18 @@ export async function GET(request: NextRequest) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
+  // 获取 workspace ID
+  let workspaceId: string | undefined;
+  if (workspaceSlug) {
+    const workspace = await getWorkspaceBySlug({ slug: workspaceSlug });
+    if (workspace) {
+      workspaceId = workspace.id;
+    }
+  }
+
   const chats = await getChatsByUserId({
     id: session.user.id,
+    workspaceId,
     limit,
     startingAfter,
     endingBefore,

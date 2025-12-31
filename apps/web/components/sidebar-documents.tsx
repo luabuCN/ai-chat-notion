@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, FileText } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   SidebarGroup,
@@ -18,9 +18,18 @@ import { useCreateDocument } from "@/hooks/use-document-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SidebarDocumentsProvider } from "./sidebar-documents-context";
+import { useWorkspace } from "./workspace-provider";
 
 export function SidebarDocuments() {
   const router = useRouter();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
+  const { currentWorkspace } = useWorkspace();
   const createDocumentMutation = useCreateDocument();
   const [isLabelHovered, setIsLabelHovered] = useState(false);
 
@@ -28,10 +37,11 @@ export function SidebarDocuments() {
     createDocumentMutation.mutate(
       {
         title: "未命名",
+        workspaceId: currentWorkspace?.id,
       },
       {
         onSuccess: (res) => {
-          router.push(`/editor/${res.id}`);
+          router.push(`/${workspaceSlug}/editor/${res.id}`);
           toast.success("新笔记已创建！");
         },
         onError: (error: Error) => {

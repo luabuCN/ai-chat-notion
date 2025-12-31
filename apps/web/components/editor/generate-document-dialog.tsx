@@ -11,6 +11,7 @@ import {
 } from "@repo/ui";
 import { useSidebarDocuments } from "@/hooks/use-document-query";
 import { cn } from "@repo/ui";
+import { useWorkspace } from "../workspace-provider";
 
 interface DocumentTreeItemProps {
   document: {
@@ -30,7 +31,11 @@ function DocumentTreeItem({
   level = 0,
 }: DocumentTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data: children } = useSidebarDocuments(document.id);
+  const { currentWorkspace } = useWorkspace();
+  const { data: children } = useSidebarDocuments(
+    document.id,
+    currentWorkspace?.id
+  );
 
   const hasChildren = children && children.length > 0;
   const isSelected = selectedId === document.id;
@@ -101,7 +106,11 @@ export function GenerateDocumentDialog({
   isGenerating = false,
 }: GenerateDocumentDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: rootDocuments } = useSidebarDocuments(undefined);
+  const { currentWorkspace } = useWorkspace();
+  const { data: rootDocuments } = useSidebarDocuments(
+    undefined,
+    currentWorkspace?.id
+  );
 
   useEffect(() => {
     if (open) {

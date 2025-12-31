@@ -1,11 +1,12 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useParams } from "next/navigation";
 import { useSidebarDocumentsContext } from "./sidebar-documents-context";
 import Item from "./sidebar-document-item";
 import { FileIcon } from "lucide-react";
 import type { EditorDocument } from "@repo/database";
 import { useSidebarDocuments } from "@/hooks/use-document-query";
+import { useWorkspace } from "./workspace-provider";
 
 interface DocumentsListProps {
   parentDocumentId?: string;
@@ -20,17 +21,25 @@ const DocumentsList = ({
 }: DocumentsListProps) => {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
   const { expanded, onExpand } = useSidebarDocumentsContext();
+  const { currentWorkspace } = useWorkspace();
 
   // useSidebarDocuments hook 已经内置了监听 document-updated 事件的逻辑，会自动刷新
   const {
     data: documents,
     isLoading,
     error,
-  } = useSidebarDocuments(parentDocumentId);
+  } = useSidebarDocuments(parentDocumentId, currentWorkspace?.id);
 
   const onRedirect = (documentId: string) => {
-    router.push(`/editor/${documentId}`);
+    router.push(`/${workspaceSlug}/editor/${documentId}`);
   };
 
   // 使用传入的 data 或从 hook 获取的数据
@@ -94,7 +103,7 @@ const DocumentsList = ({
             onClick={() => onRedirect(document.id)}
             label={document.title}
             icon={FileIcon}
-            active={pathname === `/editor/${document.id}`}
+            active={pathname === `/${workspaceSlug}/editor/${document.id}`}
             level={level}
             onExpand={() => onExpand(document.id)}
             expanded={expanded[document.id]}

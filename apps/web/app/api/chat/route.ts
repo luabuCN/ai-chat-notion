@@ -31,6 +31,7 @@ import {
   saveChat,
   saveMessages,
   updateChatLastContextById,
+  getWorkspaceBySlug,
 } from "@repo/database";
 import type { DBMessage } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
@@ -83,12 +84,14 @@ export async function POST(request: Request) {
       selectedModelSlug,
       enableReasoning,
       modelSupportedParameters,
+      workspaceSlug,
     }: {
       id: string;
       message: ChatMessage;
       selectedModelSlug?: string;
       enableReasoning?: boolean;
       modelSupportedParameters?: string[];
+      workspaceSlug?: string;
     } = requestBody;
     console.log(requestBody, "requestBody--------");
 
@@ -119,14 +122,27 @@ export async function POST(request: Request) {
       // Only fetch messages if chat already exists
       messagesFromDb = await getMessagesByChatId({ id });
     } else {
+      // Use custom model if provided, otherwise use first available model
+      const titleModelSlug = selectedModelSlug || (await getFirstModelSlug());
       const title = await generateTitleFromUserMessage({
         message,
+        modelSlug: titleModelSlug,
       });
+
+      // 获取 workspace ID
+      let workspaceId: string | undefined;
+      if (workspaceSlug) {
+        const workspace = await getWorkspaceBySlug({ slug: workspaceSlug });
+        if (workspace) {
+          workspaceId = workspace.id;
+        }
+      }
 
       await saveChat({
         id,
         userId: session.user.id,
         title,
+        workspaceId,
       });
       // New chat - no need to fetch messages, it's empty
     }

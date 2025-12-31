@@ -8,10 +8,15 @@ import { Suggestion } from "./elements/suggestion";
 
 type SuggestedActionsProps = {
   chatId: string;
+  workspaceSlug: string;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
 };
 
-function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
+function PureSuggestedActions({
+  chatId,
+  workspaceSlug,
+  sendMessage,
+}: SuggestedActionsProps) {
   const suggestedActions = [
     "What are the advantages of using Next.js?",
     "Write code to demonstrate Dijkstra's algorithm",
@@ -35,7 +40,11 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
           <Suggestion
             className="h-auto w-full whitespace-normal p-3 text-left"
             onClick={(suggestion) => {
-              window.history.replaceState({}, "", `/chat/${chatId}`);
+              window.history.replaceState(
+                {},
+                "",
+                `/${workspaceSlug}/chat/${chatId}`
+              );
               sendMessage({
                 role: "user",
                 parts: [{ type: "text", text: suggestion }],

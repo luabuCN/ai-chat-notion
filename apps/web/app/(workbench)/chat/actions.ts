@@ -2,7 +2,7 @@
 
 import { generateText, type UIMessage } from "ai";
 import { cookies } from "next/headers";
-import { myProvider } from "@repo/ai";
+import { getProviderWithModel } from "@repo/ai";
 import { titlePrompt } from "@repo/ai";
 import {
   deleteMessagesByChatIdAfterTimestamp,
@@ -17,11 +17,13 @@ export async function saveChatModelAsCookie(model: string) {
 
 export async function generateTitleFromUserMessage({
   message,
+  modelSlug,
 }: {
   message: UIMessage;
+  modelSlug: string;
 }) {
   const { text: title } = await generateText({
-    model: myProvider,
+    model: getProviderWithModel(modelSlug),
     system: titlePrompt,
     prompt: getTextFromMessage(message),
   });

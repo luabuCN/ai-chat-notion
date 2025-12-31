@@ -5,21 +5,26 @@ import type { EditorDocument } from "@repo/database";
 export const documentKeys = {
   all: ["editor-documents"] as const,
   lists: () => [...documentKeys.all, "list"] as const,
-  list: (parentDocumentId?: string) =>
-    [...documentKeys.lists(), { parentDocumentId }] as const,
+  list: (parentDocumentId?: string, workspaceId?: string) =>
+    [...documentKeys.lists(), { parentDocumentId, workspaceId }] as const,
   details: () => [...documentKeys.all, "detail"] as const,
   detail: (id: string) => [...documentKeys.details(), id] as const,
   updates: () => [...documentKeys.all, "update"] as const,
-  trash: () => [...documentKeys.all, "trash"] as const,
+  trash: (workspaceId?: string) =>
+    [...documentKeys.all, "trash", { workspaceId }] as const,
 };
 
 // API Functions
 async function fetchDocuments(
-  parentDocumentId?: string
+  parentDocumentId?: string,
+  workspaceId?: string
 ): Promise<EditorDocument[]> {
   const params = new URLSearchParams();
   if (parentDocumentId) {
     params.append("parentDocumentId", parentDocumentId);
+  }
+  if (workspaceId) {
+    params.append("workspaceId", workspaceId);
   }
   params.append("includeDeleted", "false");
 
@@ -43,6 +48,7 @@ async function fetchDocument(documentId: string): Promise<EditorDocument> {
 async function createDocument(arg: {
   title: string;
   parentDocumentId?: string;
+  workspaceId?: string;
 }): Promise<EditorDocument> {
   const response = await fetch("/api/editor-documents", {
     method: "POST",
@@ -52,6 +58,7 @@ async function createDocument(arg: {
     body: JSON.stringify({
       title: arg.title,
       parentDocumentId: arg.parentDocumentId ?? null,
+      workspaceId: arg.workspaceId ?? null,
     }),
   });
 
@@ -165,10 +172,13 @@ async function moveDocument({
 }
 
 // Hooks
-export function useSidebarDocuments(parentDocumentId?: string) {
+export function useSidebarDocuments(
+  parentDocumentId?: string,
+  workspaceId?: string
+) {
   return useQuery({
-    queryKey: documentKeys.list(parentDocumentId),
-    queryFn: () => fetchDocuments(parentDocumentId),
+    queryKey: documentKeys.list(parentDocumentId, workspaceId),
+    queryFn: () => fetchDocuments(parentDocumentId, workspaceId),
     enabled: true, // 总是启用，首次加载就会调用
   });
 }
@@ -323,8 +333,15 @@ export function useDocumentPath(documentId: string | null | undefined) {
 
 // Trash Hooks
 
-async function fetchTrashDocuments(): Promise<EditorDocument[]> {
-  const response = await fetch("/api/editor-documents?onlyDeleted=true");
+async function fetchTrashDocuments(
+  workspaceId?: string
+): Promise<EditorDocument[]> {
+  const params = new URLSearchParams();
+  params.append("onlyDeleted", "true");
+  if (workspaceId) {
+    params.append("workspaceId", workspaceId);
+  }
+  const response = await fetch(`/api/editor-documents?${params.toString()}`);
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.message || "Failed to fetch trash documents");
@@ -361,10 +378,10 @@ async function permanentDeleteDocument(documentId: string): Promise<void> {
   }
 }
 
-export function useTrashDocuments() {
+export function useTrashDocuments(workspaceId?: string) {
   return useQuery({
-    queryKey: documentKeys.trash(),
-    queryFn: fetchTrashDocuments,
+    queryKey: documentKeys.trash(workspaceId),
+    queryFn: () => fetchTrashDocuments(workspaceId),
   });
 }
 

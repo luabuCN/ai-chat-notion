@@ -17,7 +17,7 @@ import {
   Trash,
   type LucideIcon,
 } from "lucide-react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useCreateDocument, useArchive } from "@/hooks/use-document-query";
 import { useState } from "react";
@@ -49,6 +49,13 @@ const Item = ({
 }: ItemProps) => {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
   const createDocumentMutation = useCreateDocument();
   const archiveMutation = useArchive();
   const [isHovered, setIsHovered] = useState(false);
@@ -60,8 +67,8 @@ const Item = ({
       onSuccess: () => {
         toast.success("笔记已移至回收站！");
         // 如果当前正在查看被删除的文档，重定向到编辑器首页
-        if (pathname === `/editor/${id}`) {
-          router.push("/editor");
+        if (pathname === `/${workspaceSlug}/editor/${id}`) {
+          router.push(`/${workspaceSlug}/editor`);
         }
         router.refresh();
       },
@@ -94,7 +101,7 @@ const Item = ({
           }
           // 延迟导航，确保列表已经更新
           setTimeout(() => {
-            router.push(`/editor/${res.id}`);
+            router.push(`/${workspaceSlug}/editor/${res.id}`);
           }, 100);
           toast.success("新笔记已创建！");
         },
@@ -112,7 +119,8 @@ const Item = ({
   };
 
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
-  const isActive = active || (id && pathname === `/editor/${id}`);
+  const isActive =
+    active || (id && pathname === `/${workspaceSlug}/editor/${id}`);
 
   return (
     <div

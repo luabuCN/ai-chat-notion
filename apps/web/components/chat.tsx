@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
@@ -48,6 +48,14 @@ export function Chat({
 }) {
   const { mutate } = useSWRConfig();
   const { setDataStream } = useDataStream();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
+  const workspaceSlugRef = useRef(workspaceSlug);
 
   const [input, setInput] = useState<string>("");
   const [usage, setUsage] = useState<AppUsage | undefined>(initialLastContext);
@@ -57,7 +65,8 @@ export function Chat({
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
-  }, [currentModelId]);
+    workspaceSlugRef.current = workspaceSlug;
+  }, [currentModelId, workspaceSlug]);
 
   const {
     messages,
@@ -85,6 +94,7 @@ export function Chat({
             id: request.id,
             message: request.messages.at(-1),
             selectedModelSlug: isDynamicModel ? modelId : undefined,
+            workspaceSlug: workspaceSlugRef.current || undefined,
             ...request.body,
           },
         };
@@ -131,9 +141,9 @@ export function Chat({
       });
 
       setHasAppendedQuery(true);
-      window.history.replaceState({}, "", `/chat/${id}`);
+      window.history.replaceState({}, "", `/${workspaceSlug}/chat/${id}`);
     }
-  }, [query, sendMessage, hasAppendedQuery, id]);
+  }, [query, sendMessage, hasAppendedQuery, id, workspaceSlug]);
 
   const { data: votes } = useSWR<Vote[]>(
     messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
@@ -187,6 +197,7 @@ export function Chat({
               status={status}
               stop={stop}
               usage={usage}
+              workspaceSlug={workspaceSlug}
             />
           )}
         </div>

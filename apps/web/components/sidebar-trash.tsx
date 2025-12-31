@@ -36,14 +36,25 @@ import { zhCN } from "date-fns/locale";
 import { toast } from "sonner";
 import { EditorDocument } from "@repo/database";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useWorkspace } from "./workspace-provider";
 
 export function SidebarTrash() {
   const router = useRouter();
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
+  const { currentWorkspace } = useWorkspace();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [restoringId, setRestoringId] = useState<string | null>(null);
-  const { data: trashDocuments, isLoading } = useTrashDocuments();
+  const { data: trashDocuments, isLoading } = useTrashDocuments(
+    currentWorkspace?.id
+  );
   const restoreMutation = useRestoreDocument();
   const permanentDeleteMutation = usePermanentDeleteDocument();
 
@@ -58,7 +69,7 @@ export function SidebarTrash() {
       await restoreMutation.mutateAsync(doc.id);
       toast.success("文档已还原");
       setIsOpen(false);
-      router.push(`/editor/${doc.id}`);
+      router.push(`/${workspaceSlug}/editor/${doc.id}`);
     } catch (error) {
       toast.error("还原文档失败");
     } finally {
@@ -132,7 +143,7 @@ export function SidebarTrash() {
                             className="flex items-center gap-2 overflow-hidden flex-1 cursor-pointer"
                             onClick={() => {
                               setIsOpen(false);
-                              router.push(`/editor/${doc.id}`);
+                              router.push(`/${workspaceSlug}/editor/${doc.id}`);
                             }}
                           >
                             <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
