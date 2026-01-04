@@ -10,8 +10,9 @@ export const documentKeys = {
   details: () => [...documentKeys.all, "detail"] as const,
   detail: (id: string) => [...documentKeys.details(), id] as const,
   updates: () => [...documentKeys.all, "update"] as const,
+  trashes: () => [...documentKeys.all, "trash"] as const,
   trash: (workspaceId?: string) =>
-    [...documentKeys.all, "trash", { workspaceId }] as const,
+    [...documentKeys.trashes(), { workspaceId }] as const,
 };
 
 // API Functions
@@ -212,8 +213,8 @@ export function useCreateDocument() {
         );
       }
 
-      // 同时使根列表失效（如果有的话）
-      await queryClient.invalidateQueries({ queryKey: documentKeys.list() });
+      // 同时使所有列表查询失效（包括带有 workspaceId 的列表）
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
 
       // 如果创建了子文档，也使父文档的列表失效（作为后备，确保数据同步）
       if (newDoc.parentDocumentId) {
@@ -265,7 +266,7 @@ export function useArchive() {
       // 删除后刷新所有列表
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       // 刷新垃圾箱列表
-      await queryClient.invalidateQueries({ queryKey: documentKeys.trash() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
     },
   });
 }
@@ -392,7 +393,7 @@ export function useRestoreDocument() {
     mutationFn: restoreDocument,
     onSuccess: async (updatedDoc) => {
       // Refresh trash list
-      await queryClient.invalidateQueries({ queryKey: documentKeys.trash() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
       // Refresh main lists as document reappears
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       // Refresh the specific document details
@@ -410,7 +411,7 @@ export function usePermanentDeleteDocument() {
     mutationFn: permanentDeleteDocument,
     onSuccess: async () => {
       // Refresh trash list
-      await queryClient.invalidateQueries({ queryKey: documentKeys.trash() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
     },
   });
 }

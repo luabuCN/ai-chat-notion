@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Loader2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -70,11 +70,11 @@ export function SidebarDocuments() {
                   createDocumentMutation.isPending && "opacity-100 cursor-wait"
                 )}
               >
-                <Plus
-                  className={cn(
-                    createDocumentMutation.isPending && "animate-spin"
-                  )}
-                />
+                {createDocumentMutation.isPending ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Plus />
+                )}
                 <span className="sr-only">Add</span>
               </SidebarGroupAction>
             </TooltipTrigger>
