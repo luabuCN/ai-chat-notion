@@ -84,14 +84,7 @@ export async function getEditorDocumentsByUserId({
   onlyDeleted?: boolean;
 }) {
   try {
-    const where: {
-      userId: string;
-      workspaceId?: string | null | undefined;
-      parentDocumentId?: string | null | undefined;
-      deletedAt: Date | object | null | undefined;
-    } = {
-      userId,
-      workspaceId: workspaceId !== undefined ? workspaceId : undefined,
+    const where: any = {
       parentDocumentId: onlyDeleted ? undefined : parentDocumentId ?? null,
       deletedAt: onlyDeleted
         ? { not: null }
@@ -99,6 +92,15 @@ export async function getEditorDocumentsByUserId({
         ? undefined
         : null,
     };
+
+    if (workspaceId) {
+      where.workspaceId = workspaceId;
+    } else {
+      where.userId = userId;
+      if (workspaceId === null) {
+        where.workspaceId = null;
+      }
+    }
 
     return await prisma.editorDocument.findMany({
       where,

@@ -1,5 +1,10 @@
 import { auth } from "@/app/(auth)/auth";
-import { getChatById, getVotesByChatId, voteMessage } from "@repo/database";
+import {
+  getChatById,
+  getVotesByChatId,
+  voteMessage,
+  hasWorkspaceAccess,
+} from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 
 export async function GET(request: Request) {
@@ -25,7 +30,17 @@ export async function GET(request: Request) {
     return new ChatSDKError("not_found:chat").toResponse();
   }
 
-  if (chat.userId !== session.user.id) {
+  // Allow if owner OR has workspace access
+  const isOwner = chat.userId === session.user.id;
+  let hasAccess = false;
+  if (chat.workspaceId) {
+    hasAccess = await hasWorkspaceAccess({
+      workspaceId: chat.workspaceId,
+      userId: session.user.id,
+    });
+  }
+
+  if (!isOwner && !hasAccess) {
     return new ChatSDKError("forbidden:vote").toResponse();
   }
 
@@ -61,7 +76,17 @@ export async function PATCH(request: Request) {
     return new ChatSDKError("not_found:vote").toResponse();
   }
 
-  if (chat.userId !== session.user.id) {
+  // Allow if owner OR has workspace access
+  const isOwner = chat.userId === session.user.id;
+  let hasAccess = false;
+  if (chat.workspaceId) {
+    hasAccess = await hasWorkspaceAccess({
+      workspaceId: chat.workspaceId,
+      userId: session.user.id,
+    });
+  }
+
+  if (!isOwner && !hasAccess) {
     return new ChatSDKError("forbidden:vote").toResponse();
   }
 

@@ -9,7 +9,7 @@ import { ArrowRight } from "lucide-react";
 
 export default async function Page() {
   const session = await auth();
-
+  console.log(session, "session======");
   if (!session?.user) {
     // 未登录显示欢迎页面
     return (
@@ -36,12 +36,20 @@ export default async function Page() {
 
   // 如果没有空间，创建默认空间
   if (workspaces.length === 0) {
-    const slug = generateWorkspaceSlug();
-    await createWorkspace({
-      name: "我的空间",
-      slug,
-      ownerId: session.user.id,
-    });
+    try {
+      const slug = generateWorkspaceSlug();
+      await createWorkspace({
+        name: "我的空间",
+        slug,
+        ownerId: session.user.id,
+      });
+    } catch (error) {
+      // 可能是并发创建导致的错误，忽略
+      console.log(
+        "Workspace creation failed (possibly due to race condition):",
+        error
+      );
+    }
     workspaces = await getWorkspacesByUserId({ userId: session.user.id });
   }
 

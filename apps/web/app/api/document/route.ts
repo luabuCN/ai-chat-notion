@@ -4,6 +4,7 @@ import {
   deleteDocumentsByIdAfterTimestamp,
   getDocumentsById,
   saveDocument,
+  doUsersShareWorkspace,
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 
@@ -32,7 +33,14 @@ export async function GET(request: Request) {
     return new ChatSDKError("not_found:document").toResponse();
   }
 
-  if (document.userId !== session.user.id) {
+  // Allow if owner OR if users share a workspace
+  const isOwner = document.userId === session.user.id;
+  const shareWorkspace = await doUsersShareWorkspace({
+    userId1: document.userId,
+    userId2: session.user.id,
+  });
+
+  if (!isOwner && !shareWorkspace) {
     return new ChatSDKError("forbidden:document").toResponse();
   }
 
@@ -68,7 +76,14 @@ export async function POST(request: Request) {
   if (documents.length > 0) {
     const [doc] = documents;
 
-    if (doc.userId !== session.user.id) {
+    // Allow if owner OR if users share a workspace
+    const isOwner = doc.userId === session.user.id;
+    const shareWorkspace = await doUsersShareWorkspace({
+      userId1: doc.userId,
+      userId2: session.user.id,
+    });
+
+    if (!isOwner && !shareWorkspace) {
       return new ChatSDKError("forbidden:document").toResponse();
     }
   }
@@ -113,7 +128,14 @@ export async function DELETE(request: Request) {
 
   const [document] = documents;
 
-  if (document.userId !== session.user.id) {
+  // Allow if owner OR if users share a workspace
+  const isOwner = document.userId === session.user.id;
+  const shareWorkspace = await doUsersShareWorkspace({
+    userId1: document.userId,
+    userId2: session.user.id,
+  });
+
+  if (!isOwner && !shareWorkspace) {
     return new ChatSDKError("forbidden:document").toResponse();
   }
 

@@ -36,8 +36,12 @@ model Workspace {
   documents EditorDocument[]
   invites   WorkspaceInvite[]
 
+  inviteCode          String?   @unique @db.VarChar(64)
+  inviteCodeCreatedAt DateTime? @db.Timestamp(6)
+
   @@index([ownerId])
   @@index([slug])
+  @@index([inviteCode])
   @@map("Workspace")
 }
 
@@ -47,6 +51,7 @@ model WorkspaceMember {
   workspaceId String   @db.Uuid
   userId      String   @db.Uuid
   role        String   @default("member") @db.VarChar(20)
+  permission  String   @default("view") @db.VarChar(20) // view, edit
   joinedAt    DateTime @default(now()) @db.Timestamp(6)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -61,8 +66,9 @@ model WorkspaceMember {
 model WorkspaceInvite {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   workspaceId String    @db.Uuid
-  email       String    @db.VarChar(100)
+  email       String?   @db.VarChar(100)
   role        String    @default("member") @db.VarChar(20)
+  permission  String    @default("view") @db.VarChar(20)
   token       String    @unique @db.VarChar(64)
   expiresAt   DateTime  @db.Timestamp(6)
   acceptedAt  DateTime? @db.Timestamp(6)

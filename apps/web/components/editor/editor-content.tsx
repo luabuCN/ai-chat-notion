@@ -246,7 +246,8 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     setContent(newContent);
   }, []);
 
-  const isReadOnly = !!document?.deletedAt;
+  const isReadOnly =
+    !!document?.deletedAt || (document as any)?.accessLevel === "view";
 
   if (isLoading) {
     return (

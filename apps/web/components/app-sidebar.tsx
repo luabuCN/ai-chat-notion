@@ -32,7 +32,7 @@ import {
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
-  const { currentWorkspace, workspaces } = useWorkspace();
+  const { currentWorkspace, workspaces, refreshWorkspaces } = useWorkspace();
 
   const handleWorkspaceSwitch = (workspace: Workspace) => {
     router.push(`/${workspace.slug}/chat`);
@@ -55,8 +55,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 <WorkspaceSwitcher
                   currentWorkspace={currentWorkspace}
                   workspaces={workspaces}
+                  userId={user.id!}
                   onSwitch={handleWorkspaceSwitch}
                   onSettingsClick={handleSettingsClick}
+                  onRefresh={refreshWorkspaces}
                 />
               )}
               <div className="flex flex-row gap-1">

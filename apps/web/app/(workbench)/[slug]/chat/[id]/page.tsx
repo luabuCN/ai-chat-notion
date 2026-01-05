@@ -18,23 +18,24 @@ export default async function Page(props: {
   const session = await auth();
 
   if (!session) {
-    redirect("/api/auth/guest");
+    redirect("/login");
   }
 
   // 验证用户对该空间的访问权限
-  await requireWorkspaceAccess(slug);
+  const { workspaceId } = (await requireWorkspaceAccess(slug))!;
 
   const chat = await getChatById({ id });
   if (!chat) {
     notFound();
   }
 
-  // 聊天现在都是私有的，只有所有者可以访问
-  if (!session.user) {
-    return notFound();
-  }
+  // 聊天现在都是私有的，只有所有者可以使用
+  // 但如果是工作空间内的聊天，成员应该可以查看?
+  // 按照目前逻辑，如果 chat.workspaceId 匹配当前 workspaceId，则允许访问
+  const isOwner = session.user.id === chat.userId;
+  const isWorkspaceChat = chat.workspaceId === workspaceId;
 
-  if (session.user.id !== chat.userId) {
+  if (!isOwner && !isWorkspaceChat) {
     return notFound();
   }
 

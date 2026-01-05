@@ -48,12 +48,9 @@ export async function middleware(request: NextRequest) {
     publicRoutes.some((route) => route !== "/" && pathname.startsWith(route));
 
   if (!token) {
-    // 公开路由：自动创建访客账户
+    // 公开路由：允许未登录访问首页和预览页
     if (isPublicRoute) {
-      const redirectUrl = encodeURIComponent(request.url);
-      return NextResponse.redirect(
-        new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url)
-      );
+      return NextResponse.next();
     }
 
     // 其他路由：重定向到登录页

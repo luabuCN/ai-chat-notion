@@ -76,6 +76,10 @@ export async function getWorkspacesByUserId({ userId }: { userId: string }) {
       },
       include: {
         _count: { select: { members: true } },
+        members: {
+          where: { userId },
+          select: { role: true },
+        },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -250,6 +254,40 @@ export async function hasWorkspaceAccess({
 
     const member = await getWorkspaceMember({ workspaceId, userId });
     return member !== null;
+  } catch (_error) {
+    return false;
+  }
+}
+
+// 检查两个用户是否共享任何工作空间
+export async function doUsersShareWorkspace({
+  userId1,
+  userId2,
+}: {
+  userId1: string;
+  userId2: string;
+}): Promise<boolean> {
+  try {
+    // 查找同时包含两个用户的工作空间
+    const sharedWorkspace = await prisma.workspace.findFirst({
+      where: {
+        AND: [
+          {
+            OR: [
+              { ownerId: userId1 },
+              { members: { some: { userId: userId1 } } },
+            ],
+          },
+          {
+            OR: [
+              { ownerId: userId2 },
+              { members: { some: { userId: userId2 } } },
+            ],
+          },
+        ],
+      },
+    });
+    return sharedWorkspace !== null;
   } catch (_error) {
     return false;
   }

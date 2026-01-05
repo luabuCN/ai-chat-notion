@@ -95,8 +95,16 @@ export async function getChatsByUserId({
 
     let filteredChats: Chat[] = [];
 
-    // 构建 workspace 过滤条件
-    const workspaceFilter = workspaceId !== undefined ? { workspaceId } : {};
+    // 构建查询条件
+    const where: any = {};
+    if (workspaceId) {
+      where.workspaceId = workspaceId;
+    } else {
+      where.userId = id;
+      if (workspaceId === null) {
+        where.workspaceId = null;
+      }
+    }
 
     if (startingAfter) {
       const selectedChat = await prisma.chat.findUnique({
@@ -112,8 +120,7 @@ export async function getChatsByUserId({
 
       filteredChats = (await prisma.chat.findMany({
         where: {
-          userId: id,
-          ...workspaceFilter,
+          ...where,
           createdAt: { gt: selectedChat.createdAt },
         },
         orderBy: { createdAt: "desc" },
@@ -133,8 +140,7 @@ export async function getChatsByUserId({
 
       filteredChats = (await prisma.chat.findMany({
         where: {
-          userId: id,
-          ...workspaceFilter,
+          ...where,
           createdAt: { lt: selectedChat.createdAt },
         },
         orderBy: { createdAt: "desc" },
@@ -142,7 +148,7 @@ export async function getChatsByUserId({
       })) as Chat[];
     } else {
       filteredChats = (await prisma.chat.findMany({
-        where: { userId: id, ...workspaceFilter },
+        where,
         orderBy: { createdAt: "desc" },
         take: extendedLimit,
       })) as Chat[];

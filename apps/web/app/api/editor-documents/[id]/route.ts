@@ -1,36 +1,30 @@
 import { auth } from "@/app/(auth)/auth";
 import {
-  getEditorDocumentById,
   updateEditorDocument,
   softDeleteEditorDocument,
   deleteEditorDocument,
-  publishEditorDocument,
-  unpublishEditorDocument,
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
+import { verifyDocumentAccess } from "@/lib/document-access";
 
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
   const { id } = await params;
 
   try {
-    const document = await getEditorDocumentById({ id });
+    const { access, document } = await verifyDocumentAccess(id);
 
-    // Allow access if user is owner OR document is published
-    const isOwner = session?.user?.id === document.userId;
-    const isPublished = document.isPublished;
-
-    if (!isOwner && !isPublished) {
+    if (access === "none") {
+      const session = await auth();
       if (!session?.user) {
         return new ChatSDKError("unauthorized:document").toResponse();
       }
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
-    return Response.json(document, { status: 200 });
+    return Response.json({ ...document, accessLevel: access }, { status: 200 });
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
@@ -55,9 +49,9 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const document = await getEditorDocumentById({ id });
+    const { access } = await verifyDocumentAccess(id);
 
-    if (document.userId !== session.user.id) {
+    if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
@@ -121,9 +115,9 @@ export async function DELETE(
   const permanent = searchParams.get("permanent") === "true";
 
   try {
-    const document = await getEditorDocumentById({ id });
+    const { access } = await verifyDocumentAccess(id);
 
-    if (document.userId !== session.user.id) {
+    if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
@@ -144,4 +138,3 @@ export async function DELETE(
     ).toResponse();
   }
 }
-

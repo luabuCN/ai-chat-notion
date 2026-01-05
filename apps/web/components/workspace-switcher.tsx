@@ -17,6 +17,11 @@ import {
   Button,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@repo/ui";
 import {
   ChevronDown,
@@ -26,6 +31,10 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  Link as LinkIcon,
+  Copy,
+  RefreshCw,
+  Check,
 } from "lucide-react";
 
 export type Workspace = {
@@ -33,34 +42,99 @@ export type Workspace = {
   name: string;
   slug: string;
   icon: string | null;
+  ownerId: string;
   _count: { members: number };
 };
 
 interface WorkspaceSwitcherProps {
   currentWorkspace: Workspace | null;
   workspaces: Workspace[];
+  userId: string;
   onSwitch?: (workspace: Workspace) => void;
   onSettingsClick?: (workspace: Workspace) => void;
   onInviteClick?: (workspace: Workspace) => void;
+  onRefresh?: () => Promise<void>;
 }
 
 export function WorkspaceSwitcher({
   currentWorkspace,
   workspaces,
+  userId,
   onSwitch,
   onSettingsClick,
+  onRefresh,
 }: WorkspaceSwitcherProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+
+  // 创建空间状态
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  // 邀请成员状态
-  const [inviteEmail, setInviteEmail] = useState("");
+  // 邀请状态
+  const [inviteLink, setInviteLink] = useState("");
+  const [isLoadingLink, setIsLoadingLink] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  // 邀请表单数据
+  const [inviteeEmail, setInviteeEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
-  const [isInviting, setIsInviting] = useState(false);
+  const [invitePermission, setInvitePermission] = useState("view");
+
+  const generateInviteLink = async () => {
+    if (!currentWorkspace || !inviteeEmail.trim()) return;
+    setIsLoadingLink(true);
+    try {
+      const res = await fetch(`/api/workspaces/${currentWorkspace.id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteeEmail,
+          role: inviteRole,
+          permission: invitePermission,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) {
+          setInviteLink(`${window.location.origin}/invite/${data.token}`);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to generate invite link:", error);
+    } finally {
+      setIsLoadingLink(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  // 权限联动逻辑
+  const handleRoleChange = (role: string) => {
+    setInviteRole(role);
+    if (role === "admin") {
+      setInvitePermission("edit"); // 管理员必须是可修改
+    } else {
+      setInvitePermission("view"); // 用户默认为查看，但可改为修改
+    }
+  };
+
+  const handlePermissionChange = (permission: string) => {
+    setInvitePermission(permission);
+  };
+
+  const resetInviteForm = () => {
+    setInviteLink("");
+    setInviteeEmail("");
+    setInviteRole("member");
+    setInvitePermission("view");
+  };
 
   // 重命名状态
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -119,23 +193,6 @@ export function WorkspaceSwitcher({
     }
   };
 
-  const handleInviteMember = async () => {
-    if (!inviteEmail.trim() || !currentWorkspace) return;
-
-    setIsInviting(true);
-    try {
-      // TODO: 实现邀请成员的 API 调用
-      console.log("Inviting:", inviteEmail, inviteRole);
-      setInviteDialogOpen(false);
-      setInviteEmail("");
-      setInviteRole("member");
-    } catch (error) {
-      console.error("Failed to invite member:", error);
-    } finally {
-      setIsInviting(false);
-    }
-  };
-
   const handleRenameWorkspace = async () => {
     if (!workspaceToRename || !renameValue.trim()) return;
 
@@ -183,6 +240,7 @@ export function WorkspaceSwitcher({
             router.push("/");
           }
         }
+        await onRefresh?.();
         router.refresh();
       }
     } catch (error) {
@@ -247,30 +305,35 @@ export function WorkspaceSwitcher({
                   </div>
                 </div>
                 <div className="mt-2 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => {
-                      setOpen(false);
-                      onSettingsClick?.(currentWorkspace);
-                    }}
-                  >
-                    <Settings className="size-3.5 mr-1" />
-                    设置
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => {
-                      setOpen(false);
-                      setInviteDialogOpen(true);
-                    }}
-                  >
-                    <UserPlus className="size-3.5 mr-1" />
-                    邀请成员
-                  </Button>
+                  {currentWorkspace.ownerId === userId && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setOpen(false);
+                          onSettingsClick?.(currentWorkspace);
+                        }}
+                      >
+                        <Settings className="size-3.5 mr-1" />
+                        设置
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setOpen(false);
+                          setInviteDialogOpen(true);
+                          resetInviteForm();
+                        }}
+                      >
+                        <UserPlus className="size-3.5 mr-1" />
+                        邀请成员
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
               <DropdownMenuSeparator />
@@ -278,69 +341,124 @@ export function WorkspaceSwitcher({
           )}
 
           {/* 空间列表 */}
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            空间名称
-          </div>
-          {workspaces.map((workspace) => {
-            const isActive = currentWorkspace?.id === workspace.id;
-            const isDefault = isDefaultWorkspace(workspace);
+          {(() => {
+            const myWorkspaces = workspaces.filter((w) => w.ownerId === userId);
+            const joinedWorkspaces = workspaces.filter(
+              (w) => w.ownerId !== userId
+            );
 
             return (
-              <div
-                key={workspace.id}
-                className={`flex items-center gap-1 mx-1 rounded-md ${
-                  isActive
-                    ? "bg-primary/10 border border-primary/30"
-                    : "hover:bg-muted"
-                }`}
-              >
-                {/* 三点菜单 */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="p-1.5 hover:bg-muted rounded-md opacity-60 hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="size-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-32">
-                    <DropdownMenuItem
-                      onClick={(e) => openRenameDialog(workspace, e)}
-                    >
-                      <Pencil className="size-4 mr-2" />
-                      重命名
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => openDeleteDialog(workspace, e)}
-                      disabled={isDefault}
-                      className={
-                        isDefault
-                          ? "text-muted-foreground cursor-not-allowed"
-                          : "text-destructive focus:text-destructive"
-                      }
-                    >
-                      <Trash2 className="size-4 mr-2" />
-                      删除
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              <>
+                {myWorkspaces.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground mt-2 first:mt-0">
+                      我的空间
+                    </div>
+                    {myWorkspaces.map((workspace) => {
+                      const isActive = currentWorkspace?.id === workspace.id;
+                      const isDefault = isDefaultWorkspace(workspace);
 
-                {/* 空间信息 */}
-                <button
-                  className="flex flex-1 items-center gap-2 py-1.5 pr-2 cursor-pointer"
-                  onClick={() => handleSwitchWorkspace(workspace)}
-                >
-                  <div className="flex size-5 items-center justify-center rounded-sm bg-muted text-xs font-medium">
-                    {workspace.icon || workspace.name.charAt(0)}
-                  </div>
-                  <span className={isActive ? "font-medium" : ""}>
-                    {workspace.name}
-                  </span>
-                </button>
-              </div>
+                      return (
+                        <div
+                          key={workspace.id}
+                          className={`flex items-center gap-1 mx-1 rounded-md ${
+                            isActive
+                              ? "bg-primary/10 border border-primary/30"
+                              : "hover:bg-muted"
+                          }`}
+                        >
+                          {/* 三点菜单 */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="p-1.5 hover:bg-muted rounded-md opacity-60 hover:opacity-100 transition-opacity"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-32">
+                              <DropdownMenuItem
+                                onClick={(e) => openRenameDialog(workspace, e)}
+                              >
+                                <Pencil className="size-4 mr-2" />
+                                重命名
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => openDeleteDialog(workspace, e)}
+                                disabled={isDefault}
+                                className={
+                                  isDefault
+                                    ? "text-muted-foreground cursor-not-allowed"
+                                    : "text-destructive focus:text-destructive"
+                                }
+                              >
+                                <Trash2 className="size-4 mr-2" />
+                                删除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          {/* 空间信息 */}
+                          <button
+                            className="flex flex-1 items-center gap-2 py-1.5 pr-2 cursor-pointer"
+                            onClick={() => handleSwitchWorkspace(workspace)}
+                          >
+                            <div className="flex size-5 items-center justify-center rounded-sm bg-muted text-xs font-medium">
+                              {workspace.icon || workspace.name.charAt(0)}
+                            </div>
+                            <span className={isActive ? "font-medium" : ""}>
+                              {workspace.name}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
+                {joinedWorkspaces.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground mt-2">
+                      加入的空间
+                    </div>
+                    {joinedWorkspaces.map((workspace) => {
+                      const isActive = currentWorkspace?.id === workspace.id;
+
+                      return (
+                        <div
+                          key={workspace.id}
+                          className={`flex items-center gap-1 mx-1 rounded-md ${
+                            isActive
+                              ? "bg-primary/10 border border-primary/30"
+                              : "hover:bg-muted"
+                          }`}
+                        >
+                          {/* 占位符以保持对齐 */}
+                          <div className="size-7 p-1.5 opacity-0">
+                            <MoreHorizontal className="size-4" />
+                          </div>
+
+                          {/* 空间信息 - 占满宽度 */}
+                          <button
+                            className="flex flex-1 items-center gap-2 py-1.5 px-2 cursor-pointer"
+                            onClick={() => handleSwitchWorkspace(workspace)}
+                          >
+                            <div className="flex size-5 items-center justify-center rounded-sm bg-muted text-xs font-medium">
+                              {workspace.icon || workspace.name.charAt(0)}
+                            </div>
+                            <span className={isActive ? "font-medium" : ""}>
+                              {workspace.name}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </>
             );
-          })}
+          })()}
 
           <DropdownMenuSeparator />
 
@@ -395,52 +513,108 @@ export function WorkspaceSwitcher({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>邀请成员</DialogTitle>
+            <DialogDescription>
+              生成一个特定的邀请链接。只有拥有此链接的人才能加入。
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="invite-email">邮箱</Label>
-              <Input
-                id="invite-email"
-                type="email"
-                placeholder="请输入邮箱地址"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                仅支持 Gmail、Outlook、163 和 QQ 邮箱
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="invite-role">权限</Label>
-              <select
-                id="invite-role"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
+
+          {!inviteLink ? (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="invitee-email">受邀人邮箱</Label>
+                <Input
+                  id="invitee-email"
+                  placeholder="输入对方的邮箱"
+                  value={inviteeEmail}
+                  onChange={(e) => setInviteeEmail(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  用于核对加入者的身份
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="invite-role">角色</Label>
+                  <Select
+                    value={inviteRole}
+                    onValueChange={(value) => handleRoleChange(value)}
+                  >
+                    <SelectTrigger id="invite-role" className="h-9">
+                      <SelectValue placeholder="选择角色" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="member">用户</SelectItem>
+                      <SelectItem value="admin">管理员</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="invite-permission">权限</Label>
+                  <Select
+                    value={invitePermission}
+                    onValueChange={(value) => handlePermissionChange(value)}
+                    disabled={inviteRole === "admin"}
+                  >
+                    <SelectTrigger id="invite-permission" className="h-9">
+                      <SelectValue placeholder="选择权限" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="view">可查看</SelectItem>
+                      <SelectItem value="edit">可修改</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button
+                onClick={generateInviteLink}
+                disabled={!inviteeEmail.trim() || isLoadingLink}
+                className="mt-2"
               >
-                <option value="admin">全部权限</option>
-                <option value="editor">可以编辑</option>
-                <option value="commenter">可以评论</option>
-                <option value="viewer">可以查看</option>
-                <option value="none">无访问权限</option>
-              </select>
+                {isLoadingLink ? "生成中..." : "生成并复制链接"}
+              </Button>
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setInviteDialogOpen(false)}
-            >
-              取消
-            </Button>
-            <Button
-              type="submit"
-              onClick={handleInviteMember}
-              disabled={isInviting || !inviteEmail.trim()}
-            >
-              {isInviting ? "邀请中..." : "邀请"}
-            </Button>
-          </DialogFooter>
+          ) : (
+            <div className="flex flex-col gap-4 py-4">
+              <div className="flex items-center space-x-2">
+                <div className="grid flex-1 gap-2">
+                  <Label htmlFor="link" className="sr-only">
+                    Link
+                  </Label>
+                  <Input
+                    id="link"
+                    value={inviteLink}
+                    readOnly
+                    className="h-9"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="px-3"
+                  onClick={copyToClipboard}
+                >
+                  {isCopied ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                  <span className="sr-only">Copy</span>
+                </Button>
+              </div>
+              <div className="text-center">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={resetInviteForm}
+                  className="text-muted-foreground"
+                >
+                  创建另一个邀请
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
