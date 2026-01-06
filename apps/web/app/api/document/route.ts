@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAuthFromRequest } from "@/lib/api-auth";
 import type { ArtifactKind } from "@/components/artifact";
 import {
   deleteDocumentsByIdAfterTimestamp,
@@ -19,9 +19,9 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
@@ -34,10 +34,10 @@ export async function GET(request: Request) {
   }
 
   // Allow if owner OR if users share a workspace
-  const isOwner = document.userId === session.user.id;
+  const isOwner = document.userId === user.id;
   const shareWorkspace = await doUsersShareWorkspace({
     userId1: document.userId,
-    userId2: session.user.id,
+    userId2: user.id,
   });
 
   if (!isOwner && !shareWorkspace) {
@@ -58,9 +58,9 @@ export async function POST(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("not_found:document").toResponse();
   }
 
@@ -77,10 +77,10 @@ export async function POST(request: Request) {
     const [doc] = documents;
 
     // Allow if owner OR if users share a workspace
-    const isOwner = doc.userId === session.user.id;
+    const isOwner = doc.userId === user.id;
     const shareWorkspace = await doUsersShareWorkspace({
       userId1: doc.userId,
-      userId2: session.user.id,
+      userId2: user.id,
     });
 
     if (!isOwner && !shareWorkspace) {
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     content,
     title,
     kind,
-    userId: session.user.id,
+    userId: user.id,
   });
 
   return Response.json(document, { status: 200 });
@@ -118,9 +118,9 @@ export async function DELETE(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
@@ -129,10 +129,10 @@ export async function DELETE(request: Request) {
   const [document] = documents;
 
   // Allow if owner OR if users share a workspace
-  const isOwner = document.userId === session.user.id;
+  const isOwner = document.userId === user.id;
   const shareWorkspace = await doUsersShareWorkspace({
     userId1: document.userId,
-    userId2: session.user.id,
+    userId2: user.id,
   });
 
   if (!isOwner && !shareWorkspace) {

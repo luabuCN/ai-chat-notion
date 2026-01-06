@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { auth } from "@/app/(auth)/auth";
+import { getAuthFromRequest } from "@/lib/api-auth";
 import {
   getChatsByUserId,
   deleteAllChatsByUserId,
@@ -22,9 +22,9 @@ export async function GET(request: NextRequest) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   }
 
   const chats = await getChatsByUserId({
-    id: session.user.id,
+    id: user.id,
     workspaceId,
     limit,
     startingAfter,
@@ -48,14 +48,14 @@ export async function GET(request: NextRequest) {
   return Response.json(chats);
 }
 
-export async function DELETE() {
-  const session = await auth();
+export async function DELETE(request: Request) {
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
-  const result = await deleteAllChatsByUserId({ userId: session.user.id });
+  const result = await deleteAllChatsByUserId({ userId: user.id });
 
   return Response.json(result, { status: 200 });
 }

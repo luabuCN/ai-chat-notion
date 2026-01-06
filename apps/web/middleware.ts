@@ -6,6 +6,25 @@ import {
   isLocalHttpEnvironment,
 } from "./lib/constants";
 
+// 创建带有用户信息的响应
+function createResponseWithUserHeaders(
+  request: NextRequest,
+  token: { id?: string; email?: string | null; type?: string } | null
+) {
+  if (!token) {
+    return NextResponse.next();
+  }
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-user-id", (token.id as string) || "");
+  requestHeaders.set("x-user-email", token.email || "");
+  requestHeaders.set("x-user-type", (token.type as string) || "regular");
+
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -70,7 +89,8 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  return NextResponse.next();
+  // 将用户信息注入请求头供 API 路由使用
+  return createResponseWithUserHeaders(request, token);
 }
 
 export const config = {

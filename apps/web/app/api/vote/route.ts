@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAuthFromRequest } from "@/lib/api-auth";
 import {
   getChatById,
   getVotesByChatId,
@@ -18,9 +18,9 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:vote").toResponse();
   }
 
@@ -31,12 +31,12 @@ export async function GET(request: Request) {
   }
 
   // Allow if owner OR has workspace access
-  const isOwner = chat.userId === session.user.id;
+  const isOwner = chat.userId === user.id;
   let hasAccess = false;
   if (chat.workspaceId) {
     hasAccess = await hasWorkspaceAccess({
       workspaceId: chat.workspaceId,
-      userId: session.user.id,
+      userId: user.id,
     });
   }
 
@@ -64,9 +64,9 @@ export async function PATCH(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:vote").toResponse();
   }
 
@@ -77,12 +77,12 @@ export async function PATCH(request: Request) {
   }
 
   // Allow if owner OR has workspace access
-  const isOwner = chat.userId === session.user.id;
+  const isOwner = chat.userId === user.id;
   let hasAccess = false;
   if (chat.workspaceId) {
     hasAccess = await hasWorkspaceAccess({
       workspaceId: chat.workspaceId,
-      userId: session.user.id,
+      userId: user.id,
     });
   }
 

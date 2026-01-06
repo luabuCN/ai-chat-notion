@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAuthFromRequest } from "@/lib/api-auth";
 import {
   createWorkspace,
   getWorkspacesByUserId,
@@ -12,15 +12,15 @@ import { ChatSDKError } from "@/lib/errors";
 import { NextResponse } from "next/server";
 
 // GET /api/workspaces - 获取当前用户的所有空间
-export async function GET() {
-  const session = await auth();
+export async function GET(request: Request) {
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
   try {
-    const workspaces = await getWorkspacesByUserId({ userId: session.user.id });
+    const workspaces = await getWorkspacesByUserId({ userId: user.id });
     return NextResponse.json(workspaces);
   } catch (error) {
     console.error("Failed to get workspaces:", error);
@@ -33,9 +33,9 @@ export async function GET() {
 
 // POST /api/workspaces - 创建新空间
 export async function POST(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -63,12 +63,12 @@ export async function POST(request: Request) {
       name: name.trim(),
       slug,
       icon,
-      ownerId: session.user.id,
+      ownerId: user.id,
     });
 
     // 设置为当前工作空间
     await updateUserCurrentWorkspace({
-      userId: session.user.id,
+      userId: user.id,
       workspaceId: workspace.id,
     });
 
@@ -84,9 +84,9 @@ export async function POST(request: Request) {
 
 // PATCH /api/workspaces - 更新空间
 export async function PATCH(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -118,9 +118,9 @@ export async function PATCH(request: Request) {
 
 // DELETE /api/workspaces?id=xxx - 删除空间
 export async function DELETE(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 

@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAuthFromRequest } from "@/lib/api-auth";
 import {
   getWorkspaceById,
   getWorkspaceMembers,
@@ -12,9 +12,9 @@ import { NextResponse } from "next/server";
 
 // GET /api/workspaces/members?workspaceId=xxx - 获取空间成员
 export async function GET(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     // 检查访问权限
     const hasAccess = await hasWorkspaceAccess({
       workspaceId,
-      userId: session.user.id,
+      userId: user.id,
     });
 
     if (!hasAccess) {
@@ -55,9 +55,9 @@ export async function GET(request: Request) {
 
 // POST /api/workspaces/members - 添加成员
 export async function POST(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       ).toResponse();
     }
 
-    if (workspace.ownerId !== session.user.id) {
+    if (workspace.ownerId !== user.id) {
       return new ChatSDKError(
         "unauthorized:chat",
         "Only owner can add members"
@@ -100,9 +100,9 @@ export async function POST(request: Request) {
 
 // PATCH /api/workspaces/members - 更新成员角色或权限
 export async function PATCH(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -131,12 +131,12 @@ export async function PATCH(request: Request) {
       ).toResponse();
     }
 
-    const isOwner = workspace.ownerId === session.user.id;
+    const isOwner = workspace.ownerId === user.id;
 
     // 获取当前用户在此空间的角色
     const currentUserMembers = await getWorkspaceMembers({ workspaceId });
     const currentUserMember = currentUserMembers.find(
-      (m) => m.userId === session.user.id
+      (m) => m.userId === user.id
     );
     const isAdmin = currentUserMember?.role === "admin";
 
@@ -198,9 +198,9 @@ export async function PATCH(request: Request) {
 
 // DELETE /api/workspaces/members?workspaceId=xxx&userId=xxx - 移除成员
 export async function DELETE(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -225,7 +225,7 @@ export async function DELETE(request: Request) {
     }
 
     // 只有所有者可以移除成员，或者成员可以移除自己
-    if (workspace.ownerId !== session.user.id && userId !== session.user.id) {
+    if (workspace.ownerId !== user.id && userId !== user.id) {
       return new ChatSDKError(
         "unauthorized:chat",
         "Permission denied"

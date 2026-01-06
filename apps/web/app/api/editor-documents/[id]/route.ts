@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAuthFromRequest } from "@/lib/api-auth";
 import {
   updateEditorDocument,
   softDeleteEditorDocument,
@@ -8,17 +8,17 @@ import { ChatSDKError } from "@/lib/errors";
 import { verifyDocumentAccess } from "@/lib/document-access";
 
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { user } = getAuthFromRequest(request);
 
   try {
-    const { access, document } = await verifyDocumentAccess(id);
+    const { access, document } = await verifyDocumentAccess(id, user?.id);
 
     if (access === "none") {
-      const session = await auth();
-      if (!session?.user) {
+      if (!user) {
         return new ChatSDKError("unauthorized:document").toResponse();
       }
       return new ChatSDKError("forbidden:document").toResponse();
@@ -40,16 +40,16 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
   const { id } = await params;
 
   try {
-    const { access } = await verifyDocumentAccess(id);
+    const { access } = await verifyDocumentAccess(id, user.id);
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
@@ -104,9 +104,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
@@ -115,7 +115,7 @@ export async function DELETE(
   const permanent = searchParams.get("permanent") === "true";
 
   try {
-    const { access } = await verifyDocumentAccess(id);
+    const { access } = await verifyDocumentAccess(id, user.id);
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();

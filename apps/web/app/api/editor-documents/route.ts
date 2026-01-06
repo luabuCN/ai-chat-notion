@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAuthFromRequest } from "@/lib/api-auth";
 import {
   createEditorDocument,
   getEditorDocumentsByUserId,
@@ -7,9 +7,9 @@ import { ChatSDKError } from "@/lib/errors";
 import { verifyWorkspaceAccess } from "@/lib/workspace-access";
 
 export async function GET(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
   try {
     const documents = await getEditorDocumentsByUserId({
-      userId: session.user.id,
+      userId: user.id,
       workspaceId: workspaceId ?? undefined,
       parentDocumentId: parentDocumentId ?? null,
       includeDeleted,
@@ -52,9 +52,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     const document = await createEditorDocument({
       title,
       content,
-      userId: session.user.id,
+      userId: user.id,
       workspaceId: workspaceId ?? null,
       parentDocumentId: parentDocumentId ?? null,
       coverImage: coverImage ?? null,

@@ -1,19 +1,21 @@
-import { auth } from "@/app/(auth)/auth";
 import { getEditorDocumentById, hasWorkspaceAccess } from "@repo/database";
 
 export type AccessLevel = "owner" | "edit" | "view" | "none";
 
 export interface DocumentAccessResult {
   access: AccessLevel;
-  document: any; // Using any to avoid importing huge Prisma types here, or import EditorDocument
+  document: any; // Using any to avoid importing huge Prisma types here
 }
 
+/**
+ * 验证用户对文档的访问权限
+ * @param documentId 文档ID
+ * @param userId 用户ID（从请求头获取，由中间件注入）
+ */
 export async function verifyDocumentAccess(
-  documentId: string
+  documentId: string,
+  userId?: string
 ): Promise<DocumentAccessResult> {
-  const session = await auth();
-  const userId = session?.user?.id;
-
   try {
     const document = await getEditorDocumentById({ id: documentId });
 
