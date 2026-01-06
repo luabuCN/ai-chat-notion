@@ -1,7 +1,7 @@
 "use client";
 
 import { Editor } from "@tiptap/react";
-import { ChevronLeft, List } from "lucide-react";
+import { List } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "../lib/utils";
 
@@ -27,13 +27,23 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
     const updateToc = () => {
       const newItems: TocItem[] = [];
       const doc = editor.state.doc;
+      const idCounts: Record<string, number> = {};
 
       doc.descendants((node) => {
-        if (node.type.name === "heading" && node.attrs.level === 3) {
-          const id = node.textContent
+        // 识别所有标题级别 (1, 2, 3)
+        if (node.type.name === "heading" && node.attrs.level <= 3) {
+          let id = node.textContent
             .toLowerCase()
             .replace(/\s+/g, "-")
             .replace(/[^\w\u4e00-\u9fa5-]/g, ""); // Allow Chinese characters in ID
+
+          // 处理重复 ID
+          if (idCounts[id]) {
+            idCounts[id]++;
+            id = `${id}-${idCounts[id]}`;
+          } else {
+            idCounts[id] = 1;
+          }
 
           newItems.push({
             id,
@@ -79,6 +89,9 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
 
   if (items.length === 0) return null;
 
+  // 找到最小的标题级别作为基准（例如只有 H2 和 H3，则 H2 是基准）
+  const minLevel = Math.min(...items.map((item) => item.level));
+
   return (
     <div
       className={cn(
@@ -111,35 +124,44 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
 
         <div
           className={cn(
-            "transition-all duration-300 overflow-hidden",
+            "transition-all duration-300 overflow-hidden overflow-y-auto",
             isExpanded ? "max-h-[500px] opacity-100 pb-2" : "max-h-0 opacity-0"
           )}
         >
           <div className="flex flex-col gap-0.5 px-2">
-            {items.map((item, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  const element = document.getElementById(item.id);
-                  if (element) {
-                    // Offset for fixed header if needed, currently just smooth scroll
-                    element.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
-                    setActiveId(item.id);
-                  }
-                }}
-                className={cn(
-                  "text-left text-xs py-1.5 px-3 rounded-md transition-colors truncate w-full",
-                  activeId === item.id
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {item.text}
-              </button>
-            ))}
+            {items.map((item, index) => {
+              // 根据标题级别计算缩进（相对于最小级别）
+              const indent = (item.level - minLevel) * 12;
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => {
+                    const element = document.getElementById(item.id);
+                    if (element) {
+                      element.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                      setActiveId(item.id);
+                    }
+                  }}
+                  style={{ paddingLeft: `${12 + indent}px` }}
+                  className={cn(
+                    "text-left py-1.5 pr-3 rounded-md transition-colors truncate w-full",
+                    // H1 更大更粗，H2 中等，H3 更小
+                    item.level === 1 && "text-sm font-medium",
+                    item.level === 2 && "text-xs font-medium",
+                    item.level === 3 && "text-xs",
+                    activeId === item.id
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {item.text}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
