@@ -187,15 +187,26 @@ export async function updateWorkspaceMemberRole({
   workspaceId,
   userId,
   role,
+  permission,
 }: {
   workspaceId: string;
   userId: string;
-  role: string;
+  role?: string;
+  permission?: string;
 }) {
   try {
+    const data: { role?: string; permission?: string } = {};
+    if (role !== undefined) data.role = role;
+    if (permission !== undefined) data.permission = permission;
+
     return await prisma.workspaceMember.update({
       where: { workspaceId_userId: { workspaceId, userId } },
-      data: { role },
+      data,
+      include: {
+        user: {
+          select: { id: true, email: true, name: true, avatarUrl: true },
+        },
+      },
     });
   } catch (_error) {
     throw new ChatSDKError(

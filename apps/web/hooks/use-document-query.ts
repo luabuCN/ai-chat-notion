@@ -180,7 +180,7 @@ export function useSidebarDocuments(
   return useQuery({
     queryKey: documentKeys.list(parentDocumentId, workspaceId),
     queryFn: () => fetchDocuments(parentDocumentId, workspaceId),
-    enabled: true, // 总是启用，首次加载就会调用
+    enabled: !!workspaceId, // 只有在有 workspaceId 时才获取
   });
 }
 

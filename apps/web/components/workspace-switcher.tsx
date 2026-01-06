@@ -36,6 +36,7 @@ import {
   RefreshCw,
   Check,
 } from "lucide-react";
+import { WorkspaceSettingsDialog } from "./workspace-settings-dialog";
 
 export type Workspace = {
   id: string;
@@ -44,6 +45,7 @@ export type Workspace = {
   icon: string | null;
   ownerId: string;
   _count: { members: number };
+  members?: { role: string }[];
 };
 
 interface WorkspaceSwitcherProps {
@@ -68,6 +70,7 @@ export function WorkspaceSwitcher({
   const [open, setOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   // 创建空间状态
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
@@ -305,7 +308,10 @@ export function WorkspaceSwitcher({
                   </div>
                 </div>
                 <div className="mt-2 flex gap-2">
-                  {currentWorkspace.ownerId === userId && (
+                  {(currentWorkspace.ownerId === userId ||
+                    currentWorkspace.members?.some(
+                      (m) => m.role === "admin"
+                    )) && (
                     <>
                       <Button
                         variant="outline"
@@ -313,7 +319,7 @@ export function WorkspaceSwitcher({
                         className="flex-1"
                         onClick={() => {
                           setOpen(false);
-                          onSettingsClick?.(currentWorkspace);
+                          setSettingsDialogOpen(true);
                         }}
                       >
                         <Settings className="size-3.5 mr-1" />
@@ -683,6 +689,14 @@ export function WorkspaceSwitcher({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 设置对话框 */}
+      <WorkspaceSettingsDialog
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
+        workspace={currentWorkspace}
+        currentUserId={userId}
+      />
     </>
   );
 }

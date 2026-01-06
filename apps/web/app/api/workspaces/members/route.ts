@@ -98,7 +98,7 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH /api/workspaces/members - 更新成员角色
+// PATCH /api/workspaces/members - 更新成员角色或权限
 export async function PATCH(request: Request) {
   const session = await auth();
 
@@ -107,20 +107,76 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const { workspaceId, userId, role } = await request.json();
+    const { workspaceId, userId, role, permission } = await request.json();
 
-    if (!workspaceId || !userId || !role) {
+    if (!workspaceId || !userId) {
       return new ChatSDKError(
         "bad_request:api",
-        "Workspace ID, User ID, and role are required"
+        "Workspace ID and User ID are required"
+      ).toResponse();
+    }
+
+    if (!role && !permission) {
+      return new ChatSDKError(
+        "bad_request:api",
+        "Role or permission is required"
       ).toResponse();
     }
 
     const workspace = await getWorkspaceById({ id: workspaceId });
-    if (!workspace || workspace.ownerId !== session.user.id) {
+    if (!workspace) {
       return new ChatSDKError(
-        "unauthorized:chat",
-        "Only owner can update roles"
+        "bad_request:api",
+        "Workspace not found"
+      ).toResponse();
+    }
+
+    const isOwner = workspace.ownerId === session.user.id;
+
+    // 获取当前用户在此空间的角色
+    const currentUserMembers = await getWorkspaceMembers({ workspaceId });
+    const currentUserMember = currentUserMembers.find(
+      (m) => m.userId === session.user.id
+    );
+    const isAdmin = currentUserMember?.role === "admin";
+
+    // 获取被操作用户的角色
+    const targetMember = currentUserMembers.find((m) => m.userId === userId);
+    if (!targetMember) {
+      return new ChatSDKError(
+        "bad_request:api",
+        "Member not found"
+      ).toResponse();
+    }
+
+    // 权限检查
+    // 1. 所有者可以操作任何人（除了修改自己的角色为非owner）
+    // 2. 管理员只能操作普通成员
+    if (!isOwner) {
+      if (!isAdmin) {
+        return new ChatSDKError(
+          "unauthorized:chat",
+          "Only owner or admin can update members"
+        ).toResponse();
+      }
+      // 管理员不能操作其他管理员或所有者
+      if (
+        targetMember.role === "admin" ||
+        targetMember.role === "owner" ||
+        targetMember.userId === workspace.ownerId
+      ) {
+        return new ChatSDKError(
+          "unauthorized:chat",
+          "Admin can only update regular members"
+        ).toResponse();
+      }
+    }
+
+    // 不允许修改所有者的角色
+    if (userId === workspace.ownerId && role && role !== "owner") {
+      return new ChatSDKError(
+        "bad_request:api",
+        "Cannot change owner's role"
       ).toResponse();
     }
 
@@ -128,13 +184,14 @@ export async function PATCH(request: Request) {
       workspaceId,
       userId,
       role,
+      permission,
     });
     return NextResponse.json(member);
   } catch (error) {
-    console.error("Failed to update member role:", error);
+    console.error("Failed to update member:", error);
     return new ChatSDKError(
       "bad_request:api",
-      "Failed to update role"
+      "Failed to update member"
     ).toResponse();
   }
 }
