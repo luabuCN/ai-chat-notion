@@ -45,7 +45,7 @@ export type Workspace = {
   icon: string | null;
   ownerId: string;
   _count: { members: number };
-  members?: { role: string }[];
+  members?: { role: string; permission: string }[];
 };
 
 interface WorkspaceSwitcherProps {
@@ -440,11 +440,6 @@ export function WorkspaceSwitcher({
                               : "hover:bg-muted"
                           }`}
                         >
-                          {/* 占位符以保持对齐 */}
-                          <div className="size-7 p-1.5 opacity-0">
-                            <MoreHorizontal className="size-4" />
-                          </div>
-
                           {/* 空间信息 - 占满宽度 */}
                           <button
                             className="flex flex-1 items-center gap-2 py-1.5 px-2 cursor-pointer"

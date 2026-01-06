@@ -36,6 +36,7 @@ interface EditorHeaderProps {
   isSaving?: boolean;
   isSaved?: boolean;
   isDeleted?: boolean;
+  readonly?: boolean; // 只读模式，隐藏编辑相关按钮
 }
 
 export function EditorHeader({
@@ -48,6 +49,7 @@ export function EditorHeader({
   isSaving = false,
   isSaved = false,
   isDeleted = false,
+  readonly = false,
 }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
@@ -106,7 +108,9 @@ export function EditorHeader({
         </div> */}
 
         {/* <Separator orientation="vertical" className="h-6 mx-2" /> */}
-        <PublishPopover documentId={documentId} isPublished={isPublished} />
+        {!readonly && (
+          <PublishPopover documentId={documentId} isPublished={isPublished} />
+        )}
 
         {/* <Button
           variant="ghost"
@@ -124,7 +128,7 @@ export function EditorHeader({
           <MessageSquare className="h-4 w-4" />
         </Button> */}
 
-        {!isDeleted && (
+        {!isDeleted && !readonly && (
           <>
             <Button
               variant="ghost"

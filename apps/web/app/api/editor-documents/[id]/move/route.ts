@@ -1,36 +1,38 @@
-import { auth } from "@/app/(auth)/auth";
-import { moveEditorDocument, getEditorDocumentById } from "@repo/database";
+import { getAuthFromRequest } from "@/lib/api-auth";
+import { moveEditorDocument } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
+import { verifyDocumentAccess } from "@/lib/document-access";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
   const { id } = await params;
 
   try {
-    // Verify document exists and user owns it
-    const document = await getEditorDocumentById({ id });
+    // 验证文档访问权限 - 需要编辑权限才能移动
+    const { access } = await verifyDocumentAccess(id, user.id);
 
-    if (document.userId !== session.user.id) {
+    if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
     const body = await request.json();
     const { parentDocumentId }: { parentDocumentId: string | null } = body;
 
-    // If moving to a parent, verify user owns the parent too
+    // 如果移动到某个父文档下，验证对父文档也有编辑权限
     if (parentDocumentId) {
-      const parentDocument = await getEditorDocumentById({
-        id: parentDocumentId,
-      });
-      if (parentDocument.userId !== session.user.id) {
+      const { access: parentAccess } = await verifyDocumentAccess(
+        parentDocumentId,
+        user.id
+      );
+      if (parentAccess !== "owner" && parentAccess !== "edit") {
         return new ChatSDKError("forbidden:document").toResponse();
       }
     }

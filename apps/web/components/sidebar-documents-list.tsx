@@ -7,6 +7,7 @@ import { FileIcon } from "lucide-react";
 import type { EditorDocument } from "@repo/database";
 import { useSidebarDocuments } from "@/hooks/use-document-query";
 import { useWorkspace } from "./workspace-provider";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 interface DocumentsListProps {
   parentDocumentId?: string;
@@ -30,6 +31,7 @@ const DocumentsList = ({
       : "";
   const { expanded, onExpand } = useSidebarDocumentsContext();
   const { currentWorkspace } = useWorkspace();
+  const { canEdit } = useWorkspacePermission();
 
   // useSidebarDocuments hook 已经内置了监听 document-updated 事件的逻辑，会自动刷新
   const {
@@ -108,6 +110,7 @@ const DocumentsList = ({
             onExpand={() => onExpand(document.id)}
             expanded={expanded[document.id]}
             documentIcon={document.icon}
+            canEdit={canEdit}
           />
           {expanded[document.id] && (
             <DocumentsList parentDocumentId={document.id} level={level + 1} />

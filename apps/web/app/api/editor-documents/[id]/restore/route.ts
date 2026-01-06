@@ -1,24 +1,25 @@
-import { auth } from "@/app/(auth)/auth";
-import { restoreEditorDocument, getEditorDocumentById } from "@repo/database";
+import { getAuthFromRequest } from "@/lib/api-auth";
+import { restoreEditorDocument } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
+import { verifyDocumentAccess } from "@/lib/document-access";
 
 export async function POST(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
   const { id } = await params;
 
   try {
-    const document = await getEditorDocumentById({ id });
+    // 验证文档访问权限 - 需要编辑权限才能恢复
+    const { access } = await verifyDocumentAccess(id, user.id);
 
-    // Verify ownership
-    if (document.userId !== session.user.id) {
+    if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
 

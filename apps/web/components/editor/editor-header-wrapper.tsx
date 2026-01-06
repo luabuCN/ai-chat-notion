@@ -45,6 +45,9 @@ export function EditorHeaderWrapper({
     );
   }
 
+  // 只读模式：accessLevel 为 view 时隐藏编辑按钮
+  const isReadOnly = (document as any)?.accessLevel === "view";
+
   return (
     <EditorHeader
       locale={locale}
@@ -55,6 +58,7 @@ export function EditorHeaderWrapper({
       isFavorite={document?.isFavorite}
       isSaving={isSaving}
       isSaved={isSaved}
+      readonly={isReadOnly}
     />
   );
 }

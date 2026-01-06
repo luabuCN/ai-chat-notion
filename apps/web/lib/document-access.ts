@@ -1,4 +1,7 @@
-import { getEditorDocumentById, hasWorkspaceAccess } from "@repo/database";
+import {
+  getEditorDocumentById,
+  getWorkspaceMemberPermission,
+} from "@repo/database";
 
 export type AccessLevel = "owner" | "edit" | "view" | "none";
 
@@ -27,22 +30,36 @@ export async function verifyDocumentAccess(
       return { access: "none", document };
     }
 
-    // 1. Owner check
+    // 1. Owner check - 文档创建者始终有完全权限
     if (document.userId === userId) {
       return { access: "owner", document };
     }
 
-    // 2. Workspace Access Check
+    // 2. Workspace Access Check - 根据成员权限返回对应级别
     if (document.workspaceId) {
-      const hasAccess = await hasWorkspaceAccess({
+      const memberInfo = await getWorkspaceMemberPermission({
         workspaceId: document.workspaceId,
         userId,
       });
 
-      if (hasAccess) {
-        // Currently assuming all workspace members can edit
-        // TODO: specific role check if needed
-        return { access: "edit", document };
+      if (memberInfo) {
+        // 空间所有者拥有完全权限
+        if (memberInfo.isOwner) {
+          return { access: "owner", document };
+        }
+
+        // 管理员拥有编辑权限
+        if (memberInfo.role === "admin") {
+          return { access: "edit", document };
+        }
+
+        // 普通成员根据 permission 字段判断
+        if (memberInfo.permission === "edit") {
+          return { access: "edit", document };
+        }
+
+        // 默认只有查看权限
+        return { access: "view", document };
       }
     }
 

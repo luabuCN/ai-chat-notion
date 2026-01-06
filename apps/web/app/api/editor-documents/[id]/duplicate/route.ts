@@ -1,30 +1,32 @@
-import { auth } from "@/app/(auth)/auth";
-import { duplicateEditorDocument, getEditorDocumentById } from "@repo/database";
+import { getAuthFromRequest } from "@/lib/api-auth";
+import { duplicateEditorDocument } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
+import { verifyDocumentAccess } from "@/lib/document-access";
 
 export async function POST(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const { user } = getAuthFromRequest(request);
 
-  if (!session?.user) {
+  if (!user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
   const { id } = await params;
 
   try {
-    // Verify document exists and user owns it
-    const document = await getEditorDocumentById({ id });
+    // 验证文档访问权限 - 需要编辑权限才能复制
+    const { access } = await verifyDocumentAccess(id, user.id);
 
-    if (document.userId !== session.user.id) {
+    if (access === "none") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
+    // 只有查看权限也可以复制文档（复制到自己名下）
     const duplicatedDocument = await duplicateEditorDocument({
       id,
-      userId: session.user.id,
+      userId: user.id,
     });
 
     return Response.json(duplicatedDocument, { status: 201 });

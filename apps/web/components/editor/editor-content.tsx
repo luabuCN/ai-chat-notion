@@ -25,6 +25,10 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
   const titleDebounced = useDebounce(title, 500);
   const iconDebounced = useDebounce(icon, 500);
 
+  // 只读模式：已删除的文档或只有查看权限
+  const isReadOnly =
+    !!document?.deletedAt || (document as any)?.accessLevel === "view";
+
   // 从 query 数据同步到本地 state（用于防抖编辑）
   // 使用 documentId 作为依赖，只在文档切换时同步，避免更新时的循环
   const prevDocumentIdRef = useRef<string | null>(null);
@@ -72,6 +76,7 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     if (
       !documentId ||
       !document ||
+      isReadOnly || // 只读模式不保存
       titleDebounced === document.title ||
       titleDebounced === "" ||
       titleDebounced === prevTitleRef.current
@@ -107,6 +112,7 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     if (
       !documentId ||
       !document ||
+      isReadOnly || // 只读模式不保存
       iconDebounced === document.icon ||
       iconDebounced === prevIconRef.current
     )
@@ -141,7 +147,7 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
     if (
       !documentId ||
       !document ||
-      document.deletedAt || // Prevent saving if deleted
+      isReadOnly || // 只读模式不保存
       contentDebounced === document.content ||
       contentDebounced === prevContentRef.current
     )
@@ -245,9 +251,6 @@ export function EditorContent({ locale, documentId }: EditorContentProps) {
   const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
   }, []);
-
-  const isReadOnly =
-    !!document?.deletedAt || (document as any)?.accessLevel === "view";
 
   if (isLoading) {
     return (

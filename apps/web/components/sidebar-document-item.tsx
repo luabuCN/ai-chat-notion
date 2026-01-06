@@ -33,6 +33,7 @@ interface ItemProps {
   label: string;
   onClick?: () => void;
   icon: LucideIcon;
+  canEdit?: boolean; // 是否有编辑权限，用于控制操作按钮显示
 }
 
 const Item = ({
@@ -46,6 +47,7 @@ const Item = ({
   level = 0,
   expanded,
   onExpand,
+  canEdit = true, // 默认有编辑权限
 }: ItemProps) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -188,7 +190,7 @@ const Item = ({
         </kbd>
       )}
 
-      {!!id && (
+      {!!id && canEdit && (
         <div
           className={cn(
             "absolute right-2 flex items-center gap-x-2 transition-opacity",

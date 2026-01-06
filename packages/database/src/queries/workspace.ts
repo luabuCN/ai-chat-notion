@@ -78,7 +78,7 @@ export async function getWorkspacesByUserId({ userId }: { userId: string }) {
         _count: { select: { members: true } },
         members: {
           where: { userId },
-          select: { role: true },
+          select: { role: true, permission: true },
         },
       },
       orderBy: { createdAt: "asc" },
@@ -134,6 +134,46 @@ export async function getWorkspaceMember({
     return await prisma.workspaceMember.findUnique({
       where: { workspaceId_userId: { workspaceId, userId } },
     });
+  } catch (_error) {
+    return null;
+  }
+}
+
+/**
+ * 获取用户在工作空间的权限信息
+ * 返回角色、权限级别和是否为所有者
+ */
+export async function getWorkspaceMemberPermission({
+  workspaceId,
+  userId,
+}: {
+  workspaceId: string;
+  userId: string;
+}): Promise<{
+  role: string;
+  permission: string;
+  isOwner: boolean;
+} | null> {
+  try {
+    // 同时获取成员信息和工作空间所有者信息
+    const [member, workspace] = await Promise.all([
+      prisma.workspaceMember.findUnique({
+        where: { workspaceId_userId: { workspaceId, userId } },
+        select: { role: true, permission: true },
+      }),
+      prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      }),
+    ]);
+
+    if (!member) return null;
+
+    return {
+      role: member.role,
+      permission: member.permission,
+      isOwner: workspace?.ownerId === userId,
+    };
   } catch (_error) {
     return null;
   }

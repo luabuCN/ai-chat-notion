@@ -96,14 +96,17 @@ export async function getChatsByUserId({
     let filteredChats: Chat[] = [];
 
     // 构建查询条件
-    const where: any = {};
+    // AI 对话始终只显示用户自己的聊天，不显示工作空间其他人的聊天
+    const where: any = {
+      userId: id, // 始终按用户 ID 过滤
+    };
+
+    // 如果指定了 workspaceId，则只显示该工作空间的聊天
     if (workspaceId) {
       where.workspaceId = workspaceId;
-    } else {
-      where.userId = id;
-      if (workspaceId === null) {
-        where.workspaceId = null;
-      }
+    } else if (workspaceId === null) {
+      // 如果明确传入 null，则只显示不属于任何工作空间的聊天
+      where.workspaceId = null;
     }
 
     if (startingAfter) {

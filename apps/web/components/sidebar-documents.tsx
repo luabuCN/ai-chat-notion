@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SidebarDocumentsProvider } from "./sidebar-documents-context";
 import { useWorkspace } from "./workspace-provider";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 export function SidebarDocuments() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export function SidebarDocuments() {
       ? params.slug[0]
       : "";
   const { currentWorkspace } = useWorkspace();
+  const { canCreate } = useWorkspacePermission();
   const createDocumentMutation = useCreateDocument();
   const [isLabelHovered, setIsLabelHovered] = useState(false);
 
@@ -58,31 +60,34 @@ export function SidebarDocuments() {
         onMouseLeave={() => setIsLabelHovered(false)}
       >
         AI 文档
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <SidebarGroupAction
-                onClick={handleAddDocument}
-                disabled={createDocumentMutation.isPending}
-                className={cn(
-                  "transition-opacity",
-                  isLabelHovered ? "opacity-100" : "opacity-0",
-                  createDocumentMutation.isPending && "opacity-100 cursor-wait"
-                )}
-              >
-                {createDocumentMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <Plus />
-                )}
-                <span className="sr-only">Add</span>
-              </SidebarGroupAction>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {createDocumentMutation.isPending ? "创建中..." : "添加文档"}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {canCreate && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarGroupAction
+                  onClick={handleAddDocument}
+                  disabled={createDocumentMutation.isPending}
+                  className={cn(
+                    "transition-opacity",
+                    isLabelHovered ? "opacity-100" : "opacity-0",
+                    createDocumentMutation.isPending &&
+                      "opacity-100 cursor-wait"
+                  )}
+                >
+                  {createDocumentMutation.isPending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <Plus />
+                  )}
+                  <span className="sr-only">Add</span>
+                </SidebarGroupAction>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {createDocumentMutation.isPending ? "创建中..." : "添加文档"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </SidebarGroupLabel>
       <SidebarDocumentsProvider>
         <SidebarMenu>
