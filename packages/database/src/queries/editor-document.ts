@@ -104,7 +104,7 @@ export async function getEditorDocumentsByUserId({
 
     return await prisma.editorDocument.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: { createdAt: "desc" },
     });
   } catch (_error) {
     throw new ChatSDKError(
@@ -124,6 +124,8 @@ export async function updateEditorDocument({
   coverImagePosition,
   isPublished,
   isFavorite,
+  lastEditedBy,
+  lastEditedByName,
 }: {
   id: string;
   title?: string;
@@ -134,6 +136,8 @@ export async function updateEditorDocument({
   coverImagePosition?: number | null;
   isPublished?: boolean;
   isFavorite?: boolean;
+  lastEditedBy?: string;
+  lastEditedByName?: string;
 }) {
   try {
     const data: any = {};
@@ -146,6 +150,9 @@ export async function updateEditorDocument({
       data.coverImagePosition = coverImagePosition;
     if (isPublished !== undefined) data.isPublished = isPublished;
     if (isFavorite !== undefined) data.isFavorite = isFavorite;
+    if (lastEditedBy !== undefined) data.lastEditedBy = lastEditedBy;
+    if (lastEditedByName !== undefined)
+      data.lastEditedByName = lastEditedByName;
 
     return await prisma.editorDocument.update({
       where: { id },

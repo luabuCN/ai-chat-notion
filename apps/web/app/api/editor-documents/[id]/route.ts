@@ -86,6 +86,8 @@ export async function PATCH(
       coverImagePosition,
       isPublished,
       isFavorite,
+      lastEditedBy: user.id,
+      lastEditedByName: user.email?.split("@")[0] || "Unknown", // 用邮箱前缀作为名称
     });
 
     return Response.json(updatedDocument, { status: 200 });

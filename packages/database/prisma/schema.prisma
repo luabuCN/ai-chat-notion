@@ -183,6 +183,8 @@ model EditorDocument {
   deletedAt          DateTime? @db.Timestamp(6)
   createdAt          DateTime  @default(now()) @db.Timestamp(6)
   updatedAt          DateTime  @updatedAt @db.Timestamp(6)
+  lastEditedBy       String?   @db.Uuid
+  lastEditedByName   String?   @db.VarChar(100)
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace      Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

@@ -111,6 +111,7 @@ const DocumentsList = ({
             expanded={expanded[document.id]}
             documentIcon={document.icon}
             canEdit={canEdit}
+            lastEditedByName={(document as any).lastEditedByName}
           />
           {expanded[document.id] && (
             <DocumentsList parentDocumentId={document.id} level={level + 1} />

@@ -34,6 +34,7 @@ interface ItemProps {
   onClick?: () => void;
   icon: LucideIcon;
   canEdit?: boolean; // 是否有编辑权限，用于控制操作按钮显示
+  lastEditedByName?: string | null; // 最后编辑者名称
 }
 
 const Item = ({
@@ -48,6 +49,7 @@ const Item = ({
   expanded,
   onExpand,
   canEdit = true, // 默认有编辑权限
+  lastEditedByName,
 }: ItemProps) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -225,7 +227,7 @@ const Item = ({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <div className=" text-xs text-muted-foreground p-2">
-                最后编辑者
+                最后编辑者: {lastEditedByName || "未知"}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
