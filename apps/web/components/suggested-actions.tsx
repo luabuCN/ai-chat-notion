@@ -8,7 +8,7 @@ import { Suggestion } from "./elements/suggestion";
 
 type SuggestedActionsProps = {
   chatId: string;
-  workspaceSlug: string;
+  workspaceSlug?: string;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
 };
 
@@ -43,7 +43,7 @@ function PureSuggestedActions({
               window.history.replaceState(
                 {},
                 "",
-                `/${workspaceSlug}/chat/${chatId}`
+                `/${workspaceSlug || ""}/chat/${chatId}`
               );
               sendMessage({
                 role: "user",

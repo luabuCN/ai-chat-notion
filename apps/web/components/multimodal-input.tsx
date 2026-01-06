@@ -79,7 +79,7 @@ function PureMultimodalInput({
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
-  workspaceSlug: string;
+  workspaceSlug?: string;
 }) {
   const [enableReasoning, setEnableReasoning] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
