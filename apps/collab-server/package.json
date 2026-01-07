@@ -1,0 +1,31 @@
+{
+  "name": "@repo/collab-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env.local -- tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "dotenv -e ../../.env.local -- node dist/index.js",
+    "migrate:yjs": "dotenv -e ../../.env.local -- tsx src/scripts/migrate-to-yjs.ts",
+    "migrate:yjs:dry-run": "dotenv -e ../../.env.local -- tsx src/scripts/migrate-to-yjs.ts --dry-run"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "^2.15.0",
+    "@hocuspocus/extension-database": "^2.15.0",
+    "@hocuspocus/extension-logger": "^2.15.0",
+    "@prisma/client": "6",
+    "ws": "^8.18.0",
+    "yjs": "^13.6.29",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.8.6",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/ws": "^8.5.13",
+    "dotenv-cli": "^11.0.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
+

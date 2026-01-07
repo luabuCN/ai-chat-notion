@@ -171,6 +171,7 @@ model EditorDocument {
   id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title              String
   content            String?   @default("")
+  yjsState           Bytes?    // Yjs 协同编辑状态（二进制格式）
   userId             String    @db.Uuid
   workspaceId        String?   @db.Uuid
   parentDocumentId   String?   @db.Uuid
@@ -186,13 +187,38 @@ model EditorDocument {
   lastEditedBy       String?   @db.Uuid
   lastEditedByName   String?   @db.VarChar(100)
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace      Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  parentDocument EditorDocument?  @relation("DocumentHierarchy", fields: [parentDocumentId], references: [id], onDelete: Cascade)
-  childDocuments EditorDocument[] @relation("DocumentHierarchy")
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentDocument EditorDocument?        @relation("DocumentHierarchy", fields: [parentDocumentId], references: [id], onDelete: Cascade)
+  childDocuments EditorDocument[]       @relation("DocumentHierarchy")
+  collaborators  DocumentCollaborator[] // 文档协作者
 
   @@index([userId, deletedAt])
   @@index([parentDocumentId])
   @@index([workspaceId, deletedAt])
   @@map("EditorDocument")
+}
+
+// 文档协作者（访客协作）
+model DocumentCollaborator {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String    @db.Uuid
+  email      String    @db.VarChar(100) // 被邀请者邮箱
+  userId     String?   @db.Uuid         // 如果已注册则关联用户
+  permission String    @default("edit") @db.VarChar(20) // view, edit
+  status     String    @default("pending") @db.VarChar(20) // pending, accepted, rejected
+  invitedBy  String    @db.Uuid         // 邀请人
+  token      String    @unique @db.VarChar(64) // 邀请链接 token
+  expiresAt  DateTime? @db.Timestamp(6) // 过期时间（可选）
+  acceptedAt DateTime? @db.Timestamp(6)
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
+
+  document EditorDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, email])
+  @@index([documentId])
+  @@index([email])
+  @@index([userId])
+  @@index([token])
+  @@map("DocumentCollaborator")
 }

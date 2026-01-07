@@ -9,11 +9,13 @@ import { useGetDocument, documentKeys } from "@/hooks/use-document-query";
 interface EditorHeaderWrapperProps {
   locale: string;
   documentId: string;
+  currentUserId?: string;
 }
 
 export function EditorHeaderWrapper({
   locale,
   documentId,
+  currentUserId,
 }: EditorHeaderWrapperProps) {
   const { data: document } = useGetDocument(documentId);
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -47,6 +49,7 @@ export function EditorHeaderWrapper({
 
   // 只读模式：accessLevel 为 view 时隐藏编辑按钮
   const isReadOnly = (document as any)?.accessLevel === "view";
+  const isOwner = (document as any)?.accessLevel === "owner";
 
   return (
     <EditorHeader
@@ -54,11 +57,15 @@ export function EditorHeaderWrapper({
       documentTitle={document?.title}
       documentIcon={document?.icon ?? null}
       documentId={documentId}
+      workspaceId={document?.workspaceId ?? null}
       isPublished={document?.isPublished}
       isFavorite={document?.isFavorite}
       isSaving={isSaving}
       isSaved={isSaved}
       readonly={isReadOnly}
+      isOwner={isOwner}
+      currentUserId={currentUserId}
+      documentOwnerId={document?.userId}
     />
   );
 }

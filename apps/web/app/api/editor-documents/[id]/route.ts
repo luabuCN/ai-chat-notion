@@ -15,7 +15,11 @@ export async function GET(
   const { user } = getAuthFromRequest(request);
 
   try {
-    const { access, document } = await verifyDocumentAccess(id, user?.id);
+    const { access, document, hasCollaborators } = await verifyDocumentAccess(
+      id,
+      user?.id,
+      user?.email
+    );
 
     if (access === "none") {
       if (!user) {
@@ -24,7 +28,10 @@ export async function GET(
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
-    return Response.json({ ...document, accessLevel: access }, { status: 200 });
+    return Response.json(
+      { ...document, accessLevel: access, hasCollaborators },
+      { status: 200 }
+    );
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();

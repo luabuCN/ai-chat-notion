@@ -25,18 +25,23 @@ import { LanguageSwitcher } from "../language-switcher";
 import { cn } from "@/lib/utils";
 import { PublishPopover } from "./publish-popover";
 import { DocumentActionsMenu } from "./document-actions-menu";
+import { DocumentSharePopover } from "./document-share-popover";
 
 interface EditorHeaderProps {
   locale: string;
   documentTitle?: string;
   documentIcon?: string | null;
   documentId: string;
+  workspaceId?: string | null;
   isPublished?: boolean;
   isFavorite?: boolean;
   isSaving?: boolean;
   isSaved?: boolean;
   isDeleted?: boolean;
   readonly?: boolean; // 只读模式，隐藏编辑相关按钮
+  isOwner?: boolean;
+  currentUserId?: string;
+  documentOwnerId?: string;
 }
 
 export function EditorHeader({
@@ -44,12 +49,16 @@ export function EditorHeader({
   documentTitle,
   documentIcon,
   documentId,
+  workspaceId = null,
   isPublished = false,
   isFavorite = false,
   isSaving = false,
   isSaved = false,
   isDeleted = false,
   readonly = false,
+  isOwner = false,
+  currentUserId,
+  documentOwnerId,
 }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
@@ -108,6 +117,19 @@ export function EditorHeader({
         </div> */}
 
         {/* <Separator orientation="vertical" className="h-6 mx-2" /> */}
+
+        {/* 分享按钮 */}
+        {!isDeleted && (
+          <DocumentSharePopover
+            documentId={documentId}
+            workspaceId={workspaceId}
+            isPublished={isPublished}
+            isOwner={isOwner}
+            currentUserId={currentUserId}
+            documentOwnerId={documentOwnerId}
+          />
+        )}
+
         {!readonly && (
           <PublishPopover documentId={documentId} isPublished={isPublished} />
         )}

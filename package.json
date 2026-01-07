@@ -4,12 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=@repo/web",
+    "dev:collab": "turbo dev --filter=@repo/collab-server",
+    "dev:all": "turbo dev --filter=@repo/web --filter=@repo/collab-server",
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "turbo format",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
-    "db:studio": "turbo db:studio"
+    "db:studio": "turbo db:studio",
+    "collab:migrate": "turbo migrate:yjs --filter=@repo/collab-server"
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0",

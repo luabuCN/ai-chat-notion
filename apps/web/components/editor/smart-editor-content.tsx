@@ -10,41 +10,52 @@ import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import { generateUserColor } from "@repo/editor";
 
-interface EditorContentProps {
+interface SmartEditorContentProps {
   locale: string;
   documentId: string;
-  userId?: string;
-  userName?: string;
+  userId: string;
+  userName: string;
   userEmail?: string;
+  /**
+   * 是否强制启用协同编辑模式
+   * - true: 强制启用
+   * - false: 强制禁用
+   * - undefined: 自动检测（根据工作空间成员和访客协作者判断）
+   */
+  enableCollaboration?: boolean;
 }
 
-export function EditorContent({
+/**
+ * 智能编辑器内容组件
+ * 根据配置自动选择使用协同编辑器或传统编辑器
+ *
+ * 自动启用协同的条件：
+ * 1. 文档在工作空间中 + 当前用户有编辑权限
+ * 2. 文档有访客协作者 + 当前用户是协作者且有编辑权限
+ */
+export function SmartEditorContent({
   locale,
   documentId,
   userId,
   userName,
   userEmail,
-}: EditorContentProps) {
+  enableCollaboration,
+}: SmartEditorContentProps) {
   const { data: document, isLoading, error } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
-
-  const [title, setTitle] = useState("");
-  const [icon, setIcon] = useState<string | null>(null);
-  const [content, setContent] = useState("");
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const contentDebounced = useDebounce(content, 1000);
-  const titleDebounced = useDebounce(title, 500);
-  const iconDebounced = useDebounce(icon, 500);
 
   // 只读模式：已删除的文档或只有查看权限
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";
 
-  // 判断是否启用协同编辑：
-  // 1. 文档在工作空间中 + 当前用户有编辑权限
-  // 2. 文档有访客协作者 + 当前用户是协作者且有编辑权限
-  const enableCollaboration = useMemo(() => {
+  // 自动检测是否应该启用协同编辑
+  const shouldEnableCollaboration = useMemo(() => {
+    // 如果明确指定了，使用指定的值
+    if (enableCollaboration !== undefined) {
+      return enableCollaboration;
+    }
+
+    // 自动检测逻辑
     if (!document || isReadOnly) return false;
 
     const accessLevel = (document as any)?.accessLevel;
@@ -61,13 +72,23 @@ export function EditorContent({
     }
 
     return false;
-  }, [document, isReadOnly]);
+  }, [document, isReadOnly, enableCollaboration]);
 
-  // 协同编辑 token（仅在启用协同时获取）
+  // 协同编辑 token（仅在启用协同编辑时获取）
   const {
     data: collabData,
     isLoading: isTokenLoading,
-  } = useCollabToken(enableCollaboration ? documentId : null);
+    error: tokenError,
+  } = useCollabToken(shouldEnableCollaboration ? documentId : null);
+
+  const [title, setTitle] = useState("");
+  const [icon, setIcon] = useState<string | null>(null);
+  const [content, setContent] = useState("");
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const contentDebounced = useDebounce(content, 1000);
+  const titleDebounced = useDebounce(title, 500);
+  const iconDebounced = useDebounce(icon, 500);
 
   // 协同服务器 URL
   const collabServerUrl =
@@ -77,20 +98,18 @@ export function EditorContent({
   const user = useMemo(
     () => ({
       name: userName || userEmail?.split("@")[0] || "Anonymous",
-      color: generateUserColor(userId || "default"),
+      color: generateUserColor(userId),
     }),
     [userId, userName, userEmail]
   );
 
-  // 从 query 数据同步到本地 state（用于防抖编辑）
-  // 使用 documentId 作为依赖，只在文档切换时同步，避免更新时的循环
+  // 从 query 数据同步到本地 state
   const prevDocumentIdRef = useRef<string | null>(null);
   const prevTitleRef = useRef<string>("");
   const prevIconRef = useRef<string | null>(null);
   const prevContentRef = useRef<string>("");
 
   useEffect(() => {
-    // 当文档加载完成且 documentId 发生变化时，更新本地 state
     if (document) {
       const isDocumentChanged = documentId !== prevDocumentIdRef.current;
 
@@ -104,12 +123,10 @@ export function EditorContent({
         setIcon(newIcon);
         setContent(newContent);
 
-        // 重置 refs，避免下次比较时误判
         prevTitleRef.current = newTitle;
         prevIconRef.current = newIcon;
         prevContentRef.current = newContent;
 
-        // 发送文档加载事件，通知其他组件
         window.dispatchEvent(
           new CustomEvent("document-loaded", { detail: document })
         );
@@ -122,14 +139,17 @@ export function EditorContent({
     if (error) {
       toast.error(error.message || "加载文档失败");
     }
-  }, [error]);
+    if (tokenError) {
+      toast.error(tokenError.message || "获取协同编辑权限失败");
+    }
+  }, [error, tokenError]);
 
   // 防抖保存标题
   useEffect(() => {
     if (
       !documentId ||
       !document ||
-      isReadOnly || // 只读模式不保存
+      isReadOnly ||
       titleDebounced === document.title ||
       titleDebounced === "" ||
       titleDebounced === prevTitleRef.current
@@ -148,8 +168,8 @@ export function EditorContent({
             clearTimeout(saveTimeoutRef.current);
           }
         },
-        onError: (error) => {
-          toast.error(error.message || "更新标题失败");
+        onError: (err) => {
+          toast.error(err.message || "更新标题失败");
         },
       }
     );
@@ -158,14 +178,15 @@ export function EditorContent({
     documentId,
     document?.title,
     updateDocumentMutation.mutate,
+    isReadOnly,
   ]);
 
-  // 防抖保存icon
+  // 防抖保存图标
   useEffect(() => {
     if (
       !documentId ||
       !document ||
-      isReadOnly || // 只读模式不保存
+      isReadOnly ||
       iconDebounced === document.icon ||
       iconDebounced === prevIconRef.current
     )
@@ -183,8 +204,8 @@ export function EditorContent({
             clearTimeout(saveTimeoutRef.current);
           }
         },
-        onError: (error) => {
-          toast.error(error.message || "更新图标失败");
+        onError: (err) => {
+          toast.error(err.message || "更新图标失败");
         },
       }
     );
@@ -193,14 +214,16 @@ export function EditorContent({
     documentId,
     document?.icon,
     updateDocumentMutation.mutate,
+    isReadOnly,
   ]);
 
-  // 防抖保存内容
+  // 防抖保存内容（仅非协同模式）
   useEffect(() => {
     if (
+      shouldEnableCollaboration || // 协同模式下不通过 HTTP 保存内容
       !documentId ||
       !document ||
-      isReadOnly || // 只读模式不保存
+      isReadOnly ||
       contentDebounced === document.content ||
       contentDebounced === prevContentRef.current
     )
@@ -218,8 +241,8 @@ export function EditorContent({
             clearTimeout(saveTimeoutRef.current);
           }
         },
-        onError: (error) => {
-          toast.error(error.message || "保存内容失败");
+        onError: (err) => {
+          toast.error(err.message || "保存内容失败");
         },
       }
     );
@@ -229,6 +252,8 @@ export function EditorContent({
     document?.content,
     document?.deletedAt,
     updateDocumentMutation.mutate,
+    shouldEnableCollaboration,
+    isReadOnly,
   ]);
 
   useEffect(() => {
@@ -268,8 +293,8 @@ export function EditorContent({
               clearTimeout(saveTimeoutRef.current);
             }
           },
-          onError: (error) => {
-            toast.error(error.message || "更新封面失败");
+          onError: (err) => {
+            toast.error(err.message || "更新封面失败");
           },
         }
       );
@@ -292,8 +317,8 @@ export function EditorContent({
               clearTimeout(saveTimeoutRef.current);
             }
           },
-          onError: (error) => {
-            toast.error(error.message || "更新封面位置失败");
+          onError: (err) => {
+            toast.error(err.message || "更新封面位置失败");
           },
         }
       );
@@ -305,7 +330,7 @@ export function EditorContent({
     setContent(newContent);
   }, []);
 
-  if (isLoading || (enableCollaboration && isTokenLoading)) {
+  if (isLoading || (shouldEnableCollaboration && isTokenLoading)) {
     return (
       <div className="min-h-full flex items-center justify-center">
         <div className="text-muted-foreground">加载中...</div>
@@ -331,7 +356,7 @@ export function EditorContent({
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">
-        {enableCollaboration && collabData?.token && userId ? (
+        {shouldEnableCollaboration && collabData?.token ? (
           // 协同编辑模式
           <CollaborativeEditorClient
             key={`${documentId}-collab`}
