@@ -1,7 +1,7 @@
-import { EditorHeaderWrapper } from "@/components/editor/editor-header-wrapper";
-import { EditorContent } from "@/components/editor/editor-content";
+import { EditorPageClient } from "@/components/editor/editor-page-client";
 import { getUserLocale } from "@/i18n/service";
 import { requireWorkspaceAccess } from "@/lib/workspace-access";
+import { auth } from "@/app/(auth)/auth";
 
 export default async function Page({
   params,
@@ -13,16 +13,15 @@ export default async function Page({
   // 验证用户对该空间的访问权限
   await requireWorkspaceAccess(slug);
 
-  const locale = await getUserLocale();
+  const [locale, session] = await Promise.all([getUserLocale(), auth()]);
 
   return (
-    <div className="flex h-dvh min-w-0 flex-col bg-background overflow-hidden">
-      <div className="flex-1 overflow-auto min-h-0">
-        <div className="sticky top-0 z-49 bg-background shrink-0">
-          <EditorHeaderWrapper locale={locale} documentId={id} />
-        </div>
-        <EditorContent locale={locale} documentId={id} />
-      </div>
-    </div>
+    <EditorPageClient
+      locale={locale}
+      documentId={id}
+      userId={session?.user?.id}
+      userName={session?.user?.name || undefined}
+      userEmail={session?.user?.email || undefined}
+    />
   );
 }

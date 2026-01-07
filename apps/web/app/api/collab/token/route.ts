@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       {
         userId: user.id,
         email: user.email,
-        name: user.email?.split("@")[0] || "Anonymous",
+        name: user.name || user.email?.split("@")[0] || "Anonymous",
         documentId,
         accessLevel: access,
       },

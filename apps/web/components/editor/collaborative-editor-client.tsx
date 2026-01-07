@@ -19,6 +19,7 @@ interface CollaborativeEditorClientProps {
   readonly?: boolean;
   onSynced?: () => void;
   onDisconnect?: () => void;
+  onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
 }
 
 export const CollaborativeEditorClient = memo(function CollaborativeEditorClient({
@@ -29,6 +30,7 @@ export const CollaborativeEditorClient = memo(function CollaborativeEditorClient
   readonly,
   onSynced,
   onDisconnect,
+  onConnectedUsersChange,
 }: CollaborativeEditorClientProps) {
   const uploadFile = useCallback(async (file: File) => {
     const formData = new FormData();
@@ -79,6 +81,7 @@ export const CollaborativeEditorClient = memo(function CollaborativeEditorClient
       readonly={readonly}
       onSynced={handleSynced}
       onDisconnect={handleDisconnect}
+      onConnectedUsersChange={onConnectedUsersChange}
     />
   );
 });

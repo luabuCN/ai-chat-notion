@@ -9,6 +9,7 @@ import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import { generateUserColor } from "@repo/editor";
+import { useCollaboration } from "./collaboration-context";
 
 interface EditorContentProps {
   locale: string;
@@ -27,6 +28,7 @@ export function EditorContent({
 }: EditorContentProps) {
   const { data: document, isLoading, error } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
+  const { setConnectedUsers } = useCollaboration();
 
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
@@ -55,7 +57,12 @@ export function EditorContent({
       return true;
     }
 
-    // 条件2：有访客协作者（通过 API 返回的标记判断）
+    // 条件2：当前用户是访客协作者 + 有编辑权限
+    if ((document as any)?.isCurrentUserCollaborator && hasEditAccess) {
+      return true;
+    }
+
+    // 条件3：文档有访客协作者 + 当前用户是文档所有者 + 有编辑权限
     if ((document as any)?.hasCollaborators && hasEditAccess) {
       return true;
     }
@@ -340,6 +347,7 @@ export function EditorContent({
             user={user}
             serverUrl={collabServerUrl}
             readonly={isReadOnly}
+            onConnectedUsersChange={setConnectedUsers}
           />
         ) : (
           // 传统编辑模式

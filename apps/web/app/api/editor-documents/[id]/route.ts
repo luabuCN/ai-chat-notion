@@ -15,11 +15,8 @@ export async function GET(
   const { user } = getAuthFromRequest(request);
 
   try {
-    const { access, document, hasCollaborators } = await verifyDocumentAccess(
-      id,
-      user?.id,
-      user?.email
-    );
+    const { access, document, hasCollaborators, isCurrentUserCollaborator } =
+      await verifyDocumentAccess(id, user?.id, user?.email);
 
     if (access === "none") {
       if (!user) {
@@ -29,7 +26,12 @@ export async function GET(
     }
 
     return Response.json(
-      { ...document, accessLevel: access, hasCollaborators },
+      {
+        ...document,
+        accessLevel: access,
+        hasCollaborators,
+        isCurrentUserCollaborator,
+      },
       { status: 200 }
     );
   } catch (error) {
@@ -56,7 +58,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const { access } = await verifyDocumentAccess(id, user.id);
+    const { access } = await verifyDocumentAccess(id, user.id, user.email);
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
@@ -124,7 +126,7 @@ export async function DELETE(
   const permanent = searchParams.get("permanent") === "true";
 
   try {
-    const { access } = await verifyDocumentAccess(id, user.id);
+    const { access } = await verifyDocumentAccess(id, user.id, user.email);
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();

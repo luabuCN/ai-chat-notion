@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { PublishPopover } from "./publish-popover";
 import { DocumentActionsMenu } from "./document-actions-menu";
 import { DocumentSharePopover } from "./document-share-popover";
+import { useCollaboration } from "./collaboration-context";
 
 interface EditorHeaderProps {
   locale: string;
@@ -64,6 +65,7 @@ export function EditorHeader({
   const { width: windowWidth } = useWindowSize();
   const updateDocumentMutation = useUpdateDocument();
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
+  const { connectedUsers } = useCollaboration();
 
   const toggleFavorite = () => {
     if (isUpdatingFavorite) return;
@@ -102,21 +104,35 @@ export function EditorHeader({
       </div>
 
       <div className="flex items-center gap-1">
-        {/* <div className="flex items-center -space-x-2 mr-2">
-          <Avatar className="h-7 w-7 border-2 border-background">
-            <AvatarImage src="https://github.com/shadcn.png" />
-            <AvatarFallback>CN</AvatarFallback>
-          </Avatar>
-          <Avatar className="h-7 w-7 border-2 border-background">
-            <AvatarImage src="https://github.com/vercel.png" />
-            <AvatarFallback>VC</AvatarFallback>
-          </Avatar>
-          <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
-            +3
+        {/* 在线用户头像 */}
+        {connectedUsers.length > 0 && (
+          <div className="flex items-center -space-x-2 mr-2">
+            {connectedUsers.slice(0, 5).map((user, index) => (
+              <Avatar
+                key={`${user.name}-${index}`}
+                className="h-7 w-7 border-2 border-background"
+                style={{ backgroundColor: user.color }}
+              >
+                <AvatarImage src={user.avatar} />
+                <AvatarFallback
+                  className="text-[10px] font-medium text-white"
+                  style={{ backgroundColor: user.color }}
+                >
+                  {user.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            ))}
+            {connectedUsers.length > 5 && (
+              <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                +{connectedUsers.length - 5}
+              </div>
+            )}
           </div>
-        </div> */}
+        )}
 
-        {/* <Separator orientation="vertical" className="h-6 mx-2" /> */}
+        {connectedUsers.length > 0 && (
+          <Separator orientation="vertical" className="h-6 mx-2" />
+        )}
 
         {/* 分享按钮 */}
         {!isDeleted && (

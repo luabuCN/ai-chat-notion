@@ -6,15 +6,19 @@ import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon, Plus, Wifi, WifiOff } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  startTransition,
+} from "react";
 import { toast } from "sonner";
 import * as Y from "yjs";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { Ai } from "./tiptap/extensions/ai";
-import {
-  getSuggestion,
-  SlashCommand,
-} from "./tiptap/extensions/slash-command";
+import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
@@ -37,6 +41,7 @@ export interface CollaborativeEditorProps {
   onUpdate?: (editor: Editor) => void;
   onSynced?: () => void;
   onDisconnect?: () => void;
+  onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
   className?: string;
   showAiTools?: boolean;
   aiApiUrl?: string;
@@ -74,6 +79,7 @@ export function CollaborativeEditor({
   onUpdate,
   onSynced,
   onDisconnect,
+  onConnectedUsersChange,
   className = "",
   showAiTools = true,
   aiApiUrl,
@@ -93,6 +99,8 @@ export function CollaborativeEditor({
   // 连接状态
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [connectedUsers, setConnectedUsers] = useState<CollaborativeUser[]>([]);
+  const connectedUsersRef = useRef<CollaborativeUser[]>([]);
+  const isMountedRef = useRef(false);
 
   // 创建 Yjs 文档 - 使用 documentId 作为依赖，切换文档时重新创建
   const ydoc = useMemo(() => new Y.Doc(), [documentId]);
@@ -106,80 +114,167 @@ export function CollaborativeEditor({
       token,
       onStatus: ({ status: s }) => {
         console.log("[Collab] Connection status:", s);
-        setStatus(s as ConnectionStatus);
-        if (s === "disconnected") {
-          onDisconnect?.();
+        // 只有在组件挂载后才更新状态
+        if (isMountedRef.current) {
+          setStatus(s as ConnectionStatus);
+          if (s === "disconnected") {
+            onDisconnect?.();
+          }
         }
       },
       onSynced: ({ state }) => {
         console.log("[Collab] Document synced, state:", state);
-        if (state) {
+        if (state && isMountedRef.current) {
           onSynced?.();
         }
       },
       onAwarenessUpdate: ({ states }) => {
-        // 更新在线用户列表
+        // 更新在线用户列表（只有在组件挂载后才更新状态）
         const users = Array.from(states.values())
           .filter(
             (state: Record<string, unknown>) =>
               state.user && (state.user as Record<string, unknown>).name
           )
-          .map((state: Record<string, unknown>) => state.user as CollaborativeUser);
-        setConnectedUsers(users);
+          .map(
+            (state: Record<string, unknown>) => state.user as CollaborativeUser
+          );
+
+        if (isMountedRef.current) {
+          setConnectedUsers(users);
+          onConnectedUsersChange?.(users);
+        }
       },
       onAuthenticationFailed: ({ reason }) => {
         console.error("[Collab] Authentication failed:", reason);
-        toast.error("认证失败", {
-          description: reason || "无法连接到协同服务器",
-        });
+        if (isMountedRef.current) {
+          toast.error("认证失败", {
+            description: reason || "无法连接到协同服务器",
+          });
+        }
       },
     });
 
-    // 设置当前用户的 awareness 状态
-    p.setAwarenessField("user", user);
-
     return p;
-  }, [documentId, serverUrl, token, ydoc, user, onSynced, onDisconnect]);
+  }, [
+    documentId,
+    serverUrl,
+    token,
+    ydoc,
+    onSynced,
+    onDisconnect,
+    onConnectedUsersChange,
+  ]);
 
-  // 创建编辑器
+  // 标记组件已挂载
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // 在 useEffect 中设置 awareness 状态，避免在渲染期间触发更新
+  useEffect(() => {
+    if (provider && isMountedRef.current) {
+      provider.setAwarenessField("user", user);
+    }
+  }, [provider, user]);
+
+  // 构建扩展列表（根据连接状态动态包含 CollaborationCursor）
+  const extensions = useMemo(() => {
+    const baseExtensions = [
+      ...defaultExtensions,
+      Placeholder.configure({
+        placeholder: placeholder ?? "Type / for commands...",
+        emptyEditorClass: "is-editor-empty text-gray-400",
+        emptyNodeClass: "is-empty text-gray-400",
+      }),
+      Ai.configure({
+        apiUrl: aiApiUrl,
+        onError: (error) => {
+          console.error(error);
+          toast.error("Error", {
+            description: error.message,
+          });
+        },
+      }),
+      SlashCommand.configure({
+        suggestion: getSuggestion({
+          ai: showAiTools,
+          uploadFile: uploadFile ? stableUploadFile : undefined,
+        }),
+      }),
+      // Yjs 协同扩展
+      Collaboration.configure({
+        document: ydoc,
+      }),
+    ];
+
+    // 仅在连接成功且 provider 存在时添加 CollaborationCursor
+    // 需要确保 provider.doc 存在（这是 CollaborationCursor 需要的）
+    if (provider && status === "connected") {
+      try {
+        const providerAny = provider as any;
+        // 检查 provider 是否有 doc 属性（CollaborationCursor 需要这个）
+        // 同时检查 awareness 属性确保完全初始化
+        if (providerAny.doc && providerAny.awareness) {
+          baseExtensions.push(
+            CollaborationCursor.configure({
+              provider,
+              user: {
+                name: user.name,
+                color: user.color,
+              },
+            })
+          );
+        }
+      } catch (error) {
+        // 如果添加失败，继续但不添加 CollaborationCursor
+        console.warn(
+          "[Collab] Failed to add CollaborationCursor, will retry:",
+          error
+        );
+      }
+    }
+
+    return baseExtensions;
+  }, [
+    placeholder,
+    aiApiUrl,
+    showAiTools,
+    stableUploadFile,
+    ydoc,
+    provider,
+    status,
+    user,
+  ]);
+
+  // 检查 provider 是否完全准备好（有 doc 和 awareness 属性）
+  const providerReady =
+    status === "connected" &&
+    !!provider &&
+    !!(provider as any).doc &&
+    !!(provider as any).awareness;
+
+  // 创建编辑器 - 只有在 provider 完全准备好后才创建完整编辑器
   const editor = useEditor(
     {
-      editable: !readonly && status === "connected",
-      extensions: [
-        ...defaultExtensions,
-        Placeholder.configure({
-          placeholder: placeholder ?? "Type / for commands...",
-          emptyEditorClass: "is-editor-empty text-gray-400",
-          emptyNodeClass: "is-empty text-gray-400",
-        }),
-        Ai.configure({
-          apiUrl: aiApiUrl,
-          onError: (error) => {
-            console.error(error);
-            toast.error("Error", {
-              description: error.message,
-            });
-          },
-        }),
-        SlashCommand.configure({
-          suggestion: getSuggestion({
-            ai: showAiTools,
-            uploadFile: uploadFile ? stableUploadFile : undefined,
-          }),
-        }),
-        // Yjs 协同扩展
-        Collaboration.configure({
-          document: ydoc,
-        }),
-        // 协作光标扩展
-        CollaborationCursor.configure({
-          provider,
-          user: {
-            name: user.name,
-            color: user.color,
-          },
-        }),
-      ],
+      editable: !readonly && providerReady,
+      // 只有在 provider 完全准备好后才使用完整扩展（包含 CollaborationCursor）
+      // 否则使用基础扩展（不包含 CollaborationCursor）
+      extensions: providerReady
+        ? extensions
+        : [
+            ...defaultExtensions,
+            Placeholder.configure({
+              placeholder: placeholder ?? "Type / for commands...",
+              emptyEditorClass: "is-editor-empty text-gray-400",
+              emptyNodeClass: "is-empty text-gray-400",
+            }),
+            Collaboration.configure({
+              document: ydoc,
+            }),
+          ],
       immediatelyRender: false, // 协同模式下禁用立即渲染
       shouldRerenderOnTransaction: false,
       editorProps: {
@@ -198,7 +293,7 @@ export function CollaborativeEditor({
         console.error(error);
       },
     },
-    [ydoc, provider, readonly, status]
+    [extensions, readonly, status, providerReady]
   );
 
   const { handleSlashCommand } = useSlashCommandTrigger(editor);
@@ -309,36 +404,39 @@ export function CollaborativeEditor({
       </div>
 
       {/* 编辑器主体 */}
-      <DragHandle
-        editor={editor}
-        className="transition-all duration-300 ease-in-out"
-        computePositionConfig={{
-          middleware: [offset(20)],
-        }}
-      >
-        <div className="flex items-center gap-1 -ml-2">
-          <div
-            className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
-            onClick={handleSlashCommand}
+      {editor && (
+        <>
+          <DragHandle
+            editor={editor}
+            className="transition-all duration-300 ease-in-out"
+            computePositionConfig={{
+              middleware: [offset(20)],
+            }}
           >
-            <Plus className="size-3.5 text-muted-foreground" />
-          </div>
-          <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
-            <GripVerticalIcon className="size-3.5 text-muted-foreground" />
-          </div>
-        </div>
-      </DragHandle>
-      <EditorContent
-        editor={editor}
-        className="prose dark:prose-invert focus:outline-none max-w-full z-0"
-      />
-      <TableHandle editor={editor} />
-      <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
-      <MediaBubbleMenu editor={editor} />
-      <TableOfContents editor={editor} />
+            <div className="flex items-center gap-1 -ml-2">
+              <div
+                className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
+                onClick={handleSlashCommand}
+              >
+                <Plus className="size-3.5 text-muted-foreground" />
+              </div>
+              <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
+                <GripVerticalIcon className="size-3.5 text-muted-foreground" />
+              </div>
+            </div>
+          </DragHandle>
+          <EditorContent
+            editor={editor}
+            className="prose dark:prose-invert focus:outline-none max-w-full z-0"
+          />
+          <TableHandle editor={editor} />
+          <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
+          <MediaBubbleMenu editor={editor} />
+          <TableOfContents editor={editor} />
+        </>
+      )}
     </div>
   );
 }
 
 export default CollaborativeEditor;
-

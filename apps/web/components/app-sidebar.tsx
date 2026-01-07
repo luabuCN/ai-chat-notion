@@ -6,6 +6,7 @@ import type { User } from "next-auth";
 import { BotIcon, ClockRewind } from "@/components/icons";
 import { SidebarHistory } from "@/components/sidebar-history";
 import { SidebarDocuments } from "@/components/sidebar-documents";
+import { SidebarSharedDocuments } from "@/components/sidebar-shared-documents";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { SidebarTrash } from "@/components/sidebar-trash";
@@ -102,6 +103,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             </SidebarGroupContent>
           </SidebarGroup>
           <SidebarDocuments />
+          <SidebarSharedDocuments />
           <SidebarTrash />
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>

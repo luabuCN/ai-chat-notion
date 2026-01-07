@@ -62,8 +62,11 @@ export function startServer(port: number) {
 
     // 连接建立时
     async onConnect({ documentName, context }) {
+      const userName = context?.user?.name || context?.user?.id || "Unknown";
       console.log(
-        `[Connect] User ${context?.user?.name} connected to document ${documentName}`
+        `[Connect] User ${userName} (${
+          context?.user?.email || "no email"
+        }) connected to document ${documentName}`
       );
     },
 
