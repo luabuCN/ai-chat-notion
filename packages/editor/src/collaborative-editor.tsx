@@ -89,6 +89,14 @@ export function CollaborativeEditor({
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
 
+  // 使用 refs 稳定回调函数，防止 provider 重新创建
+  const onSyncedRef = useRef(onSynced);
+  onSyncedRef.current = onSynced;
+  const onDisconnectRef = useRef(onDisconnect);
+  onDisconnectRef.current = onDisconnect;
+  const onConnectedUsersChangeRef = useRef(onConnectedUsersChange);
+  onConnectedUsersChangeRef.current = onConnectedUsersChange;
+
   const stableUploadFile = useRef(async (file: File) => {
     if (uploadFileRef.current) {
       return uploadFileRef.current(file);
@@ -118,14 +126,14 @@ export function CollaborativeEditor({
         if (isMountedRef.current) {
           setStatus(s as ConnectionStatus);
           if (s === "disconnected") {
-            onDisconnect?.();
+            onDisconnectRef.current?.();
           }
         }
       },
       onSynced: ({ state }) => {
         console.log("[Collab] Document synced, state:", state);
         if (state && isMountedRef.current) {
-          onSynced?.();
+          onSyncedRef.current?.();
         }
       },
       onAwarenessUpdate: ({ states }) => {
@@ -141,7 +149,7 @@ export function CollaborativeEditor({
 
         if (isMountedRef.current) {
           setConnectedUsers(users);
-          onConnectedUsersChange?.(users);
+          onConnectedUsersChangeRef.current?.(users);
         }
       },
       onAuthenticationFailed: ({ reason }) => {
@@ -155,15 +163,7 @@ export function CollaborativeEditor({
     });
 
     return p;
-  }, [
-    documentId,
-    serverUrl,
-    token,
-    ydoc,
-    onSynced,
-    onDisconnect,
-    onConnectedUsersChange,
-  ]);
+  }, [documentId, serverUrl, token, ydoc]);
 
   // 标记组件已挂载
   useEffect(() => {

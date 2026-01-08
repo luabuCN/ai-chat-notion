@@ -6,6 +6,7 @@
 export interface AuthUser {
   id: string;
   email: string;
+  name: string;
   type: string;
 }
 
@@ -31,6 +32,7 @@ export interface AuthResult {
 export function getAuthFromRequest(request: Request): AuthResult {
   const userId = request.headers.get("x-user-id");
   const userEmail = request.headers.get("x-user-email");
+  const userName = request.headers.get("x-user-name");
   const userType = request.headers.get("x-user-type");
 
   if (!userId) {
@@ -41,6 +43,7 @@ export function getAuthFromRequest(request: Request): AuthResult {
     user: {
       id: userId,
       email: userEmail || "",
+      name: userName || userEmail?.split("@")[0] || "Anonymous",
       type: userType || "regular",
     },
   };

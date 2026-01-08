@@ -15,6 +15,12 @@ export async function POST(request: Request) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
+  console.log("[Collab Token] User info:", {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+  });
+
   try {
     const body = await request.json();
     const { documentId } = body;
@@ -27,7 +33,11 @@ export async function POST(request: Request) {
     }
 
     // 验证文档访问权限（包括访客协作者）
-    const { access } = await verifyDocumentAccess(documentId, user.id, user.email);
+    const { access } = await verifyDocumentAccess(
+      documentId,
+      user.id,
+      user.email
+    );
 
     if (access === "none") {
       return new ChatSDKError("forbidden:document").toResponse();
@@ -73,4 +83,3 @@ export async function POST(request: Request) {
     ).toResponse();
   }
 }
-

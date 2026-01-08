@@ -9,7 +9,12 @@ import {
 // 创建带有用户信息的响应
 function createResponseWithUserHeaders(
   request: NextRequest,
-  token: { id?: string; email?: string | null; type?: string } | null
+  token: {
+    id?: string;
+    email?: string | null;
+    name?: string | null;
+    type?: string;
+  } | null
 ) {
   if (!token) {
     return NextResponse.next();
@@ -18,6 +23,7 @@ function createResponseWithUserHeaders(
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-user-id", (token.id as string) || "");
   requestHeaders.set("x-user-email", token.email || "");
+  requestHeaders.set("x-user-name", token.name || "");
   requestHeaders.set("x-user-type", (token.type as string) || "regular");
 
   return NextResponse.next({

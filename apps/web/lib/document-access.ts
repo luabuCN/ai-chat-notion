@@ -40,13 +40,19 @@ export async function verifyDocumentAccess(
     // 检查当前用户是否是协作者（用于决定是否启用协同编辑）
     let isCurrentUserCollaborator = false;
     if (userId && userEmail) {
-      const currentUserCollaborator = await prisma.documentCollaborator.findUnique({
-        where: {
-          documentId_email: {
-            documentId,
-            email: userEmail,
+      const currentUserCollaborator =
+        await prisma.documentCollaborator.findUnique({
+          where: {
+            documentId_email: {
+              documentId,
+              email: userEmail,
+            },
           },
-        },
+        });
+      console.log("[Doc Access] Collaborator lookup:", {
+        documentId,
+        userEmail,
+        collaborator: currentUserCollaborator,
       });
       isCurrentUserCollaborator =
         currentUserCollaborator?.status === "accepted" &&
@@ -56,14 +62,29 @@ export async function verifyDocumentAccess(
     if (!userId) {
       // Public access check (if published)
       if (document.isPublished) {
-        return { access: "view", document, hasCollaborators, isCurrentUserCollaborator: false };
+        return {
+          access: "view",
+          document,
+          hasCollaborators,
+          isCurrentUserCollaborator: false,
+        };
       }
-      return { access: "none", document, hasCollaborators, isCurrentUserCollaborator: false };
+      return {
+        access: "none",
+        document,
+        hasCollaborators,
+        isCurrentUserCollaborator: false,
+      };
     }
 
     // 1. Owner check - 文档创建者始终有完全权限
     if (document.userId === userId) {
-      return { access: "owner", document, hasCollaborators, isCurrentUserCollaborator: false };
+      return {
+        access: "owner",
+        document,
+        hasCollaborators,
+        isCurrentUserCollaborator: false,
+      };
     }
 
     // 2. Workspace Access Check - 根据成员权限返回对应级别
@@ -76,21 +97,41 @@ export async function verifyDocumentAccess(
       if (memberInfo) {
         // 空间所有者拥有完全权限
         if (memberInfo.isOwner) {
-          return { access: "owner", document, hasCollaborators, isCurrentUserCollaborator: false };
+          return {
+            access: "owner",
+            document,
+            hasCollaborators,
+            isCurrentUserCollaborator: false,
+          };
         }
 
         // 管理员拥有编辑权限
         if (memberInfo.role === "admin") {
-          return { access: "edit", document, hasCollaborators, isCurrentUserCollaborator: false };
+          return {
+            access: "edit",
+            document,
+            hasCollaborators,
+            isCurrentUserCollaborator: false,
+          };
         }
 
         // 普通成员根据 permission 字段判断
         if (memberInfo.permission === "edit") {
-          return { access: "edit", document, hasCollaborators, isCurrentUserCollaborator: false };
+          return {
+            access: "edit",
+            document,
+            hasCollaborators,
+            isCurrentUserCollaborator: false,
+          };
         }
 
         // 默认只有查看权限
-        return { access: "view", document, hasCollaborators, isCurrentUserCollaborator: false };
+        return {
+          access: "view",
+          document,
+          hasCollaborators,
+          isCurrentUserCollaborator: false,
+        };
       }
     }
 
@@ -107,18 +148,38 @@ export async function verifyDocumentAccess(
 
       if (collaborator && collaborator.status === "accepted") {
         if (collaborator.permission === "edit") {
-          return { access: "edit", document, hasCollaborators, isCurrentUserCollaborator: true };
+          return {
+            access: "edit",
+            document,
+            hasCollaborators,
+            isCurrentUserCollaborator: true,
+          };
         }
-        return { access: "view", document, hasCollaborators, isCurrentUserCollaborator: true };
+        return {
+          access: "view",
+          document,
+          hasCollaborators,
+          isCurrentUserCollaborator: true,
+        };
       }
     }
 
     // 4. Published Check
     if (document.isPublished) {
-      return { access: "view", document, hasCollaborators, isCurrentUserCollaborator: false };
+      return {
+        access: "view",
+        document,
+        hasCollaborators,
+        isCurrentUserCollaborator: false,
+      };
     }
 
-    return { access: "none", document, hasCollaborators, isCurrentUserCollaborator: false };
+    return {
+      access: "none",
+      document,
+      hasCollaborators,
+      isCurrentUserCollaborator: false,
+    };
   } catch (error) {
     // Document not found or DB error
     throw error;

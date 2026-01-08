@@ -233,10 +233,21 @@ export function useUpdateDocument() {
     mutationKey: documentKeys.updates(),
     mutationFn: updateDocument,
     onSuccess: async (updatedDoc, variables) => {
-      // 更新单个文档的缓存
+      // 更新单个文档的缓存，但保留协同编辑相关字段
+      // PATCH 响应不包含 accessLevel, hasCollaborators, isCurrentUserCollaborator
+      // 需要与现有缓存合并以保留这些字段
       queryClient.setQueryData(
         documentKeys.detail(variables.documentId),
-        updatedDoc
+        (oldData: any) => {
+          if (!oldData) return updatedDoc;
+          return {
+            ...updatedDoc,
+            // 保留协同编辑相关字段
+            accessLevel: oldData.accessLevel,
+            hasCollaborators: oldData.hasCollaborators,
+            isCurrentUserCollaborator: oldData.isCurrentUserCollaborator,
+          };
+        }
       );
 
       // 如果更新了标题或图标，需要刷新列表

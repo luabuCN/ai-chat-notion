@@ -49,6 +49,9 @@ export function SmartEditorContent({
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";
 
+  // 使用 ref 锁定协同模式决策，防止后续重渲染导致模式切换
+  const collabModeDecidedRef = useRef<boolean | null>(null);
+
   // 自动检测是否应该启用协同编辑
   const shouldEnableCollaboration = useMemo(() => {
     // 如果明确指定了，使用指定的值
@@ -56,27 +59,46 @@ export function SmartEditorContent({
       return enableCollaboration;
     }
 
+    // 如果已经做出决策且 document 数据可用，保持原决策
+    if (collabModeDecidedRef.current !== null && document) {
+      return collabModeDecidedRef.current;
+    }
+
     // 自动检测逻辑
     if (!document || isReadOnly) return false;
 
     const accessLevel = (document as any)?.accessLevel;
     const hasEditAccess = accessLevel === "owner" || accessLevel === "edit";
+    const docHasCollaborators = (document as any)?.hasCollaborators;
+    const isUserCollaborator = (document as any)?.isCurrentUserCollaborator;
+
+    console.log("[Collab Detection]", {
+      workspaceId: document.workspaceId,
+      accessLevel,
+      hasEditAccess,
+      hasCollaborators: docHasCollaborators,
+      isCurrentUserCollaborator: isUserCollaborator,
+    });
 
     // 条件1：工作空间文档 + 有编辑权限
     if (document.workspaceId && hasEditAccess) {
+      collabModeDecidedRef.current = true;
       return true;
     }
 
     // 条件2：当前用户是访客协作者 + 有编辑权限
-    if ((document as any)?.isCurrentUserCollaborator && hasEditAccess) {
+    if (isUserCollaborator && hasEditAccess) {
+      collabModeDecidedRef.current = true;
       return true;
     }
 
     // 条件3：文档有访客协作者 + 当前用户是文档所有者 + 有编辑权限
-    if ((document as any)?.hasCollaborators && hasEditAccess) {
+    if (docHasCollaborators && hasEditAccess) {
+      collabModeDecidedRef.current = true;
       return true;
     }
 
+    collabModeDecidedRef.current = false;
     return false;
   }, [document, isReadOnly, enableCollaboration]);
 
@@ -378,7 +400,7 @@ export function SmartEditorContent({
           // 传统编辑模式
           document && (
             <EditorClient
-              key={`${documentId}-${content ? "loaded" : "empty"}`}
+              key={`${documentId}-editor`}
               initialContent={content}
               onChange={handleContentChange}
               readonly={isReadOnly}

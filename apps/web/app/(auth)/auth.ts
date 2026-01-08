@@ -28,6 +28,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
     type: UserType;
+    name?: string | null;
   }
 }
 
@@ -71,6 +72,7 @@ export const {
       if (user) {
         token.id = user.id as string;
         token.type = user.type;
+        token.name = user.name;
       }
 
       return token;

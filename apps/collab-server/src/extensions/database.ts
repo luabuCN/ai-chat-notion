@@ -139,10 +139,31 @@ export const databaseExtension = new Database({
         return null;
       }
 
-      // 如果有 Yjs 状态，直接返回
-      if (doc.yjsState) {
-        console.log(`[Database] Found existing Yjs state for ${documentName}`);
-        return Buffer.from(doc.yjsState);
+      // 如果有 Yjs 状态，尝试使用它
+      if (doc.yjsState && doc.yjsState.length > 0) {
+        console.log(
+          `[Database] Found existing Yjs state for ${documentName}, size: ${doc.yjsState.length} bytes`
+        );
+
+        // 验证 Yjs 状态是否有实际内容
+        try {
+          const tempDoc = new Y.Doc();
+          Y.applyUpdate(tempDoc, doc.yjsState);
+          const fragment = tempDoc.getXmlFragment("default");
+          const hasContent = fragment.length > 0;
+          console.log(`[Database] Yjs fragment has ${fragment.length} items`);
+          tempDoc.destroy();
+
+          if (hasContent) {
+            return Buffer.from(doc.yjsState);
+          } else {
+            console.log(
+              `[Database] Yjs state is empty, will try to convert from content`
+            );
+          }
+        } catch (e) {
+          console.error(`[Database] Failed to validate Yjs state:`, e);
+        }
       }
 
       // 如果没有 Yjs 状态但有 JSON 内容，尝试转换
@@ -150,12 +171,25 @@ export const databaseExtension = new Database({
         console.log(
           `[Database] Converting JSON content to Yjs for ${documentName}`
         );
+        console.log(`[Database] Content length: ${doc.content.length}`);
+        console.log(
+          `[Database] Content preview: ${doc.content.substring(0, 200)}...`
+        );
         try {
           const jsonContent = JSON.parse(doc.content);
+          console.log(
+            `[Database] Parsed JSON type: ${jsonContent.type}, content items: ${
+              jsonContent.content?.length || 0
+            }`
+          );
           const ydoc = new Y.Doc();
           const fragment = ydoc.getXmlFragment("default");
           jsonToYXmlFragment(jsonContent, fragment);
+          console.log(
+            `[Database] Fragment length after conversion: ${fragment.length}`
+          );
           const state = Y.encodeStateAsUpdate(ydoc);
+          console.log(`[Database] Yjs state size: ${state.length} bytes`);
           ydoc.destroy();
           return Buffer.from(state);
         } catch (parseError) {
