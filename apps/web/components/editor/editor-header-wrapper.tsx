@@ -66,6 +66,8 @@ export function EditorHeaderWrapper({
       isOwner={isOwner}
       currentUserId={currentUserId}
       documentOwnerId={document?.userId}
+      hasCollaborators={(document as any)?.hasCollaborators ?? false}
+      publicShareToken={(document as any)?.publicShareToken ?? null}
     />
   );
 }

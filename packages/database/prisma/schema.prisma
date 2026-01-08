@@ -180,6 +180,7 @@ model EditorDocument {
   coverImageType     String?   @default("url") @db.VarChar(10)
   coverImagePosition Int?      @default(50)
   isPublished        Boolean   @default(false)
+  publicShareToken   String?   @unique @db.VarChar(64) // 公开分享链接 token
   isFavorite         Boolean   @default(false)
   deletedAt          DateTime? @db.Timestamp(6)
   createdAt          DateTime  @default(now()) @db.Timestamp(6)
@@ -192,10 +193,12 @@ model EditorDocument {
   parentDocument EditorDocument?        @relation("DocumentHierarchy", fields: [parentDocumentId], references: [id], onDelete: Cascade)
   childDocuments EditorDocument[]       @relation("DocumentHierarchy")
   collaborators  DocumentCollaborator[] // 文档协作者
+  visitors       DocumentVisitor[]      // 文档访问记录
 
   @@index([userId, deletedAt])
   @@index([parentDocumentId])
   @@index([workspaceId, deletedAt])
+  @@index([publicShareToken])
   @@map("EditorDocument")
 }
 
@@ -221,4 +224,19 @@ model DocumentCollaborator {
   @@index([userId])
   @@index([token])
   @@map("DocumentCollaborator")
+}
+
+// 文档访问记录（用于记录用户访问过的公开文档）
+model DocumentVisitor {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @db.Uuid
+  userId     String   @db.Uuid
+  visitedAt  DateTime @default(now()) @db.Timestamp(6)
+
+  document EditorDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+  @@index([userId])
+  @@index([documentId])
+  @@map("DocumentVisitor")
 }

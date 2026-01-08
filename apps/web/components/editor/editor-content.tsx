@@ -49,11 +49,16 @@ export function EditorContent({
   const enableCollaboration = useMemo(() => {
     if (!document || isReadOnly) return false;
 
+    // 防止使用旧文档数据（React Query 缓存可能会在 ID 变化后短暂返回旧数据）
+    if (document.id !== documentId) return false;
+
     const accessLevel = (document as any)?.accessLevel;
     const hasEditAccess = accessLevel === "owner" || accessLevel === "edit";
+    // 检查是否公开分享
+    const isPublished = (document as any)?.isPublished;
 
-    // 条件1：工作空间文档 + 有编辑权限
-    if (document.workspaceId && hasEditAccess) {
+    // 条件1：文档公开分享 + 有编辑权限
+    if (isPublished && hasEditAccess) {
       return true;
     }
 
@@ -62,7 +67,7 @@ export function EditorContent({
       return true;
     }
 
-    // 条件3：文档有访客协作者 + 当前用户是文档所有者 + 有编辑权限
+    // 条件3：文档有已接受的协作者 + 当前用户是文档所有者/有编辑权限
     if ((document as any)?.hasCollaborators && hasEditAccess) {
       return true;
     }
@@ -71,10 +76,9 @@ export function EditorContent({
   }, [document, isReadOnly]);
 
   // 协同编辑 token（仅在启用协同时获取）
-  const {
-    data: collabData,
-    isLoading: isTokenLoading,
-  } = useCollabToken(enableCollaboration ? documentId : null);
+  const { data: collabData, isLoading: isTokenLoading } = useCollabToken(
+    enableCollaboration ? documentId : null
+  );
 
   // 协同服务器 URL
   const collabServerUrl =

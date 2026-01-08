@@ -288,8 +288,24 @@ export function usePublishDocument() {
   return useMutation({
     mutationFn: publishDocument,
     onSuccess: async (updatedDoc) => {
-      // 更新单个文档的缓存
-      queryClient.setQueryData(documentKeys.detail(updatedDoc.id), updatedDoc);
+      // 更新单个文档的缓存（包含新的 publicShareToken）
+      queryClient.setQueryData(
+        documentKeys.detail(updatedDoc.id),
+        (oldData: any) => {
+          // 合并新数据和旧数据的协同相关字段
+          if (oldData) {
+            return {
+              ...oldData,
+              ...updatedDoc,
+            };
+          }
+          return updatedDoc;
+        }
+      );
+      // 同时 invalidate 以确保数据最新
+      await queryClient.invalidateQueries({
+        queryKey: documentKeys.detail(updatedDoc.id),
+      });
       // 刷新列表
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },

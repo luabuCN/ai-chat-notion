@@ -61,7 +61,7 @@ const TiptapStarterKit = StarterKit.configure({
   },
   // gapcursor: false,
   heading: false,
-    link: {
+  link: {
     HTMLAttributes: {
       class: cn(
         "!text-primary underline underline-offset-[3px] transition-colors cursor-pointer"
@@ -128,7 +128,31 @@ const TiptapTable = CustomTable.configure({
   resizable: true,
 });
 
-const TiptapTableHeader = TableHeader.configure({
+const TiptapTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      // 确保 colwidth 始终是数组，修复 Yjs 协同编辑兼容性问题
+      colwidth: {
+        default: null,
+        parseHTML: (element) => {
+          const colwidth = element.getAttribute("colwidth");
+          const value = colwidth
+            ? colwidth.split(",").map((w) => parseInt(w, 10))
+            : null;
+          return value;
+        },
+        renderHTML: (attributes) => {
+          const colwidth = attributes.colwidth;
+          if (!colwidth || !Array.isArray(colwidth)) {
+            return {};
+          }
+          return { colwidth: colwidth.join(",") };
+        },
+      },
+    };
+  },
+}).configure({
   HTMLAttributes: {
     class: cn(
       "bg-muted dark:bg-gray-900 border border-default p-2 text-start min-w-[150px] font-semibold"
@@ -140,6 +164,25 @@ const TiptapTableCell = TableCell.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      // 确保 colwidth 始终是数组，修复 Yjs 协同编辑兼容性问题
+      colwidth: {
+        default: null,
+        parseHTML: (element) => {
+          const colwidth = element.getAttribute("colwidth");
+          const value = colwidth
+            ? colwidth.split(",").map((w) => parseInt(w, 10))
+            : null;
+          return value;
+        },
+        renderHTML: (attributes) => {
+          const colwidth = attributes.colwidth;
+          // 确保是数组
+          if (!colwidth || !Array.isArray(colwidth)) {
+            return {};
+          }
+          return { colwidth: colwidth.join(",") };
+        },
+      },
       verticalAlign: {
         default: "top",
         parseHTML: (element) => {
@@ -211,7 +254,9 @@ const mermaid = Mermaid.configure({
 
 const chart = Chart.configure({
   HTMLAttributes: {
-    class: cn("border p-2 my-4 w-full flex items-center justify-center aspect-video"),
+    class: cn(
+      "border p-2 my-4 w-full flex items-center justify-center aspect-video"
+    ),
   },
 });
 

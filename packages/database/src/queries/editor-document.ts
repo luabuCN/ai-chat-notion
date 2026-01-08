@@ -209,9 +209,23 @@ export async function deleteEditorDocument({ id }: { id: string }) {
 
 export async function publishEditorDocument({ id }: { id: string }) {
   try {
+    // 获取当前文档检查是否已有 token
+    const existing = await prisma.editorDocument.findUnique({
+      where: { id },
+      select: { publicShareToken: true },
+    });
+
+    // 如果没有 token，生成一个新的
+    const publicShareToken =
+      existing?.publicShareToken ||
+      require("crypto").randomBytes(32).toString("hex");
+
     return await prisma.editorDocument.update({
       where: { id },
-      data: { isPublished: true },
+      data: {
+        isPublished: true,
+        publicShareToken,
+      },
     });
   } catch (_error) {
     throw new ChatSDKError(
@@ -225,7 +239,10 @@ export async function unpublishEditorDocument({ id }: { id: string }) {
   try {
     return await prisma.editorDocument.update({
       where: { id },
-      data: { isPublished: false },
+      data: {
+        isPublished: false,
+        // 不清除 token，以便重新发布时使用相同的链接
+      },
     });
   } catch (_error) {
     throw new ChatSDKError(

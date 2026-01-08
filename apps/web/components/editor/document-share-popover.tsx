@@ -60,6 +60,8 @@ interface DocumentSharePopoverProps {
   isOwner: boolean;
   currentUserId?: string;
   documentOwnerId?: string; // 文档创建者ID
+  hasCollaborators?: boolean; // 是否有协作者（用于高亮显示）
+  publicShareToken?: string | null; // 公开分享链接 token
 }
 
 type TabType = "members" | "guests";
@@ -71,6 +73,8 @@ export function DocumentSharePopover({
   isOwner,
   currentUserId,
   documentOwnerId,
+  hasCollaborators = false,
+  publicShareToken,
 }: DocumentSharePopoverProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("members");
@@ -318,9 +322,20 @@ export function DocumentSharePopover({
 
   // 复制文档链接
   const handleCopyLink = () => {
-    const url = isPublished
-      ? `${window.location.origin}/preview/${documentId}`
-      : `${window.location.origin}/editor/${documentId}`;
+    console.log(
+      "[Copy Link] isPublished:",
+      isPublished,
+      "publicShareToken:",
+      publicShareToken
+    );
+    let url: string;
+    if (isPublished && publicShareToken) {
+      // 公开分享启用时，使用 token 链接
+      url = `${window.location.origin}/public-doc/${publicShareToken}`;
+    } else {
+      // 否则使用编辑器链接
+      url = `${window.location.origin}/editor/${documentId}`;
+    }
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -357,9 +372,14 @@ export function DocumentSharePopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
+          variant={isPublished || hasCollaborators ? "default" : "ghost"}
           size="sm"
-          className="h-8 text-muted-foreground gap-1.5"
+          className={cn(
+            "h-8 gap-1.5",
+            isPublished || hasCollaborators
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "text-muted-foreground"
+          )}
         >
           <Users className="size-4" />
           <span className="text-xs hidden sm:inline">分享</span>

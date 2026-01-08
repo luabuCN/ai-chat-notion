@@ -164,10 +164,10 @@ export async function verifyDocumentAccess(
       }
     }
 
-    // 4. Published Check
+    // 4. Published Check - 公开分享的文档允许编辑
     if (document.isPublished) {
       return {
-        access: "view",
+        access: "edit",
         document,
         hasCollaborators,
         isCurrentUserCollaborator: false,

@@ -41,7 +41,12 @@ const DocumentsList = ({
   } = useSidebarDocuments(parentDocumentId, currentWorkspace?.id);
 
   const onRedirect = (documentId: string) => {
-    router.push(`/${workspaceSlug}/editor/${documentId}`);
+    // 如果有工作空间 slug，使用 /[slug]/editor/[id] 格式
+    // 否则使用 /editor/[id] 格式
+    const path = workspaceSlug
+      ? `/${workspaceSlug}/editor/${documentId}`
+      : `/editor/${documentId}`;
+    router.push(path);
   };
 
   // 使用传入的 data 或从 hook 获取的数据

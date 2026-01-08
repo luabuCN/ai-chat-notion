@@ -43,6 +43,8 @@ interface EditorHeaderProps {
   isOwner?: boolean;
   currentUserId?: string;
   documentOwnerId?: string;
+  hasCollaborators?: boolean; // 是否有协作者
+  publicShareToken?: string | null; // 公开分享链接 token
 }
 
 export function EditorHeader({
@@ -60,6 +62,8 @@ export function EditorHeader({
   isOwner = false,
   currentUserId,
   documentOwnerId,
+  hasCollaborators = false,
+  publicShareToken,
 }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
@@ -143,6 +147,8 @@ export function EditorHeader({
             isOwner={isOwner}
             currentUserId={currentUserId}
             documentOwnerId={documentOwnerId}
+            hasCollaborators={hasCollaborators}
+            publicShareToken={publicShareToken}
           />
         )}
 

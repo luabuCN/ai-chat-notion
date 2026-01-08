@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import { generateUserColor } from "@repo/editor";
 import { useCollaboration } from "./collaboration-context";
+import { useTrackDocumentVisit } from "@/hooks/use-track-document-visit";
 
 interface SmartEditorContentProps {
   locale: string;
@@ -49,39 +50,54 @@ export function SmartEditorContent({
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";
 
+  // 追踪用户访问公开文档（用于在侧边栏显示）
+  const isOwner = (document as any)?.accessLevel === "owner";
+  useTrackDocumentVisit({
+    documentId,
+    isPublished: document?.isPublished ?? false,
+    isOwner,
+  });
+
   // 使用 ref 锁定协同模式决策，防止后续重渲染导致模式切换
   const collabModeDecidedRef = useRef<boolean | null>(null);
+  const lastDocumentIdRef = useRef<string>(documentId);
 
   // 自动检测是否应该启用协同编辑
+  // 逻辑：只有当文档公开分享（isPublished）或有已接受的协作者时才启用协同编辑
   const shouldEnableCollaboration = useMemo(() => {
+    // 如果文档ID变了，重置决策
+    if (lastDocumentIdRef.current !== documentId) {
+      lastDocumentIdRef.current = documentId;
+      collabModeDecidedRef.current = null;
+    }
+
     // 如果明确指定了，使用指定的值
     if (enableCollaboration !== undefined) {
       return enableCollaboration;
     }
 
-    // 如果已经做出决策且 document 数据可用，保持原决策
-    if (collabModeDecidedRef.current !== null && document) {
-      return collabModeDecidedRef.current;
-    }
-
     // 自动检测逻辑
     if (!document || isReadOnly) return false;
+
+    // 防止使用旧文档数据（React Query 缓存可能会在 ID 变化后短暂返回旧数据）
+    if (document.id !== documentId) return false;
 
     const accessLevel = (document as any)?.accessLevel;
     const hasEditAccess = accessLevel === "owner" || accessLevel === "edit";
     const docHasCollaborators = (document as any)?.hasCollaborators;
     const isUserCollaborator = (document as any)?.isCurrentUserCollaborator;
+    const docIsPublished = document.isPublished;
 
     console.log("[Collab Detection]", {
-      workspaceId: document.workspaceId,
       accessLevel,
       hasEditAccess,
       hasCollaborators: docHasCollaborators,
       isCurrentUserCollaborator: isUserCollaborator,
+      isPublished: docIsPublished,
     });
 
-    // 条件1：工作空间文档 + 有编辑权限
-    if (document.workspaceId && hasEditAccess) {
+    // 条件1：文档公开分享 + 有编辑权限
+    if (docIsPublished && hasEditAccess) {
       collabModeDecidedRef.current = true;
       return true;
     }
@@ -92,7 +108,7 @@ export function SmartEditorContent({
       return true;
     }
 
-    // 条件3：文档有访客协作者 + 当前用户是文档所有者 + 有编辑权限
+    // 条件3：文档有协作者 + 有编辑权限（文档所有者或工作空间成员）
     if (docHasCollaborators && hasEditAccess) {
       collabModeDecidedRef.current = true;
       return true;
