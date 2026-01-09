@@ -4,7 +4,7 @@ import { databaseExtension } from "./extensions/database.js";
 import { verifyToken, verifyDocumentAccess } from "./auth.js";
 
 export function startServer(port: number) {
-  const server = Server.configure({
+  const server = new Server({
     port,
     timeout: 30000,
     debounce: 2000, // 文档变更后 2 秒触发持久化
@@ -28,7 +28,7 @@ export function startServer(port: number) {
     ],
 
     // 身份验证
-    async onAuthenticate({ token, documentName, connection }) {
+    async onAuthenticate({ token, documentName }) {
       console.log(`[Auth] Authenticating for document: ${documentName}`);
 
       // 验证 JWT token
@@ -79,11 +79,16 @@ export function startServer(port: number) {
 
     // 加载文档时（在数据库扩展之后）
     async onLoadDocument({ documentName, document, context }) {
-      console.log(
-        `[Load] Document ${documentName} loaded with ${
-          document.getArray("default").length
-        } items`
-      );
+      try {
+        const fragment = document.getXmlFragment("default");
+        console.log(
+          `[Load] Document ${documentName} loaded with ${fragment.length} items`
+        );
+      } catch (e) {
+        console.log(
+          `[Load] Document ${documentName} loaded (unable to count items)`
+        );
+      }
     },
 
     // 文档变更时
