@@ -8,8 +8,14 @@ import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
-import { generateUserColor } from "@repo/editor";
-import { useCollaboration } from "./collaboration-context";
+import {
+  generateUserColor,
+  type ConnectionStatus as EditorConnectionStatus,
+} from "@repo/editor";
+import {
+  useCollaboration,
+  type ConnectionStatus,
+} from "./collaboration-context";
 import { useTrackDocumentVisit } from "@/hooks/use-track-document-visit";
 
 interface SmartEditorContentProps {
@@ -128,12 +134,20 @@ export function SmartEditorContent({
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
-  const { setConnectedUsers } = useCollaboration();
+  const { setConnectedUsers, setConnectionStatus } = useCollaboration();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const contentDebounced = useDebounce(content, 1000);
   const titleDebounced = useDebounce(title, 500);
   const iconDebounced = useDebounce(icon, 500);
+
+  // 处理连接状态变更（将 editor 的状态类型转换为 context 的类型）
+  const handleConnectionStatusChange = useCallback(
+    (status: EditorConnectionStatus) => {
+      setConnectionStatus(status as ConnectionStatus);
+    },
+    [setConnectionStatus]
+  );
 
   // 协同服务器 URL
   const collabServerUrl =
@@ -411,6 +425,7 @@ export function SmartEditorContent({
             serverUrl={collabServerUrl}
             readonly={isReadOnly}
             onConnectedUsersChange={setConnectedUsers}
+            onConnectionStatusChange={handleConnectionStatusChange}
           />
         ) : (
           // 传统编辑模式

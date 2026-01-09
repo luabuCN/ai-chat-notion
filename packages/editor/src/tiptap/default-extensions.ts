@@ -74,9 +74,38 @@ const TiptapStarterKit = StarterKit.configure({
 });
 
 const TiptapHeading = Heading.extend({
+  // 确保 level 属性在协同模式下能正确解析（Yjs 可能存储为字符串）
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      level: {
+        default: 1,
+        rendered: false,
+        parseHTML: (element) => {
+          // 从 HTML 标签名中提取 level（h1, h2, h3...）
+          const match = element.tagName.match(/^H(\d)$/i);
+          if (match) {
+            return parseInt(match[1], 10);
+          }
+          // 从属性中获取，确保转为数字
+          const level = element.getAttribute("level");
+          return level ? parseInt(level, 10) : 1;
+        },
+        renderHTML: (attributes) => {
+          // 不渲染 level 属性到 HTML，因为它通过标签名表示
+          return {};
+        },
+      },
+    };
+  },
   renderHTML({ node, HTMLAttributes }) {
-    const hasLevel = this.options.levels.includes(node.attrs.level);
-    const level = hasLevel ? node.attrs.level : this.options.levels[0];
+    // 确保 level 是数字
+    const levelValue =
+      typeof node.attrs.level === "string"
+        ? parseInt(node.attrs.level, 10)
+        : node.attrs.level;
+    const hasLevel = this.options.levels.includes(levelValue);
+    const level = hasLevel ? levelValue : this.options.levels[0];
 
     if (node.textContent) {
       return [

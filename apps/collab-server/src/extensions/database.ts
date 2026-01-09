@@ -62,7 +62,20 @@ function jsonNodeToYXmlElement(
       node.attrs as Record<string, unknown>
     )) {
       if (value !== null && value !== undefined) {
-        element.setAttribute(key, String(value));
+        // 跳过 null 值的 colwidth（表格列宽）
+        if (key === "colwidth" && value === null) {
+          continue;
+        }
+        // 数组类型（如 colwidth）需要特殊处理
+        if (Array.isArray(value)) {
+          // 将数组序列化为 JSON 字符串
+          element.setAttribute(key, JSON.stringify(value));
+        } else if (typeof value === "number" || typeof value === "boolean") {
+          // 保持数值和布尔类型
+          element.setAttribute(key, value as unknown as string);
+        } else {
+          element.setAttribute(key, String(value));
+        }
       }
     }
   }

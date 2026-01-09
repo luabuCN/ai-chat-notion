@@ -20,6 +20,8 @@ import {
   MessageSquare,
   Loader2,
   CheckCircle2,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { LanguageSwitcher } from "../language-switcher";
 import { cn } from "@/lib/utils";
@@ -69,7 +71,7 @@ export function EditorHeader({
   const { width: windowWidth } = useWindowSize();
   const updateDocumentMutation = useUpdateDocument();
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
-  const { connectedUsers } = useCollaboration();
+  const { connectedUsers, connectionStatus } = useCollaboration();
 
   const toggleFavorite = () => {
     if (isUpdatingFavorite) return;
@@ -108,33 +110,66 @@ export function EditorHeader({
       </div>
 
       <div className="flex items-center gap-1">
-        {/* 在线用户头像 */}
-        {connectedUsers.length > 0 && (
-          <div className="flex items-center -space-x-2 mr-2">
-            {connectedUsers.slice(0, 5).map((user, index) => (
-              <Avatar
-                key={`${user.name}-${index}`}
-                className="h-7 w-7 border-2 border-background"
-                style={{ backgroundColor: user.color }}
-              >
-                <AvatarImage src={user.avatar} />
-                <AvatarFallback
-                  className="text-[10px] font-medium text-white"
-                  style={{ backgroundColor: user.color }}
-                >
-                  {user.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-            {connectedUsers.length > 5 && (
-              <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
-                +{connectedUsers.length - 5}
+        {/* 在线用户头像和连接状态 */}
+        {connectionStatus !== "idle" && (
+          <div className="flex items-center gap-2 mr-2">
+            {/* 用户头像 */}
+            {connectedUsers.length > 0 && (
+              <div className="flex items-center -space-x-2">
+                {connectedUsers.slice(0, 5).map((user, index) => (
+                  <Avatar
+                    key={`${user.name}-${index}`}
+                    className="h-7 w-7 border-2 border-background"
+                    style={{ backgroundColor: user.color }}
+                  >
+                    <AvatarImage src={user.avatar} />
+                    <AvatarFallback
+                      className="text-[10px] font-medium text-white"
+                      style={{ backgroundColor: user.color }}
+                    >
+                      {user.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {connectedUsers.length > 5 && (
+                  <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                    +{connectedUsers.length - 5}
+                  </div>
+                )}
               </div>
             )}
+            {/* 连接状态指示器 */}
+            <div
+              className={cn(
+                "flex items-center gap-1.5 text-xs",
+                connectionStatus === "connecting" && "text-yellow-500",
+                connectionStatus === "connected" && "text-green-500",
+                connectionStatus === "disconnected" && "text-red-500"
+              )}
+            >
+              {connectionStatus === "connecting" && (
+                <>
+                  <Wifi className="h-3.5 w-3.5 animate-pulse" />
+                  <span>连接中...</span>
+                </>
+              )}
+              {connectionStatus === "connected" && (
+                <>
+                  <Wifi className="h-3.5 w-3.5" />
+                  <span>{connectedUsers.length} 人在线</span>
+                </>
+              )}
+              {connectionStatus === "disconnected" && (
+                <>
+                  <WifiOff className="h-3.5 w-3.5" />
+                  <span>已断开</span>
+                </>
+              )}
+            </div>
           </div>
         )}
 
-        {connectedUsers.length > 0 && (
+        {connectionStatus !== "idle" && (
           <Separator orientation="vertical" className="h-6 mx-2" />
         )}
 

@@ -42,6 +42,7 @@ export interface CollaborativeEditorProps {
   onSynced?: () => void;
   onDisconnect?: () => void;
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
+  onConnectionStatusChange?: (status: ConnectionStatus) => void;
   className?: string;
   showAiTools?: boolean;
   aiApiUrl?: string;
@@ -49,7 +50,7 @@ export interface CollaborativeEditorProps {
   readonly?: boolean;
 }
 
-type ConnectionStatus = "connecting" | "connected" | "disconnected";
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 /**
  * 生成用户颜色（基于字符串生成一致的颜色）
@@ -80,6 +81,7 @@ export function CollaborativeEditor({
   onSynced,
   onDisconnect,
   onConnectedUsersChange,
+  onConnectionStatusChange,
   className = "",
   showAiTools = true,
   aiApiUrl,
@@ -96,6 +98,8 @@ export function CollaborativeEditor({
   onDisconnectRef.current = onDisconnect;
   const onConnectedUsersChangeRef = useRef(onConnectedUsersChange);
   onConnectedUsersChangeRef.current = onConnectedUsersChange;
+  const onConnectionStatusChangeRef = useRef(onConnectionStatusChange);
+  onConnectionStatusChangeRef.current = onConnectionStatusChange;
 
   const stableUploadFile = useRef(async (file: File) => {
     if (uploadFileRef.current) {
@@ -124,7 +128,9 @@ export function CollaborativeEditor({
         console.log("[Collab] Connection status:", s);
         // 只有在组件挂载后才更新状态
         if (isMountedRef.current) {
-          setStatus(s as ConnectionStatus);
+          const newStatus = s as ConnectionStatus;
+          setStatus(newStatus);
+          onConnectionStatusChangeRef.current?.(newStatus);
           if (s === "disconnected") {
             onDisconnectRef.current?.();
           }
@@ -382,10 +388,6 @@ export function CollaborativeEditor({
   if (readonly) {
     return (
       <div className={className}>
-        <div className="flex items-center justify-end gap-3 mb-2 px-2">
-          <OnlineUsers />
-          <ConnectionIndicator />
-        </div>
         <EditorContent
           editor={editor}
           className="prose dark:prose-invert focus:outline-none max-w-full z-0"
@@ -397,12 +399,6 @@ export function CollaborativeEditor({
 
   return (
     <div className={className}>
-      {/* 协同状态栏 */}
-      <div className="flex items-center justify-end gap-3 mb-2 px-2">
-        <OnlineUsers />
-        <ConnectionIndicator />
-      </div>
-
       {/* 编辑器主体 */}
       {editor && (
         <>

@@ -8,9 +8,17 @@ interface CollaborativeUser {
   avatar?: string;
 }
 
+export type ConnectionStatus =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "idle";
+
 interface CollaborationContextType {
   connectedUsers: CollaborativeUser[];
   setConnectedUsers: (users: CollaborativeUser[]) => void;
+  connectionStatus: ConnectionStatus;
+  setConnectionStatus: (status: ConnectionStatus) => void;
 }
 
 const CollaborationContext = createContext<
@@ -19,9 +27,18 @@ const CollaborationContext = createContext<
 
 export function CollaborationProvider({ children }: { children: ReactNode }) {
   const [connectedUsers, setConnectedUsers] = useState<CollaborativeUser[]>([]);
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("idle");
 
   return (
-    <CollaborationContext.Provider value={{ connectedUsers, setConnectedUsers }}>
+    <CollaborationContext.Provider
+      value={{
+        connectedUsers,
+        setConnectedUsers,
+        connectionStatus,
+        setConnectionStatus,
+      }}
+    >
       {children}
     </CollaborationContext.Provider>
   );
@@ -36,4 +53,3 @@ export function useCollaboration() {
   }
   return context;
 }
-

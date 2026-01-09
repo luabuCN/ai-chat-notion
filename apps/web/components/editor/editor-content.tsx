@@ -8,8 +8,14 @@ import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
-import { generateUserColor } from "@repo/editor";
-import { useCollaboration } from "./collaboration-context";
+import {
+  generateUserColor,
+  type ConnectionStatus as EditorConnectionStatus,
+} from "@repo/editor";
+import {
+  useCollaboration,
+  type ConnectionStatus,
+} from "./collaboration-context";
 
 interface EditorContentProps {
   locale: string;
@@ -28,7 +34,7 @@ export function EditorContent({
 }: EditorContentProps) {
   const { data: document, isLoading, error } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
-  const { setConnectedUsers } = useCollaboration();
+  const { setConnectedUsers, setConnectionStatus } = useCollaboration();
 
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
@@ -83,6 +89,14 @@ export function EditorContent({
   // 协同服务器 URL
   const collabServerUrl =
     process.env.NEXT_PUBLIC_COLLAB_SERVER_URL || "ws://localhost:1234";
+
+  // 处理连接状态变更（将 editor 的状态类型转换为 context 的类型）
+  const handleConnectionStatusChange = useCallback(
+    (status: EditorConnectionStatus) => {
+      setConnectionStatus(status as ConnectionStatus);
+    },
+    [setConnectionStatus]
+  );
 
   // 用户信息
   const user = useMemo(
@@ -352,6 +366,7 @@ export function EditorContent({
             serverUrl={collabServerUrl}
             readonly={isReadOnly}
             onConnectedUsersChange={setConnectedUsers}
+            onConnectionStatusChange={handleConnectionStatusChange}
           />
         ) : (
           // 传统编辑模式
