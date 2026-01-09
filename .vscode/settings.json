@@ -19,7 +19,7 @@
     "editor.defaultFormatter": "biomejs.biome"
   },
   "[css]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "stylelint.vscode-stylelint"
   },
   "[graphql]": {
     "editor.defaultFormatter": "biomejs.biome"

@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import * as Y from "yjs";
-
-export type ConnectionStatus = "connecting" | "connected" | "disconnected";
-
-export interface CollaborativeUser {
-  name: string;
-  color: string;
-  avatar?: string;
-}
+import type {
+  CollaborativeUser,
+  ConnectionStatus,
+} from "../collaborative-editor";
 
 export interface UseCollaborativeEditorOptions {
   documentId: string;
