@@ -1,9 +1,10 @@
 import { Editor } from "@tiptap/react";
+import type { MouseEvent } from "react";
 import { useCallback } from "react";
 
 export function useSlashCommandTrigger(editor: Editor | null) {
   const handleSlashCommand = useCallback(
-    (e: React.MouseEvent) => {
+    (e: MouseEvent) => {
       if (!editor) return;
       e.preventDefault();
       const buttonRect = e.currentTarget.getBoundingClientRect();

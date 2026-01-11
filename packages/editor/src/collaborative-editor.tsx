@@ -6,7 +6,7 @@ import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { Placeholder } from "@tiptap/extensions";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon, Plus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import * as Y from "yjs";
 import { defaultExtensions } from "./tiptap/default-extensions";
@@ -87,10 +87,9 @@ export function CollaborativeEditor({
     throw new Error("Upload function not available");
   }).current;
 
-  // 连接状态
-  const [status, setStatus] = useState<ConnectionStatus>("connecting");
-  const [connectedUsers, setConnectedUsers] = useState<CollaborativeUser[]>([]);
   const isMountedRef = useRef(false);
+  const connectedUsersSigRef = useRef("");
+  const lastAwarenessUserSigRef = useRef("");
 
   // 创建 Yjs 文档 - 使用 documentId 作为依赖，切换文档时重新创建
   const ydoc = useMemo(() => new Y.Doc(), [documentId]);
@@ -103,11 +102,9 @@ export function CollaborativeEditor({
       document: ydoc,
       token,
       onStatus: ({ status: s }) => {
-        console.log("[Collab] Connection status:", s);
         // 只有在组件挂载后才更新状态
         if (isMountedRef.current) {
           const newStatus = s as ConnectionStatus;
-          setStatus(newStatus);
           onConnectionStatusChangeRef.current?.(newStatus);
           if (s === "disconnected") {
             onDisconnectRef.current?.();
@@ -115,7 +112,6 @@ export function CollaborativeEditor({
         }
       },
       onSynced: ({ state }) => {
-        console.log("[Collab] Document synced, state:", state);
         if (state && isMountedRef.current) {
           onSyncedRef.current?.();
         }
@@ -134,13 +130,27 @@ export function CollaborativeEditor({
                 (state: Record<string, unknown>) =>
                   state.user as CollaborativeUser
               );
-            setConnectedUsers(users);
-            onConnectedUsersChangeRef.current?.(users);
+
+            // 注意：awareness 会在光标移动/输入时高频触发，这里只在“用户列表”发生变化时才 setState，
+            // 否则会导致整个 React 树频繁 rerender，表现为协同光标闪烁、菜单难以稳定弹出。
+            const sig = users
+              .map(
+                (u) =>
+                  `${u.name}|${u.color}|${
+                    typeof u.avatar === "string" ? u.avatar : ""
+                  }`
+              )
+              .sort()
+              .join(",");
+
+            if (sig !== connectedUsersSigRef.current) {
+              connectedUsersSigRef.current = sig;
+              onConnectedUsersChangeRef.current?.(users);
+            }
           });
         }
       },
       onAuthenticationFailed: ({ reason }) => {
-        console.error("[Collab] Authentication failed:", reason);
         if (isMountedRef.current) {
           toast.error("认证失败", {
             description: reason || "无法连接到协同服务器",
@@ -163,9 +173,15 @@ export function CollaborativeEditor({
   // 在 useEffect 中设置 awareness 状态，避免在渲染期间触发更新
   useEffect(() => {
     if (provider && isMountedRef.current) {
-      provider.setAwarenessField("user", user);
+      const sig = `${user.name}|${user.color}|${
+        typeof user.avatar === "string" ? user.avatar : ""
+      }`;
+      if (sig !== lastAwarenessUserSigRef.current) {
+        lastAwarenessUserSigRef.current = sig;
+        provider.setAwarenessField("user", user);
+      }
     }
-  }, [provider, user]);
+  }, [provider, user.name, user.color, user.avatar]);
 
   const extensions = useMemo(() => {
     const baseExtensions = [
@@ -202,15 +218,6 @@ export function CollaborativeEditor({
         },
       }),
     ];
-
-    // Debug: Log CollaborationCaret configuration
-    console.log("[Collab] Extensions configured with CollaborationCaret:", {
-      hasProvider: !!provider,
-      hasAwareness: !!(provider as any)?.awareness,
-      awarenessClientId: (provider as any)?.awareness?.clientID,
-      userName: user.name,
-      userColor: user.color,
-    });
     return baseExtensions;
   }, [
     placeholder,
@@ -223,17 +230,10 @@ export function CollaborativeEditor({
     user.color,
   ]);
 
-  // 检查 provider 是否完全准备好（有 doc 和 awareness 属性）
-  const providerReady =
-    status === "connected" &&
-    !!provider &&
-    !!(provider as any).doc &&
-    !!(provider as any).awareness;
-
-  // 创建编辑器 - 始终使用完整扩展，Collaboration 扩展会在 provider 就绪时自动同步
+  // 创建编辑器 - 保持 editor 实例稳定（不要把连接状态放进 useEditor 依赖，避免频繁重建导致闪烁/菜单失效）
   const editor = useEditor(
     {
-      editable: !readonly && providerReady,
+      editable: !readonly,
       extensions,
       immediatelyRender: false, // 协同模式下禁用立即渲染
       shouldRerenderOnTransaction: false,
@@ -250,10 +250,12 @@ export function CollaborativeEditor({
         onUpdate?.(e);
       },
       onContentError: ({ error }) => {
-        console.error(error);
+        toast.error("编辑器内容错误", {
+          description: error.message,
+        });
       },
     },
-    [extensions, readonly, providerReady]
+    [extensions, readonly]
   );
 
   const { handleSlashCommand } = useSlashCommandTrigger(editor);
@@ -266,12 +268,12 @@ export function CollaborativeEditor({
     };
   }, [provider, ydoc]);
 
-  // 更新编辑器的可编辑状态
+  // 更新编辑器的可编辑状态（仅由 readonly 控制，避免连接抖动导致菜单/光标闪烁）
   useEffect(() => {
     if (editor) {
-      editor.setEditable(!readonly && status === "connected");
+      editor.setEditable(!readonly);
     }
-  }, [editor, readonly, status]);
+  }, [editor, readonly]);
 
   if (readonly) {
     return (
@@ -298,12 +300,13 @@ export function CollaborativeEditor({
             }}
           >
             <div className="flex items-center gap-1 -ml-2">
-              <div
+              <button
+                type="button"
                 className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
                 onClick={handleSlashCommand}
               >
                 <Plus className="size-3.5 text-muted-foreground" />
-              </div>
+              </button>
               <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
                 <GripVerticalIcon className="size-3.5 text-muted-foreground" />
               </div>
