@@ -11,6 +11,7 @@ interface EditorToolbarProps {
   onAddIcon: (emoji: string) => void;
   onAddCover: () => void;
   onAddComment?: () => void;
+  isOwner?: boolean; // 是否是文档所有者
 }
 
 export function EditorToolbar({
@@ -20,12 +21,14 @@ export function EditorToolbar({
   onAddIcon,
   onAddCover,
   onAddComment,
+  isOwner = true, // 默认为 true，保持向后兼容
 }: EditorToolbarProps) {
   if (!visible) return null;
 
   return (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      {!hasIcon && (
+      {/* 添加图标 - 仅所有者可见 */}
+      {!hasIcon && isOwner && (
         <EmojiPicker onEmojiSelect={onAddIcon}>
           <Button
             variant="ghost"
@@ -37,7 +40,8 @@ export function EditorToolbar({
           </Button>
         </EmojiPicker>
       )}
-      {!hasCover && (
+      {/* 添加封面 - 仅所有者可见 */}
+      {!hasCover && isOwner && (
         <Button
           variant="ghost"
           size="sm"
@@ -48,6 +52,7 @@ export function EditorToolbar({
           添加封面
         </Button>
       )}
+      {/* 添加评论 - 所有人可见 */}
       <Button
         variant="ghost"
         size="sm"

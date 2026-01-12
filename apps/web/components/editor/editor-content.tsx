@@ -49,6 +49,9 @@ export function EditorContent({
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";
 
+  // 判断是否是文档所有者
+  const isOwner = (document as any)?.accessLevel === "owner";
+
   // 判断是否启用协同编辑：
   // 1. 文档在工作空间中 + 当前用户有编辑权限
   // 2. 文档有访客协作者 + 当前用户是协作者且有编辑权限
@@ -353,6 +356,7 @@ export function EditorContent({
         onCoverChange={handleCoverChange}
         onCoverPositionChange={handleCoverPositionChange}
         readonly={isReadOnly}
+        isOwner={isOwner}
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">

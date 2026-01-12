@@ -31,11 +31,13 @@ import { toast } from "sonner";
 interface DocumentActionsMenuProps {
   documentId: string;
   title: string;
+  isOwner?: boolean; // 是否是文档所有者
 }
 
 export function DocumentActionsMenu({
   documentId,
   title,
+  isOwner = false,
 }: DocumentActionsMenuProps) {
   const router = useRouter();
   const params = useParams();
@@ -137,31 +139,43 @@ export function DocumentActionsMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleDuplicate}>
-            <Copy className="mr-2 h-4 w-4" />
-            创建副本
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.preventDefault();
-              setTimeout(() => setIsMoveDialogOpen(true), 0);
-            }}
-          >
-            <FolderInput className="mr-2 h-4 w-4" />
-            移动
-          </DropdownMenuItem>
+          {/* 仅文档所有者可见：创建副本 */}
+          {isOwner && (
+            <DropdownMenuItem onClick={handleDuplicate}>
+              <Copy className="mr-2 h-4 w-4" />
+              创建副本
+            </DropdownMenuItem>
+          )}
+          {/* 仅文档所有者可见：移动 */}
+          {isOwner && (
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                setTimeout(() => setIsMoveDialogOpen(true), 0);
+              }}
+            >
+              <FolderInput className="mr-2 h-4 w-4" />
+              移动
+            </DropdownMenuItem>
+          )}
+          {/* 所有人可见：导出 */}
           <DropdownMenuItem onClick={handleExportMarkdown}>
             <FileText className="mr-2 h-4 w-4" />
             导出 Markdown
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={handleArchive}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            移至垃圾箱
-          </DropdownMenuItem>
+          {/* 仅文档所有者可见：移至垃圾箱 */}
+          {isOwner && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleArchive}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                移至垃圾箱
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

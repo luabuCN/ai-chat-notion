@@ -173,8 +173,8 @@ export function EditorHeader({
           <Separator orientation="vertical" className="h-6 mx-2" />
         )}
 
-        {/* 分享按钮 */}
-        {!isDeleted && (
+        {/* 分享按钮 - 仅文档所有者可见 */}
+        {!isDeleted && isOwner && (
           <DocumentSharePopover
             documentId={documentId}
             workspaceId={workspaceId}
@@ -187,7 +187,8 @@ export function EditorHeader({
           />
         )}
 
-        {!readonly && (
+        {/* 发布按钮 - 仅文档所有者可见 */}
+        {!readonly && isOwner && (
           <PublishPopover documentId={documentId} isPublished={isPublished} />
         )}
 
@@ -227,6 +228,7 @@ export function EditorHeader({
             <DocumentActionsMenu
               documentId={documentId}
               title={documentTitle || "Untitled"}
+              isOwner={isOwner}
             />
           </>
         )}

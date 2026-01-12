@@ -412,6 +412,7 @@ export function SmartEditorContent({
         onCoverChange={handleCoverChange}
         onCoverPositionChange={handleCoverPositionChange}
         readonly={isReadOnly}
+        isOwner={isOwner}
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">

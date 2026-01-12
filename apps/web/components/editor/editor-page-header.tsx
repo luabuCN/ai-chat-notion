@@ -21,6 +21,7 @@ interface EditorPageHeaderProps {
   ) => void;
   onCoverPositionChange?: (position: number) => void;
   readonly?: boolean;
+  isOwner?: boolean; // 是否是文档所有者，控制标题/图标/封面的编辑权限
 }
 
 export function EditorPageHeader({
@@ -34,6 +35,7 @@ export function EditorPageHeader({
   onCoverChange,
   onCoverPositionChange,
   readonly = false,
+  isOwner = true, // 默认为 true，保持向后兼容
 }: EditorPageHeaderProps) {
   const [title, setTitle] = useState(initialTitle);
   const [icon, setIcon] = useState<string | null>(initialIcon);
@@ -102,7 +104,7 @@ export function EditorPageHeader({
 
   return (
     <div className="w-full">
-      {/* 封面图片 */}
+      {/* 封面图片 - 非所有者时为预览模式 */}
       <EditorCover
         coverUrl={cover}
         coverImageType={coverImageType}
@@ -110,7 +112,7 @@ export function EditorPageHeader({
         onChangeCover={handleChangeCover}
         onRemoveCover={handleRemoveCover}
         onPositionChange={onCoverPositionChange}
-        preview={readonly}
+        preview={readonly || !isOwner}
       />
 
       {/* 内容区域 */}
@@ -118,7 +120,7 @@ export function EditorPageHeader({
         {/* 图标区域 - 有封面时显示在封面下方偏移位置 */}
         {icon && (
           <div className={cover ? "-mt-10 mb-4 relative z-10" : "mt-8 mb-4"}>
-            {readonly ? (
+            {readonly || !isOwner ? (
               <div className="text-6xl cursor-default select-none" title="Icon">
                 {icon}
               </div>
@@ -136,7 +138,7 @@ export function EditorPageHeader({
           </div>
         )}
 
-        {/* 工具栏 - hover时显示 */}
+        {/* 工具栏 - hover时显示 (非只读时可见，内部按钮根据 isOwner 控制) */}
         {!readonly && (
           <div className={`group ${!icon && !cover ? "mt-8" : "mt-2"}`}>
             <EditorToolbar
@@ -145,16 +147,17 @@ export function EditorPageHeader({
               hasCover={!!cover}
               onAddIcon={handleAddIcon}
               onAddCover={handleAddCover}
+              isOwner={isOwner}
             />
           </div>
         )}
 
-        {/* 标题输入 */}
+        {/* 标题输入 - 非所有者时禁用编辑 */}
         <div className="mt-2 mb-4">
           <EditorTitle
             value={title}
             onChange={handleTitleChange}
-            disabled={readonly}
+            disabled={readonly || !isOwner}
           />
         </div>
       </div>

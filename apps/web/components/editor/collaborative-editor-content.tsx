@@ -43,6 +43,9 @@ export function CollaborativeEditorContent({
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";
 
+  // 判断是否是文档所有者
+  const isOwner = (document as any)?.accessLevel === "owner";
+
   // 协同服务器 URL
   const collabServerUrl =
     process.env.NEXT_PUBLIC_COLLAB_SERVER_URL || "ws://localhost:1234";
@@ -214,6 +217,7 @@ export function CollaborativeEditorContent({
         onCoverChange={handleCoverChange}
         onCoverPositionChange={handleCoverPositionChange}
         readonly={isReadOnly}
+        isOwner={isOwner}
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">
@@ -231,4 +235,3 @@ export function CollaborativeEditorContent({
     </div>
   );
 }
-
