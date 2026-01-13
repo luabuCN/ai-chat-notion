@@ -91,7 +91,7 @@ export function EditorContent({
 
   // 协同服务器 URL
   const collabServerUrl =
-    process.env.NEXT_PUBLIC_COLLAB_SERVER_URL || "ws://localhost:1234";
+    process.env.NEXT_PUBLIC_HOCUSPOCUS_URL || "ws://localhost:1234";
 
   // 处理连接状态变更（将 editor 的状态类型转换为 context 的类型）
   const handleConnectionStatusChange = useCallback(

@@ -15,7 +15,7 @@ interface CollaborativeEditorClientProps {
   documentId: string;
   token: string;
   user: CollaborativeUser;
-  serverUrl?: string;
+  serverUrl: string;
   readonly?: boolean;
   onSynced?: () => void;
   onDisconnect?: () => void;

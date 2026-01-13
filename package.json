@@ -8,6 +8,7 @@
     "dev:collab": "turbo dev --filter=@repo/collab-server",
     "dev:all": "turbo dev --filter=@repo/web --filter=@repo/collab-server",
     "build": "turbo build",
+    "build:collab": "turbo build --filter=@repo/collab-server",
     "lint": "turbo lint",
     "format": "turbo format",
     "db:generate": "turbo db:generate",

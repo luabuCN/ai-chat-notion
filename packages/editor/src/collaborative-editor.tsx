@@ -29,7 +29,8 @@ export interface CollaborativeEditorProps {
   documentId: string;
   token: string;
   user: CollaborativeUser;
-  serverUrl?: string;
+  /** WebSocket URL for the Hocuspocus server (e.g., ws://localhost:1234 or wss://your-domain.com/collab) */
+  serverUrl: string;
   placeholder?: string;
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
@@ -54,7 +55,7 @@ export function CollaborativeEditor({
   documentId,
   token,
   user,
-  serverUrl = "ws://localhost:1234",
+  serverUrl,
   placeholder,
   onCreate,
   onUpdate,
