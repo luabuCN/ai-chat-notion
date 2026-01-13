@@ -6,9 +6,10 @@ import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { Placeholder } from "@tiptap/extensions";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon, Plus } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import * as Y from "yjs";
+import { IndexeddbPersistence } from "y-indexeddb";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { Ai } from "./tiptap/extensions/ai";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
@@ -93,6 +94,32 @@ export function CollaborativeEditor({
 
   // 创建 Yjs 文档 - 使用 documentId 作为依赖，切换文档时重新创建
   const ydoc = useMemo(() => new Y.Doc(), [documentId]);
+
+  // IndexedDB 离线持久化状态
+  const [isIndexedDBSynced, setIsIndexedDBSynced] = useState(false);
+  const persistenceRef = useRef<IndexeddbPersistence | null>(null);
+
+  // 初始化 IndexedDB 持久化
+  useEffect(() => {
+    if (!documentId) return;
+
+    setIsIndexedDBSynced(false);
+    const persistence = new IndexeddbPersistence(
+      `collab-editor-${documentId}`,
+      ydoc
+    );
+    persistenceRef.current = persistence;
+
+    persistence.on("synced", () => {
+      console.log(`[IndexedDB] Local data synced for ${documentId}`);
+      setIsIndexedDBSynced(true);
+    });
+
+    return () => {
+      persistence.destroy();
+      persistenceRef.current = null;
+    };
+  }, [documentId, ydoc]);
 
   // 创建 Hocuspocus Provider
   const provider = useMemo(() => {
@@ -274,6 +301,20 @@ export function CollaborativeEditor({
       editor.setEditable(!readonly);
     }
   }, [editor, readonly]);
+
+  // 等待 IndexedDB 同步完成后再渲染编辑器
+  if (!isIndexedDBSynced) {
+    return (
+      <div
+        className={`${className} flex items-center justify-center min-h-[200px]`}
+      >
+        <div className="text-center text-muted-foreground">
+          <div className="animate-spin h-6 w-6 border-2 border-current border-t-transparent rounded-full mx-auto mb-2" />
+          <span className="text-sm">加载本地数据...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (readonly) {
     return (
