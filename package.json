@@ -12,8 +12,7 @@
     "format": "turbo format",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
-    "db:studio": "turbo db:studio",
-    "collab:migrate": "turbo migrate:yjs --filter=@repo/collab-server"
+    "db:studio": "turbo db:studio"
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0",

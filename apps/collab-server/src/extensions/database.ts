@@ -11,9 +11,20 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { Image } from "@tiptap/extension-image";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
+import { gzipSync, gunzipSync } from "zlib";
 
 // 直接创建 Prisma 客户端
 const prisma = new PrismaClient();
+
+// 压缩阈值：超过 50KB 的文档启用压缩
+const COMPRESSION_THRESHOLD = 50 * 1024;
+
+/**
+ * 检测 Buffer 是否为 gzip 压缩格式（检查 magic bytes）
+ */
+function isGzipCompressed(buffer: Buffer): boolean {
+  return buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+}
 
 // 自定义 Server 端扩展，确保与客户端行为一致（特别是属性解析）
 const ServerHeading = Heading.extend({
@@ -112,10 +123,22 @@ export const databaseExtension = new Database({
 
       // 1. 如果有 Yjs 状态，尝试使用它
       if (doc.yjsState && doc.yjsState.length > 0) {
-        console.log(
-          `[Database] Found existing Yjs state for ${documentName}, size: ${doc.yjsState.length} bytes`
-        );
-        return Buffer.from(doc.yjsState);
+        // 检测并解压缩
+        let stateBuffer = Buffer.from(doc.yjsState);
+        if (isGzipCompressed(stateBuffer)) {
+          console.log(
+            `[Database] Decompressing Yjs state for ${documentName}, compressed size: ${stateBuffer.length} bytes`
+          );
+          stateBuffer = gunzipSync(stateBuffer);
+          console.log(
+            `[Database] Decompressed size: ${stateBuffer.length} bytes`
+          );
+        } else {
+          console.log(
+            `[Database] Found existing Yjs state for ${documentName}, size: ${doc.yjsState.length} bytes`
+          );
+        }
+        return stateBuffer;
       }
 
       // 递归清洗 JSON 内容，确保属性类型正确
@@ -211,11 +234,25 @@ export const databaseExtension = new Database({
 
       ydoc.destroy();
 
+      // 3. 更新数据库（大文档启用压缩）
+      let stateBuffer = Buffer.from(state);
+      if (state.length > COMPRESSION_THRESHOLD) {
+        const compressedBuffer = gzipSync(stateBuffer);
+        console.log(
+          `[Database] Compressing large document ${documentName}: ${
+            state.length
+          } -> ${compressedBuffer.length} bytes (${Math.round(
+            (1 - compressedBuffer.length / state.length) * 100
+          )}% reduction)`
+        );
+        stateBuffer = compressedBuffer;
+      }
+
       // 3. 更新数据库
       await prisma.editorDocument.update({
         where: { id: documentName },
         data: {
-          yjsState: Buffer.from(state),
+          yjsState: stateBuffer,
           ...(jsonContent && { content: jsonContent }),
           ...(context?.user && {
             lastEditedBy: context.user.id,

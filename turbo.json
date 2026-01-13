@@ -22,6 +22,10 @@
     "db:push": {
       "cache": false
     },
+    "db:studio": {
+      "cache": false,
+      "persistent": true
+    },
     "@repo/collab-server#dev": {
       "dependsOn": ["@repo/database#db:generate"],
       "cache": false,

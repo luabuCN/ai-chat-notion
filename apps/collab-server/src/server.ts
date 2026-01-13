@@ -1,31 +1,44 @@
-import { Server } from "@hocuspocus/server";
+import { Server, Extension } from "@hocuspocus/server";
 import { Logger } from "@hocuspocus/extension-logger";
 import { databaseExtension } from "./extensions/database.js";
+import { getSafeRedisExtension } from "./extensions/redis.js";
 import { verifyToken, verifyDocumentAccess } from "./auth.js";
 
-export function startServer(port: number) {
+export async function startServer(port: number) {
+  // 构建基础扩展列表
+  const extensions: Extension[] = [
+    new Logger({
+      log: (message) => {
+        console.log(`[Hocuspocus] ${message}`);
+      },
+      onLoadDocument: true,
+      onChange: false, // 不记录每次变更，太多了
+      onConnect: true,
+      onDisconnect: true,
+      onUpgrade: false,
+      onRequest: false,
+      onDestroy: true,
+      onConfigure: true,
+    }),
+    databaseExtension,
+  ];
+
+  // 安全地加载 Redis 扩展
+  const redisExtension = getSafeRedisExtension();
+  if (redisExtension) {
+    extensions.unshift(redisExtension);
+    console.log("✅ Redis extension enabled for multi-instance sync");
+  } else {
+    console.log("⚠️  Redis extension disabled (Single-instance mode)");
+  }
+
   const server = new Server({
     port,
     timeout: 30000,
     debounce: 2000, // 文档变更后 2 秒触发持久化
     maxDebounce: 10000, // 最多等待 10 秒
 
-    extensions: [
-      new Logger({
-        log: (message) => {
-          console.log(`[Hocuspocus] ${message}`);
-        },
-        onLoadDocument: true,
-        onChange: false, // 不记录每次变更，太多了
-        onConnect: true,
-        onDisconnect: true,
-        onUpgrade: false,
-        onRequest: false,
-        onDestroy: true,
-        onConfigure: true,
-      }),
-      databaseExtension,
-    ],
+    extensions,
 
     // 身份验证
     async onAuthenticate({ token, documentName }) {

@@ -6,13 +6,12 @@
   "scripts": {
     "dev": "dotenv -e ../../.env.local -- tsx watch src/index.ts",
     "build": "tsc",
-    "start": "dotenv -e ../../.env.local -- node dist/index.js",
-    "migrate:yjs": "dotenv -e ../../.env.local -- tsx src/scripts/migrate-to-yjs.ts",
-    "migrate:yjs:dry-run": "dotenv -e ../../.env.local -- tsx src/scripts/migrate-to-yjs.ts --dry-run"
+    "start": "dotenv -e ../../.env.local -- node dist/index.js"
   },
   "dependencies": {
     "@hocuspocus/extension-database": "^3.4.3",
     "@hocuspocus/extension-logger": "^3.4.3",
+    "@hocuspocus/extension-redis": "^3.4.3",
     "@hocuspocus/server": "^3.4.3",
     "@hocuspocus/transformer": "^3.4.3",
     "@prisma/client": "6",
@@ -25,6 +24,7 @@
     "@tiptap/extension-task-item": "^3.15.3",
     "@tiptap/extension-task-list": "^3.15.3",
     "@tiptap/starter-kit": "^3.10.4",
+    "ioredis": "^5.9.1",
     "jsonwebtoken": "^9.0.2",
     "ws": "^8.18.0",
     "yjs": "^13.6.29"
