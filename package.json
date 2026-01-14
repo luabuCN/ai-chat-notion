@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "turbo dev",
-    "dev:web": "turbo dev --filter=@repo/web",
+    "dev": "turbo dev --filter=@repo/web",
     "dev:collab": "turbo dev --filter=@repo/collab-server",
     "dev:all": "turbo dev --filter=@repo/web --filter=@repo/collab-server",
     "build": "turbo build",
