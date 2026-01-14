@@ -35,11 +35,9 @@ export async function verifyToken(
     return null;
   }
 
-  const secret = process.env.AUTH_SECRET || process.env.JWT_SECRET;
+  const secret = process.env.AUTH_SECRET;
   if (!secret) {
-    console.error(
-      "[Auth] Missing AUTH_SECRET or JWT_SECRET environment variable"
-    );
+    console.error("[Auth] Missing AUTH_SECRET environment variable");
     return null;
   }
 

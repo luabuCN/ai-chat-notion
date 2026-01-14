@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "dotenv -e ../../.env.local -- tsx watch src/index.ts",
     "build": "tsc",
-    "start": "dotenv -e ../../.env.local -- node dist/index.js"
+    "start": "dotenv -e ../../.env.local -- node dist/index.js",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop collab-server",
+    "pm2:restart": "pm2 restart collab-server",
+    "pm2:logs": "pm2 logs collab-server"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "@hocuspocus/extension-database": "^3.4.3",
     "@hocuspocus/extension-logger": "^3.4.3",
     "@hocuspocus/extension-redis": "^3.4.3",
