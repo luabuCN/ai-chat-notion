@@ -39,6 +39,19 @@ export function CollaborativeEditorContent({
   const titleDebounced = useDebounce(title, 500);
   const iconDebounced = useDebounce(icon, 500);
 
+  // 调试日志：查看文档权限
+  useEffect(() => {
+    if (document) {
+      console.log("[Editor Permission Debug]", {
+        documentId: document.id,
+        accessLevel: (document as any)?.accessLevel,
+        deletedAt: document.deletedAt,
+        userId: document.userId,
+        currentUserId: userId,
+      });
+    }
+  }, [document, userId]);
+
   // 只读模式：已删除的文档或只有查看权限
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";

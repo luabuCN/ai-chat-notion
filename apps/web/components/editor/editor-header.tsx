@@ -208,7 +208,8 @@ export function EditorHeader({
           <MessageSquare className="h-4 w-4" />
         </Button> */}
 
-        {!isDeleted && !readonly && (
+        {/* 收藏和操作菜单 - 所有用户可见(包括只读用户) */}
+        {!isDeleted && (
           <>
             <Button
               variant="ghost"

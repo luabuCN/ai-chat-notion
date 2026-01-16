@@ -82,7 +82,10 @@ export async function POST(
     };
 
     if (!email) {
-      return new ChatSDKError("bad_request:api", "Email is required").toResponse();
+      return new ChatSDKError(
+        "bad_request:api",
+        "Email is required"
+      ).toResponse();
     }
 
     // 检查是否已经邀请过
@@ -96,10 +99,7 @@ export async function POST(
     });
 
     if (existing) {
-      return new ChatSDKError(
-        "bad_request:api",
-        "该用户已被邀请"
-      ).toResponse();
+      return new ChatSDKError("bad_request:api", "该用户已被邀请").toResponse();
     }
 
     // 检查被邀请者是否已注册
@@ -116,11 +116,11 @@ export async function POST(
         email,
         userId: invitedUser?.id,
         permission,
-        status: invitedUser ? "accepted" : "pending", // 已注册用户自动接受
+        status: "pending", // 始终为待处理状态,等待用户接受
         invitedBy: user.id,
         token,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7天过期
-        acceptedAt: invitedUser ? new Date() : null,
+        acceptedAt: null, // 用户接受后才设置
       },
     });
 
@@ -156,7 +156,10 @@ export async function DELETE(
   }
 
   if (!email) {
-    return new ChatSDKError("bad_request:api", "Email is required").toResponse();
+    return new ChatSDKError(
+      "bad_request:api",
+      "Email is required"
+    ).toResponse();
   }
 
   try {
@@ -191,4 +194,3 @@ export async function DELETE(
     ).toResponse();
   }
 }
-

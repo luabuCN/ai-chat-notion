@@ -45,6 +45,21 @@ export function EditorContent({
   const titleDebounced = useDebounce(title, 500);
   const iconDebounced = useDebounce(icon, 500);
 
+  // 调试日志：查看文档权限
+  useEffect(() => {
+    if (document) {
+      console.log("[Regular Editor Permission Debug]", {
+        documentId: document.id,
+        accessLevel: (document as any)?.accessLevel,
+        deletedAt: document.deletedAt,
+        userId: document.userId,
+        currentUserId: userId,
+        hasCollaborators: (document as any)?.hasCollaborators,
+        isCurrentUserCollaborator: (document as any)?.isCurrentUserCollaborator,
+      });
+    }
+  }, [document, userId]);
+
   // 只读模式：已删除的文档或只有查看权限
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";
@@ -117,12 +132,18 @@ export function EditorContent({
   const prevIconRef = useRef<string | null>(null);
   const prevContentRef = useRef<string>("");
 
+  // 初始化完成标志,防止首次加载时触发更新
+  const isInitializedRef = useRef(false);
+
   useEffect(() => {
     // 当文档加载完成且 documentId 发生变化时，更新本地 state
     if (document) {
       const isDocumentChanged = documentId !== prevDocumentIdRef.current;
 
       if (isDocumentChanged) {
+        // 重置初始化标志
+        isInitializedRef.current = false;
+
         prevDocumentIdRef.current = documentId;
         const newTitle = document.title ?? "";
         const newIcon = document.icon ?? null;
@@ -141,6 +162,12 @@ export function EditorContent({
         window.dispatchEvent(
           new CustomEvent("document-loaded", { detail: document })
         );
+
+        // 延迟设置初始化完成标志,等待防抖值稳定
+        // 这可以防止首次加载时触发不必要的更新
+        setTimeout(() => {
+          isInitializedRef.current = true;
+        }, 600); // 比防抖时间稍长一点
       }
     }
   }, [document, documentId]);
@@ -155,6 +182,7 @@ export function EditorContent({
   // 防抖保存标题
   useEffect(() => {
     if (
+      !isInitializedRef.current || // 初始化未完成不保存
       !documentId ||
       !document ||
       isReadOnly || // 只读模式不保存
@@ -191,6 +219,7 @@ export function EditorContent({
   // 防抖保存icon
   useEffect(() => {
     if (
+      !isInitializedRef.current || // 初始化未完成不保存
       !documentId ||
       !document ||
       isReadOnly || // 只读模式不保存
@@ -226,6 +255,7 @@ export function EditorContent({
   // 防抖保存内容
   useEffect(() => {
     if (
+      !isInitializedRef.current || // 初始化未完成不保存
       !documentId ||
       !document ||
       isReadOnly || // 只读模式不保存

@@ -3,18 +3,25 @@ import {
   getWorkspaceMemberPermission,
   prisma,
 } from "@repo/database";
+import {
+  checkDocumentPermission,
+  type DocumentPermissionResult,
+} from "./document-permission";
 
 export type AccessLevel = "owner" | "edit" | "view" | "none";
 
 export interface DocumentAccessResult {
   access: AccessLevel;
-  document: any; // Using any to avoid importing huge Prisma types here
-  hasCollaborators?: boolean; // 是否有访客协作者
-  isCurrentUserCollaborator?: boolean; // 当前用户是否是协作者
+  document: any;
+  hasCollaborators?: boolean;
+  isCurrentUserCollaborator?: boolean;
 }
 
 /**
- * 验证用户对文档的访问权限
+ * 验证用户对文档的访问权限（服务端）
+ *
+ * 使用统一的漏斗模型权限检查逻辑
+ *
  * @param documentId 文档ID
  * @param userId 用户ID（从请求头获取，由中间件注入）
  * @param userEmail 用户邮箱（用于检查访客协作者）
@@ -37,106 +44,35 @@ export async function verifyDocumentAccess(
     });
     const hasCollaborators = collaboratorCount > 0;
 
-    // 检查当前用户是否是协作者（用于决定是否启用协同编辑）
-    let isCurrentUserCollaborator = false;
-    if (userId && userEmail) {
-      const currentUserCollaborator =
-        await prisma.documentCollaborator.findUnique({
-          where: {
-            documentId_email: {
-              documentId,
-              email: userEmail,
-            },
-          },
-        });
-      console.log("[Doc Access] Collaborator lookup:", {
-        documentId,
-        userEmail,
-        collaborator: currentUserCollaborator,
+    // 获取工作空间信息
+    let workspaceOwnerId: string | undefined;
+    let workspaceMemberRole: string | undefined;
+    let workspaceMemberPermission: string | undefined;
+
+    if (document.workspaceId && userId) {
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: document.workspaceId },
+        select: { ownerId: true },
       });
-      isCurrentUserCollaborator =
-        currentUserCollaborator?.status === "accepted" &&
-        currentUserCollaborator.permission === "edit";
-    }
+      workspaceOwnerId = workspace?.ownerId;
 
-    if (!userId) {
-      // Public access check (if published)
-      if (document.isPublished) {
-        return {
-          access: "view",
-          document,
-          hasCollaborators,
-          isCurrentUserCollaborator: false,
-        };
-      }
-      return {
-        access: "none",
-        document,
-        hasCollaborators,
-        isCurrentUserCollaborator: false,
-      };
-    }
-
-    // 1. Owner check - 文档创建者始终有完全权限
-    if (document.userId === userId) {
-      return {
-        access: "owner",
-        document,
-        hasCollaborators,
-        isCurrentUserCollaborator: false,
-      };
-    }
-
-    // 2. Workspace Access Check - 根据成员权限返回对应级别
-    if (document.workspaceId) {
       const memberInfo = await getWorkspaceMemberPermission({
         workspaceId: document.workspaceId,
         userId,
       });
 
       if (memberInfo) {
-        // 空间所有者拥有完全权限
-        if (memberInfo.isOwner) {
-          return {
-            access: "owner",
-            document,
-            hasCollaborators,
-            isCurrentUserCollaborator: false,
-          };
-        }
-
-        // 管理员拥有编辑权限
-        if (memberInfo.role === "admin") {
-          return {
-            access: "edit",
-            document,
-            hasCollaborators,
-            isCurrentUserCollaborator: false,
-          };
-        }
-
-        // 普通成员根据 permission 字段判断
-        if (memberInfo.permission === "edit") {
-          return {
-            access: "edit",
-            document,
-            hasCollaborators,
-            isCurrentUserCollaborator: false,
-          };
-        }
-
-        // 默认只有查看权限
-        return {
-          access: "view",
-          document,
-          hasCollaborators,
-          isCurrentUserCollaborator: false,
-        };
+        workspaceMemberRole = memberInfo.role;
+        workspaceMemberPermission = memberInfo.permission;
       }
     }
 
-    // 3. Document Collaborator Check - 检查访客协作者权限
-    if (userEmail) {
+    // 获取文档协作者信息
+    let documentCollaboratorPermission: string | undefined;
+    let documentCollaboratorStatus: string | undefined;
+    let isCurrentUserCollaborator = false;
+
+    if (userId && userEmail) {
       const collaborator = await prisma.documentCollaborator.findUnique({
         where: {
           documentId_email: {
@@ -146,39 +82,63 @@ export async function verifyDocumentAccess(
         },
       });
 
-      if (collaborator && collaborator.status === "accepted") {
-        if (collaborator.permission === "edit") {
-          return {
-            access: "edit",
-            document,
-            hasCollaborators,
-            isCurrentUserCollaborator: true,
-          };
-        }
-        return {
-          access: "view",
-          document,
-          hasCollaborators,
-          isCurrentUserCollaborator: true,
-        };
+      if (collaborator) {
+        documentCollaboratorPermission = collaborator.permission;
+        documentCollaboratorStatus = collaborator.status;
+        isCurrentUserCollaborator =
+          collaborator.status === "accepted" &&
+          collaborator.permission === "edit";
+
+        console.log("[Doc Access] Collaborator lookup:", {
+          documentId,
+          userEmail,
+          collaborator,
+        });
       }
     }
 
-    // 4. Published Check - 公开分享的文档允许编辑
-    if (document.isPublished) {
-      return {
-        access: "edit",
-        document,
-        hasCollaborators,
-        isCurrentUserCollaborator: false,
-      };
-    }
+    // 调试日志：显示所有权限检查参数
+    console.log("[Doc Access] Permission check params:", {
+      documentId: document.id,
+      documentUserId: document.userId,
+      documentWorkspaceId: document.workspaceId,
+      currentUserId: userId,
+      currentUserEmail: userEmail,
+      workspaceOwnerId,
+      workspaceMemberRole,
+      workspaceMemberPermission,
+      documentCollaboratorPermission,
+      documentCollaboratorStatus,
+    });
+
+    // 使用统一的权限检查逻辑
+    const permissionResult: DocumentPermissionResult = checkDocumentPermission({
+      documentId: document.id,
+      documentUserId: document.userId,
+      documentWorkspaceId: document.workspaceId,
+      documentIsPublished: document.isPublished,
+      documentDeletedAt: document.deletedAt,
+      currentUserId: userId,
+      currentUserEmail: userEmail,
+      workspaceOwnerId,
+      workspaceMemberRole,
+      workspaceMemberPermission,
+      documentCollaboratorPermission,
+      documentCollaboratorStatus,
+    });
+
+    console.log("[Doc Access] Permission check result:", {
+      documentId,
+      userId,
+      access: permissionResult.access,
+      reason: permissionResult.reason,
+    });
 
     return {
-      access: "none",
+      access: permissionResult.access,
       document,
       hasCollaborators,
-      isCurrentUserCollaborator: false,
+      isCurrentUserCollaborator,
     };
   } catch (error) {
     // Document not found or DB error

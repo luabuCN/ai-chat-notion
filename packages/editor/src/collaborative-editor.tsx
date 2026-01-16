@@ -100,6 +100,17 @@ export function CollaborativeEditor({
   const [isIndexedDBSynced, setIsIndexedDBSynced] = useState(false);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
 
+  // 延迟渲染状态 - 避免 flushSync 警告
+  const [isClientReady, setIsClientReady] = useState(false);
+
+  // 延迟到下一个事件循环再渲染编辑器，避免 flushSync 警告
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsClientReady(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
   // 初始化 IndexedDB 持久化
   useEffect(() => {
     if (!documentId) return;
@@ -130,60 +141,63 @@ export function CollaborativeEditor({
       document: ydoc,
       token,
       onStatus: ({ status: s }) => {
-        // 只有在组件挂载后才更新状态
-        if (isMountedRef.current) {
-          const newStatus = s as ConnectionStatus;
-          onConnectionStatusChangeRef.current?.(newStatus);
-          if (s === "disconnected") {
-            onDisconnectRef.current?.();
+        // 放入宏任务队列，避免在渲染期间触发状态更新导致 flushSync 警告
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            const newStatus = s as ConnectionStatus;
+            onConnectionStatusChangeRef.current?.(newStatus);
+            if (s === "disconnected") {
+              onDisconnectRef.current?.();
+            }
           }
-        }
+        }, 0);
       },
       onSynced: ({ state }) => {
-        if (state && isMountedRef.current) {
-          onSyncedRef.current?.();
-        }
+        setTimeout(() => {
+          if (state && isMountedRef.current) {
+            onSyncedRef.current?.();
+          }
+        }, 0);
       },
       onAwarenessUpdate: ({ states }) => {
-        // 更新在线用户列表（使用 requestAnimationFrame 延迟更新，避免循环）
-        if (isMountedRef.current) {
-          requestAnimationFrame(() => {
-            if (!isMountedRef.current) return;
-            const users = Array.from(states.values())
-              .filter(
-                (state: Record<string, unknown>) =>
-                  state.user && (state.user as Record<string, unknown>).name
-              )
-              .map(
-                (state: Record<string, unknown>) =>
-                  state.user as CollaborativeUser
-              );
+        // 更新在线用户列表
+        // 使用 setTimeout 替代 requestAnimationFrame，更彻底地避开 React 渲染周期
+        setTimeout(() => {
+          if (!isMountedRef.current) return;
+          const users = Array.from(states.values())
+            .filter(
+              (state: Record<string, unknown>) =>
+                state.user && (state.user as Record<string, unknown>).name
+            )
+            .map(
+              (state: Record<string, unknown>) =>
+                state.user as CollaborativeUser
+            );
 
-            // 注意：awareness 会在光标移动/输入时高频触发，这里只在“用户列表”发生变化时才 setState，
-            // 否则会导致整个 React 树频繁 rerender，表现为协同光标闪烁、菜单难以稳定弹出。
-            const sig = users
-              .map(
-                (u) =>
-                  `${u.name}|${u.color}|${
-                    typeof u.avatar === "string" ? u.avatar : ""
-                  }`
-              )
-              .sort()
-              .join(",");
+          const sig = users
+            .map(
+              (u) =>
+                `${u.name}|${u.color}|${
+                  typeof u.avatar === "string" ? u.avatar : ""
+                }`
+            )
+            .sort()
+            .join(",");
 
-            if (sig !== connectedUsersSigRef.current) {
-              connectedUsersSigRef.current = sig;
-              onConnectedUsersChangeRef.current?.(users);
-            }
-          });
-        }
+          if (sig !== connectedUsersSigRef.current) {
+            connectedUsersSigRef.current = sig;
+            onConnectedUsersChangeRef.current?.(users);
+          }
+        }, 0);
       },
       onAuthenticationFailed: ({ reason }) => {
-        if (isMountedRef.current) {
-          toast.error("认证失败", {
-            description: reason || "无法连接到协同服务器",
-          });
-        }
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            toast.error("认证失败", {
+              description: reason || "无法连接到协同服务器",
+            });
+          }
+        }, 0);
       },
     });
 
@@ -302,6 +316,11 @@ export function CollaborativeEditor({
       editor.setEditable(!readonly);
     }
   }, [editor, readonly]);
+
+  // 等待客户端准备就绪 - 避免 flushSync 警告
+  if (!isClientReady) {
+    return null;
+  }
 
   // 等待 IndexedDB 同步完成后再渲染编辑器
   if (!isIndexedDBSynced) {

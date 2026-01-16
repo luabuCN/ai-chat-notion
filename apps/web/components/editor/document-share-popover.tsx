@@ -607,12 +607,6 @@ export function DocumentSharePopover({
                             </span>
                             {getStatusLabel(collaborator.status)}
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            状态:{" "}
-                            {collaborator.status === "pending"
-                              ? "PENDING"
-                              : collaborator.status.toUpperCase()}
-                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

@@ -74,7 +74,7 @@ export function TiptapEditor({
       }),
     ],
     content: content,
-    immediatelyRender: true,
+    immediatelyRender: false, // 禁用立即渲染,避免 flushSync 警告
     shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: {
@@ -109,33 +109,37 @@ export function TiptapEditor({
 
   return (
     <div className={className}>
-      <DragHandle
-        editor={editor}
-        className="transition-all duration-300 ease-in-out"
-        computePositionConfig={{
-          middleware: [offset(20)],
-        }}
-      >
-        <div className="flex items-center gap-1 -ml-2">
-          <div
-            className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
-            onClick={handleSlashCommand}
+      {editor && (
+        <>
+          <DragHandle
+            editor={editor}
+            className="transition-all duration-300 ease-in-out"
+            computePositionConfig={{
+              middleware: [offset(20)],
+            }}
           >
-            <Plus className="size-3.5 text-muted-foreground" />
-          </div>
-          <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
-            <GripVerticalIcon className="size-3.5 text-muted-foreground" />
-          </div>
-        </div>
-      </DragHandle>
-      <EditorContent
-        editor={editor}
-        className="prose dark:prose-invert focus:outline-none max-w-full z-0"
-      />
-      <TableHandle editor={editor} />
-      <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
-      <MediaBubbleMenu editor={editor} />
-      <TableOfContents editor={editor} />
+            <div className="flex items-center gap-1 -ml-2">
+              <div
+                className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
+                onClick={handleSlashCommand}
+              >
+                <Plus className="size-3.5 text-muted-foreground" />
+              </div>
+              <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
+                <GripVerticalIcon className="size-3.5 text-muted-foreground" />
+              </div>
+            </div>
+          </DragHandle>
+          <EditorContent
+            editor={editor}
+            className="prose dark:prose-invert focus:outline-none max-w-full z-0"
+          />
+          <TableHandle editor={editor} />
+          <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
+          <MediaBubbleMenu editor={editor} />
+          <TableOfContents editor={editor} />
+        </>
+      )}
     </div>
   );
 }

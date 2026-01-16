@@ -77,7 +77,12 @@ export default async function RootLayout({
             <NextIntlClientProvider messages={messages}>
               <TooltipProvider>
                 <Toaster position="top-center" />
-                <SessionProvider>{children}</SessionProvider>
+                <SessionProvider
+                  refetchInterval={5 * 60} // 5分钟刷新一次
+                  refetchOnWindowFocus={false} // 窗口聚焦时不刷新
+                >
+                  {children}
+                </SessionProvider>
               </TooltipProvider>
             </NextIntlClientProvider>
           </QueryProvider>

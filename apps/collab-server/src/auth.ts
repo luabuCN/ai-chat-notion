@@ -1,5 +1,9 @@
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
+import {
+  checkDocumentPermission,
+  type DocumentPermissionResult,
+} from "./document-permission.js";
 
 // 直接创建 Prisma 客户端，避免导入 @repo/database 的 server-only 依赖
 const prisma = new PrismaClient();
@@ -57,7 +61,9 @@ export async function verifyToken(
 }
 
 /**
- * 验证用户对文档的访问权限
+ * 验证用户对文档的访问权限（协作服务器）
+ *
+ * 使用统一的漏斗模型权限检查逻辑
  */
 export async function verifyDocumentAccess(
   documentId: string,
@@ -80,35 +86,17 @@ export async function verifyDocumentAccess(
     throw new Error(`Document ${documentId} not found`);
   }
 
-  // 已删除的文档不允许协同编辑
-  if (document.deletedAt) {
-    return { access: "none", document };
-  }
+  // 获取工作空间信息
+  let workspaceOwnerId: string | undefined;
+  let workspaceMemberRole: string | undefined;
+  let workspaceMemberPermission: string | undefined;
 
-  if (!userId) {
-    // 未登录用户：只能访问已发布的文档（只读）
-    if (document.isPublished) {
-      return { access: "view", document };
-    }
-    return { access: "none", document };
-  }
-
-  // 1. 文档所有者 - 完全权限
-  if (document.userId === userId) {
-    return { access: "owner", document };
-  }
-
-  // 2. 工作空间权限检查
-  if (document.workspaceId) {
+  if (document.workspaceId && userId) {
     const workspace = await prisma.workspace.findUnique({
       where: { id: document.workspaceId },
       select: { ownerId: true },
     });
-
-    // 空间所有者有完全权限
-    if (workspace?.ownerId === userId) {
-      return { access: "owner", document };
-    }
+    workspaceOwnerId = workspace?.ownerId;
 
     // 检查空间成员权限
     const member = await prisma.workspaceMember.findUnique({
@@ -125,21 +113,15 @@ export async function verifyDocumentAccess(
     });
 
     if (member) {
-      // 管理员有编辑权限
-      if (member.role === "admin") {
-        return { access: "edit", document };
-      }
-
-      // 普通成员根据 permission 字段判断
-      if (member.permission === "edit") {
-        return { access: "edit", document };
-      }
-
-      return { access: "view", document };
+      workspaceMemberRole = member.role;
+      workspaceMemberPermission = member.permission;
     }
   }
 
-  // 3. 文档协作者权限检查（访客协作者）
+  // 获取文档协作者信息
+  let documentCollaboratorPermission: string | undefined;
+  let documentCollaboratorStatus: string | undefined;
+
   if (userEmail) {
     const collaborator = await prisma.documentCollaborator.findUnique({
       where: {
@@ -154,18 +136,34 @@ export async function verifyDocumentAccess(
       },
     });
 
-    if (collaborator && collaborator.status === "accepted") {
-      if (collaborator.permission === "edit") {
-        return { access: "edit", document };
-      }
-      return { access: "view", document };
+    if (collaborator) {
+      documentCollaboratorPermission = collaborator.permission;
+      documentCollaboratorStatus = collaborator.status;
     }
   }
 
-  // 4. 已发布文档 - 只读访问
-  if (document.isPublished) {
-    return { access: "view", document };
-  }
+  // 使用统一的权限检查逻辑
+  const permissionResult: DocumentPermissionResult = checkDocumentPermission({
+    documentId: document.id,
+    documentUserId: document.userId,
+    documentWorkspaceId: document.workspaceId,
+    documentIsPublished: document.isPublished,
+    documentDeletedAt: document.deletedAt,
+    currentUserId: userId,
+    currentUserEmail: userEmail,
+    workspaceOwnerId,
+    workspaceMemberRole,
+    workspaceMemberPermission,
+    documentCollaboratorPermission,
+    documentCollaboratorStatus,
+  });
 
-  return { access: "none", document };
+  console.log("[Collab Auth] Permission check result:", {
+    documentId,
+    userId,
+    access: permissionResult.access,
+    reason: permissionResult.reason,
+  });
+
+  return { access: permissionResult.access, document };
 }

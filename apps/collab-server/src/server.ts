@@ -24,9 +24,9 @@ export async function startServer(port: number) {
   ];
 
   // 安全地加载 Redis 扩展
-  const redisExtension = getSafeRedisExtension();
+  const redisExtension = await getSafeRedisExtension();
   if (redisExtension) {
-    extensions.unshift(redisExtension);
+    extensions.push(redisExtension);
     console.log("✅ Redis extension enabled for multi-instance sync");
   } else {
     console.log("⚠️  Redis extension disabled (Single-instance mode)");

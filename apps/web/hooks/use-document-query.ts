@@ -232,38 +232,95 @@ export function useUpdateDocument() {
   return useMutation({
     mutationKey: documentKeys.updates(),
     mutationFn: updateDocument,
+
+    // 乐观更新: 在 API 调用前立即更新 UI
+    onMutate: async (variables) => {
+      // 取消正在进行的查询,避免覆盖乐观更新
+      await queryClient.cancelQueries({ queryKey: documentKeys.lists() });
+      await queryClient.cancelQueries({
+        queryKey: documentKeys.detail(variables.documentId),
+      });
+
+      // 保存旧数据用于回滚
+      const previousLists = queryClient.getQueriesData<EditorDocument[]>({
+        queryKey: documentKeys.lists(),
+      });
+      const previousDetail = queryClient.getQueryData(
+        documentKeys.detail(variables.documentId)
+      );
+
+      // 立即更新所有列表缓存中的文档
+      if (
+        variables.updates.title !== undefined ||
+        variables.updates.icon !== undefined
+      ) {
+        queryClient.setQueriesData<EditorDocument[]>(
+          { queryKey: documentKeys.lists() },
+          (oldData) => {
+            if (!oldData) return oldData;
+            return oldData.map((doc) =>
+              doc.id === variables.documentId
+                ? {
+                    ...doc,
+                    ...(variables.updates.title !== undefined && {
+                      title: variables.updates.title,
+                    }),
+                    ...(variables.updates.icon !== undefined && {
+                      icon: variables.updates.icon,
+                    }),
+                  }
+                : doc
+            );
+          }
+        );
+      }
+
+      // 更新单个文档的缓存
+      queryClient.setQueryData(
+        documentKeys.detail(variables.documentId),
+        (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            ...variables.updates,
+          };
+        }
+      );
+
+      // 返回上下文用于回滚
+      return { previousLists, previousDetail };
+    },
+
+    // 成功时: 用服务端返回的数据更新缓存
     onSuccess: async (updatedDoc, variables) => {
-      // 更新单个文档的缓存，但保留协同编辑相关字段
-      // PATCH 响应不包含 accessLevel, hasCollaborators, isCurrentUserCollaborator
-      // 需要与现有缓存合并以保留这些字段
+      // 更新单个文档的缓存，保留协同编辑相关字段
       queryClient.setQueryData(
         documentKeys.detail(variables.documentId),
         (oldData: any) => {
           if (!oldData) return updatedDoc;
           return {
             ...updatedDoc,
-            // 保留协同编辑相关字段
             accessLevel: oldData.accessLevel,
             hasCollaborators: oldData.hasCollaborators,
             isCurrentUserCollaborator: oldData.isCurrentUserCollaborator,
           };
         }
       );
+    },
 
-      // 如果更新了标题或图标，需要刷新列表
-      const needsListRefresh =
-        variables.updates.title !== undefined ||
-        variables.updates.icon !== undefined;
-
-      if (needsListRefresh) {
-        // 使所有列表查询失效
-        await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+    // 失败时: 回滚到之前的数据
+    onError: (err, variables, context) => {
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
-
-      // 发送事件通知其他组件（保持向后兼容）
-      window.dispatchEvent(
-        new CustomEvent("document-updated", { detail: updatedDoc })
-      );
+      if (context?.previousDetail) {
+        queryClient.setQueryData(
+          documentKeys.detail(variables.documentId),
+          context.previousDetail
+        );
+      }
     },
   });
 }
