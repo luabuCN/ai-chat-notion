@@ -7,6 +7,9 @@ import { EditorToolbar } from "./editor-toolbar";
 import { EmojiPicker } from "./emoji-picker";
 import { CoverPickerDialog } from "./cover-picker-dialog";
 
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
 interface EditorPageHeaderProps {
   initialTitle?: string;
   initialIcon?: string | null;
@@ -22,6 +25,8 @@ interface EditorPageHeaderProps {
   onCoverPositionChange?: (position: number) => void;
   readonly?: boolean;
   isOwner?: boolean; // 是否是文档所有者，控制标题/图标/封面的编辑权限
+  isLoggedIn?: boolean;
+  onAddComment?: () => void;
 }
 
 export function EditorPageHeader({
@@ -36,7 +41,10 @@ export function EditorPageHeader({
   onCoverPositionChange,
   readonly = false,
   isOwner = true, // 默认为 true，保持向后兼容
+  isLoggedIn = false,
+  onAddComment,
 }: EditorPageHeaderProps) {
+  const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
   const [icon, setIcon] = useState<string | null>(initialIcon);
   const [cover, setCover] = useState<string | null>(initialCover);
@@ -102,6 +110,20 @@ export function EditorPageHeader({
     onCoverChange?.(null);
   }, [onCoverChange]);
 
+  const handleAddComment = useCallback(() => {
+    if (!isLoggedIn) {
+      const currentUrl = window.location.href;
+      router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+      return;
+    }
+
+    if (onAddComment) {
+      onAddComment();
+    } else {
+      toast("评论功能开发中");
+    }
+  }, [isLoggedIn, onAddComment, router]);
+
   return (
     <div className="w-full">
       {/* 封面图片 - 非所有者时为预览模式 */}
@@ -138,19 +160,18 @@ export function EditorPageHeader({
           </div>
         )}
 
-        {/* 工具栏 - hover时显示 (非只读时可见，内部按钮根据 isOwner 控制) */}
-        {!readonly && (
-          <div className={`group ${!icon && !cover ? "mt-8" : "mt-2"}`}>
-            <EditorToolbar
-              visible={true}
-              hasIcon={!!icon}
-              hasCover={!!cover}
-              onAddIcon={handleAddIcon}
-              onAddCover={handleAddCover}
-              isOwner={isOwner}
-            />
-          </div>
-        )}
+        {/* 工具栏 - hover时显示 (始终可见，内部按钮根据 isOwner 控制) */}
+        <div className={`group ${!icon && !cover ? "mt-8" : "mt-2"}`}>
+          <EditorToolbar
+            visible={true}
+            hasIcon={!!icon}
+            hasCover={!!cover}
+            onAddIcon={handleAddIcon}
+            onAddCover={handleAddCover}
+            onAddComment={handleAddComment}
+            isOwner={!readonly && isOwner}
+          />
+        </div>
 
         {/* 标题输入 - 非所有者时禁用编辑 */}
         <div className="mt-2 mb-4">

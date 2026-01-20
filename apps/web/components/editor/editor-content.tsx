@@ -70,34 +70,43 @@ export function EditorContent({
   // 判断是否启用协同编辑：
   // 1. 文档在工作空间中 + 当前用户有编辑权限
   // 2. 文档有访客协作者 + 当前用户是协作者且有编辑权限
+  // 3. 他人文档（只读模式也应该能看到别人的光标）
   const enableCollaboration = useMemo(() => {
-    if (!document || isReadOnly) return false;
-
-    // 防止使用旧文档数据（React Query 缓存可能会在 ID 变化后短暂返回旧数据）
+    // 基础检查：文档必须存在，且 ID 匹配
+    if (!document) return false;
     if (document.id !== documentId) return false;
 
+    // 只要有任何权限（包括只读），都有资格连接协同
     const accessLevel = (document as any)?.accessLevel;
-    const hasEditAccess = accessLevel === "owner" || accessLevel === "edit";
-    // 检查是否公开分享
+    if (!accessLevel) return false;
+
+    // 关键逻辑变更：移除 isReadOnly 的限制
+    // 如果是只读用户，也应该进入协同模式以便看到他人的操作
+
     const isPublished = (document as any)?.isPublished;
+    const hasCollaborators = (document as any)?.hasCollaborators;
+    const isCurrentUserCollaborator = (document as any)
+      ?.isCurrentUserCollaborator;
+    const isDocumentOwner = (document as any)?.userId === userId;
 
-    // 条件1：文档公开分享 + 有编辑权限
-    if (isPublished && hasEditAccess) {
+    // 场景1：他人文档 (非拥有者)
+    // 如果我看别人的文档，我应该连接协同以看到拥有者的操作
+    if (!isDocumentOwner) {
       return true;
     }
 
-    // 条件2：当前用户是访客协作者 + 有编辑权限
-    if ((document as any)?.isCurrentUserCollaborator && hasEditAccess) {
+    // 场景2：我的文档，但已发布或有协作者
+    if (isPublished || hasCollaborators) {
       return true;
     }
 
-    // 条件3：文档有已接受的协作者 + 当前用户是文档所有者/有编辑权限
-    if ((document as any)?.hasCollaborators && hasEditAccess) {
+    // 场景3：我是协作者
+    if (isCurrentUserCollaborator) {
       return true;
     }
 
     return false;
-  }, [document, isReadOnly]);
+  }, [document, documentId, userId]);
 
   // 协同编辑 token（仅在启用协同时获取）
   const { data: collabData, isLoading: isTokenLoading } = useCollabToken(
@@ -387,6 +396,7 @@ export function EditorContent({
         onCoverPositionChange={handleCoverPositionChange}
         readonly={isReadOnly}
         isOwner={isOwner}
+        isLoggedIn={!!userId}
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">

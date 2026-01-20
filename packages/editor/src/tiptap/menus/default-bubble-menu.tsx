@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Editor, isTextSelection } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/react/menus";
 import {
@@ -17,6 +18,15 @@ export const DefaultBubbleMenu = ({
   editor: Editor | null;
   showAiTools?: boolean;
 }) => {
+  const [scrollTarget, setScrollTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = document.getElementById("editor-scroll-container");
+    if (el) {
+      setScrollTarget(el);
+    }
+  }, []);
+
   if (!editor) {
     return null;
   }
@@ -27,6 +37,7 @@ export const DefaultBubbleMenu = ({
       options={{
         placement: "top",
         offset: 8,
+        scrollTarget: scrollTarget || undefined,
       }}
       shouldShow={({ editor, state }) => {
         const { selection } = state;

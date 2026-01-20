@@ -21,15 +21,18 @@ export function EditorPageClient({
 }: EditorPageClientProps) {
   return (
     <CollaborationProvider>
-      <div className="min-h-dvh min-w-0 flex flex-col bg-background overflow-x-hidden">
-        <div className="sticky top-0 z-49 bg-background shrink-0">
-          <EditorHeaderWrapper
-            locale={locale}
-            documentId={documentId}
-            currentUserId={userId}
-          />
-        </div>
-        <div className="flex-1">
+      <div className="flex h-dvh min-w-0 flex-col bg-background overflow-hidden">
+        <div
+          id="editor-scroll-container"
+          className="flex-1 overflow-auto min-h-0"
+        >
+          <div className="sticky top-0 z-49 bg-background shrink-0">
+            <EditorHeaderWrapper
+              locale={locale}
+              documentId={documentId}
+              currentUserId={userId}
+            />
+          </div>
           <EditorContent
             locale={locale}
             documentId={documentId}

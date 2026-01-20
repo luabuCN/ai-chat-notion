@@ -83,46 +83,53 @@ export function SmartEditorContent({
     }
 
     // 自动检测逻辑
-    if (!document || isReadOnly) return false;
+    if (!document) return false;
 
     // 防止使用旧文档数据（React Query 缓存可能会在 ID 变化后短暂返回旧数据）
     if (document.id !== documentId) return false;
 
+    // 只要有任何权限（包括只读），都有资格连接协同
     const accessLevel = (document as any)?.accessLevel;
-    const hasEditAccess = accessLevel === "owner" || accessLevel === "edit";
+    if (!accessLevel) return false;
+
+    // 关键逻辑变更：移除 isReadOnly 的限制
+    // 如果是只读用户，也应该进入协同模式以便看到他人的操作
+
     const docHasCollaborators = (document as any)?.hasCollaborators;
     const isUserCollaborator = (document as any)?.isCurrentUserCollaborator;
     const docIsPublished = document.isPublished;
+    const isDocumentOwner = (document as any)?.userId === userId;
 
     console.log("[Collab Detection]", {
       accessLevel,
-      hasEditAccess,
       hasCollaborators: docHasCollaborators,
       isCurrentUserCollaborator: isUserCollaborator,
       isPublished: docIsPublished,
+      isDocumentOwner,
     });
 
-    // 条件1：文档公开分享 + 有编辑权限
-    if (docIsPublished && hasEditAccess) {
+    // 场景1：他人文档 (非拥有者)
+    // 如果我看别人的文档，我应该连接协同以看到拥有者的操作
+    if (!isDocumentOwner) {
       collabModeDecidedRef.current = true;
       return true;
     }
 
-    // 条件2：当前用户是访客协作者 + 有编辑权限
-    if (isUserCollaborator && hasEditAccess) {
+    // 场景2：我的文档，但已发布或有协作者
+    if (docIsPublished || docHasCollaborators) {
       collabModeDecidedRef.current = true;
       return true;
     }
 
-    // 条件3：文档有协作者 + 有编辑权限（文档所有者或工作空间成员）
-    if (docHasCollaborators && hasEditAccess) {
+    // 场景3：我是协作者（逻辑上包含在场景1中，但保留作为显式检查）
+    if (isUserCollaborator) {
       collabModeDecidedRef.current = true;
       return true;
     }
 
     collabModeDecidedRef.current = false;
     return false;
-  }, [document, isReadOnly, enableCollaboration]);
+  }, [document, documentId, enableCollaboration, userId]);
 
   // 协同编辑 token（仅在启用协同编辑时获取）
   const {
@@ -413,6 +420,7 @@ export function SmartEditorContent({
         onCoverPositionChange={handleCoverPositionChange}
         readonly={isReadOnly}
         isOwner={isOwner}
+        isLoggedIn={!!userId}
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">
