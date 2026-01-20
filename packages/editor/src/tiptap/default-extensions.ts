@@ -8,10 +8,9 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Youtube from "@tiptap/extension-youtube";
 import { CharacterCount } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
-import { common, createLowlight } from "lowlight";
+import { all, createLowlight } from "lowlight";
 import { AiPlaceholder } from "./extensions/ai-placeholder";
 import { AiWriter } from "./extensions/ai-writer";
-import { CustomCodeBlock } from "./extensions/code-block";
 import { Mathematics } from "./extensions/mathematics";
 import { CustomTable } from "./extensions/table";
 import { Markdown } from "@tiptap/markdown";
@@ -19,6 +18,7 @@ import { MarkdownPaste } from "./extensions/markdown-paste";
 import { Mermaid } from "./extensions/mermaid";
 import { Chart } from "./extensions/chart";
 import { Attachment } from "./extensions/attachment";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 
 const TiptapStarterKit = StarterKit.configure({
   bulletList: {
@@ -130,18 +130,15 @@ const mathematics = Mathematics.configure({
   },
 });
 
-const lowlight = createLowlight(common);
-const codeBlock = CustomCodeBlock.configure({
+const lowlight = createLowlight(all);
+const codeBlock = CodeBlockLowlight.configure({
+  lowlight,
   HTMLAttributes: {
     class: cn(
-      "rounded !bg-gray-800 dark:!bg-gray-900 text-gray-200 border p-5 font-mono font-medium"
+      "rounded !bg-[#fafafa] dark:!bg-gray-900 !text-[#90A4AE] border p-5 font-mono font-medium"
     ),
     spellcheck: false,
   },
-  enableTabIndentation: true,
-  tabSize: 2,
-  defaultLanguage: "plaintext",
-  lowlight: lowlight,
 });
 
 const TiptapTextAlign = TextAlign.configure({

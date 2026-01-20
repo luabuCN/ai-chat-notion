@@ -10,6 +10,7 @@ import { Ai } from "./tiptap/extensions/ai";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
+import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
@@ -137,6 +138,7 @@ export function TiptapEditor({
           <TableHandle editor={editor} />
           <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
           <MediaBubbleMenu editor={editor} />
+          <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
         </>
       )}

@@ -19,6 +19,7 @@ import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
+import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 export interface CollaborativeUser {
   name: string;
   color: string;
@@ -380,6 +381,7 @@ export function CollaborativeEditor({
           <TableHandle editor={editor} />
           <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
           <MediaBubbleMenu editor={editor} />
+          <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
         </>
       )}
