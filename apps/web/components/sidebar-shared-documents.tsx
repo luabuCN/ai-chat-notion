@@ -3,11 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ChevronDown, ChevronRight, Users, FileIcon } from "lucide-react";
-import {
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarMenu,
-} from "@repo/ui";
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@repo/ui";
 import { cn } from "@/lib/utils";
 import Item from "./sidebar-document-item";
 
@@ -114,16 +110,17 @@ export function SidebarSharedDocuments() {
               {isExpanded && (
                 <div className="pl-6">
                   {group.documents.map((document) => (
-                    <div
-                      key={document.id}
-                      className="py-0.5"
-                    >
+                    <div key={document.id} className="py-0.5">
                       <Item
                         id={document.id}
                         onClick={() => onRedirect(document.id)}
                         label={document.title}
                         icon={FileIcon}
-                        active={pathname === `/editor/${document.id}`}
+                        active={
+                          decodeURIComponent(pathname) ===
+                            `/editor/${document.id}` ||
+                          pathname === `/editor/${document.id}`
+                        }
                         level={1}
                         onExpand={() => {}}
                         expanded={false}
@@ -142,4 +139,3 @@ export function SidebarSharedDocuments() {
     </SidebarGroup>
   );
 }
-

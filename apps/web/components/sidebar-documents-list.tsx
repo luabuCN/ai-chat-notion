@@ -103,26 +103,37 @@ const DocumentsList = ({
 
   return (
     <>
-      {displayDocuments.map((document) => (
-        <div key={`${document.id}-${document.icon ?? ""}-${document.title}`}>
-          <Item
-            id={document.id}
-            onClick={() => onRedirect(document.id)}
-            label={document.title}
-            icon={FileIcon}
-            active={pathname === `/${workspaceSlug}/editor/${document.id}`}
-            level={level}
-            onExpand={() => onExpand(document.id)}
-            expanded={expanded[document.id]}
-            documentIcon={document.icon}
-            canEdit={canEdit}
-            lastEditedByName={(document as any).lastEditedByName}
-          />
-          {expanded[document.id] && (
-            <DocumentsList parentDocumentId={document.id} level={level + 1} />
-          )}
-        </div>
-      ))}
+      {displayDocuments.map((document) => {
+        // 解码 pathname 以正确匹配含中文的 URL
+        const decodedPathname = decodeURIComponent(pathname);
+        const expectedPath = workspaceSlug
+          ? `/${workspaceSlug}/editor/${document.id}`
+          : `/editor/${document.id}`;
+        const isActive =
+          decodedPathname === expectedPath ||
+          pathname === `/editor/${document.id}`;
+
+        return (
+          <div key={`${document.id}-${document.icon ?? ""}-${document.title}`}>
+            <Item
+              id={document.id}
+              onClick={() => onRedirect(document.id)}
+              label={document.title}
+              icon={FileIcon}
+              active={isActive}
+              level={level}
+              onExpand={() => onExpand(document.id)}
+              expanded={expanded[document.id]}
+              documentIcon={document.icon}
+              canEdit={canEdit}
+              lastEditedByName={(document as any).lastEditedByName}
+            />
+            {expanded[document.id] && (
+              <DocumentsList parentDocumentId={document.id} level={level + 1} />
+            )}
+          </div>
+        );
+      })}
     </>
   );
 };

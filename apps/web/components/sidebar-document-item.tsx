@@ -123,8 +123,14 @@ const Item = ({
   };
 
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+  // 解码 pathname 以正确匹配含中文的 URL
+  const decodedPathname = decodeURIComponent(pathname);
+  const expectedPath = workspaceSlug
+    ? `/${workspaceSlug}/editor/${id}`
+    : `/editor/${id}`;
   const isActive =
-    active || (id && pathname === `/${workspaceSlug}/editor/${id}`);
+    active ||
+    (id && (decodedPathname === expectedPath || pathname === `/editor/${id}`));
 
   return (
     <div
@@ -145,7 +151,7 @@ const Item = ({
       className={cn(
         "group/item relative min-h-[27px] text-sm py-1 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium cursor-pointer",
         isHovered ? "pr-12" : "pr-3",
-        isActive && " bg-primary/5 text-primary"
+        isActive && "bg-primary/10 text-primary"
       )}
     >
       <div
