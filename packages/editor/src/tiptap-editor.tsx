@@ -4,8 +4,9 @@ import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon, Plus } from "lucide-react";
 import { useRef } from "react";
+import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
-
+import { Ai } from "./tiptap/extensions/ai";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
@@ -13,9 +14,6 @@ import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
-import { useAIAutocomplete } from "./hooks/use-ai-autocomplete";
-import { AIGhostOverlay } from "./ui/ai-ghost-overlay";
-import type { AICompletionProvider } from "./tiptap/extensions/ai-autocomplete/types";
 
 export interface TiptapEditorProps {
   content?: Content;
@@ -23,14 +21,10 @@ export interface TiptapEditorProps {
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
   className?: string;
-
+  showAiTools?: boolean;
+  aiApiUrl?: string;
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
-
-  /**
-   * AI 补全提供者，用于 AI 自动补全功能
-   */
-  completionProvider?: AICompletionProvider;
 }
 
 export function TiptapEditor({
@@ -39,10 +33,10 @@ export function TiptapEditor({
   onCreate,
   onUpdate,
   className = "",
-
+  showAiTools = true,
+  aiApiUrl,
   uploadFile,
   readonly = false,
-  completionProvider,
 }: TiptapEditorProps) {
   // Use ref to store uploadFile to avoid editor recreation on every render
   const uploadFileRef = useRef(uploadFile);
@@ -64,9 +58,18 @@ export function TiptapEditor({
         emptyEditorClass: "is-editor-empty text-gray-400",
         emptyNodeClass: "is-empty text-gray-400",
       }),
-
+      Ai.configure({
+        apiUrl: aiApiUrl,
+        onError: (error) => {
+          console.error(error);
+          toast.error("Error", {
+            description: error.message,
+          });
+        },
+      }),
       SlashCommand.configure({
         suggestion: getSuggestion({
+          ai: showAiTools,
           uploadFile: uploadFile ? stableUploadFile : undefined,
         }),
       }),
@@ -93,17 +96,6 @@ export function TiptapEditor({
 
   const { handleSlashCommand } = useSlashCommandTrigger(editor);
 
-  // AI 自动补全 Hook
-  const { pendingCompletion, ghostPosition } = useAIAutocomplete({
-    editor,
-    completionProvider: completionProvider ?? {
-      complete: async () => undefined,
-      completion: "",
-      isLoading: false,
-    },
-    options: { enabled: !!completionProvider },
-  });
-
   if (readonly) {
     return (
       <div className={className}>
@@ -117,7 +109,7 @@ export function TiptapEditor({
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={className}>
       {editor && (
         <>
           <DragHandle
@@ -144,14 +136,10 @@ export function TiptapEditor({
             className="prose dark:prose-invert focus:outline-none max-w-full z-0"
           />
           <TableHandle editor={editor} />
-          <DefaultBubbleMenu editor={editor} />
+          <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
-          {/* AI Ghost 文本覆盖层 */}
-          {completionProvider && (
-            <AIGhostOverlay text={pendingCompletion} position={ghostPosition} />
-          )}
         </>
       )}
     </div>

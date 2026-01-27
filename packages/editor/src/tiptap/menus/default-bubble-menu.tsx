@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Editor, isTextSelection } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/react/menus";
 import {
+  AiSelector,
   MathSelector,
   NodeSelector,
   TextAlignSelector,
@@ -10,7 +11,13 @@ import {
 
 import { Separator } from "@repo/ui/separator";
 
-export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
+export const DefaultBubbleMenu = ({
+  editor,
+  showAiTools,
+}: {
+  editor: Editor | null;
+  showAiTools?: boolean;
+}) => {
   const [scrollTarget, setScrollTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -57,6 +64,12 @@ export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
     >
       <div className="flex w-fit max-w-[90vw] overflow-x-auto rounded-md border bg-popover shadow-xl overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex h-9 items-center shrink-0">
+          {showAiTools && (
+            <>
+              <AiSelector editor={editor} />
+              <Separator orientation="vertical" />
+            </>
+          )}
           <NodeSelector editor={editor} />
           <Separator orientation="vertical" />
           <MathSelector editor={editor} />

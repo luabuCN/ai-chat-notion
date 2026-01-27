@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { defaultExtensions } from "./tiptap/default-extensions";
-
+import { Ai } from "./tiptap/extensions/ai";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
@@ -40,7 +40,8 @@ export interface CollaborativeEditorProps {
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   className?: string;
-
+  showAiTools?: boolean;
+  aiApiUrl?: string;
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
 }
@@ -64,7 +65,8 @@ export function CollaborativeEditor({
   onConnectedUsersChange,
   onConnectionStatusChange,
   className = "",
-
+  showAiTools = true,
+  aiApiUrl,
   uploadFile,
   readonly = false,
 }: CollaborativeEditorProps) {
@@ -232,9 +234,18 @@ export function CollaborativeEditor({
         emptyEditorClass: "is-editor-empty text-gray-400",
         emptyNodeClass: "is-empty text-gray-400",
       }),
-
+      Ai.configure({
+        apiUrl: aiApiUrl,
+        onError: (error) => {
+          console.error(error);
+          toast.error("Error", {
+            description: error.message,
+          });
+        },
+      }),
       SlashCommand.configure({
         suggestion: getSuggestion({
+          ai: showAiTools,
           uploadFile: uploadFile ? stableUploadFile : undefined,
         }),
       }),
@@ -251,7 +262,16 @@ export function CollaborativeEditor({
       }),
     ];
     return baseExtensions;
-  }, [placeholder, stableUploadFile, ydoc, provider, user.name, user.color]);
+  }, [
+    placeholder,
+    aiApiUrl,
+    showAiTools,
+    stableUploadFile,
+    ydoc,
+    provider,
+    user.name,
+    user.color,
+  ]);
 
   // 创建编辑器 - 保持 editor 实例稳定（不要把连接状态放进 useEditor 依赖，避免频繁重建导致闪烁/菜单失效）
   const editor = useEditor(
@@ -359,7 +379,7 @@ export function CollaborativeEditor({
             className="prose dark:prose-invert focus:outline-none max-w-full z-0"
           />
           <TableHandle editor={editor} />
-          <DefaultBubbleMenu editor={editor} />
+          <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
