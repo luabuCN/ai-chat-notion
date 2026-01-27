@@ -21,7 +21,7 @@ export function EditorPageClient({
 }: EditorPageClientProps) {
   return (
     <CollaborationProvider>
-      <div className="flex min-h-dvh min-w-0 flex-col bg-background overflow-x-hidden">
+      <div className="flex min-h-dvh min-w-0 flex-col bg-background overflow-hidden">
         <div className="sticky top-0 z-49 bg-background shrink-0">
           <EditorHeaderWrapper
             locale={locale}
