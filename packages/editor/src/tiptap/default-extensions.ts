@@ -9,8 +9,7 @@ import Youtube from "@tiptap/extension-youtube";
 import { CharacterCount } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import { all, createLowlight } from "lowlight";
-import { AiPlaceholder } from "./extensions/ai-placeholder";
-import { AiWriter } from "./extensions/ai-writer";
+
 import { Mathematics } from "./extensions/mathematics";
 import { CustomTable } from "./extensions/table";
 import { Markdown } from "@tiptap/markdown";
@@ -19,6 +18,7 @@ import { Mermaid } from "./extensions/mermaid";
 import { Chart } from "./extensions/chart";
 import { Attachment } from "./extensions/attachment";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { AIAutocomplete } from "./extensions/ai-autocomplete";
 
 const TiptapStarterKit = StarterKit.configure({
   bulletList: {
@@ -233,18 +233,6 @@ const TiptapImage = Image.configure({
   },
 });
 
-const aiPlaceholder = AiPlaceholder.configure({
-  HTMLAttributes: {
-    class: cn("!text-muted-foreground not-draggable"),
-  },
-});
-
-const aiWriter = AiWriter.configure({
-  HTMLAttributes: {
-    class: cn("py-3 px-1 select-none"),
-  },
-});
-
 const TipTapMarkdown = Markdown.configure({
   indentation: {
     style: "tab", // 'space' or 'tab'
@@ -306,9 +294,9 @@ export const defaultExtensions = [
   TextStyle,
   mathematics,
   codeBlock,
-  aiPlaceholder,
-  aiWriter,
+
   mermaid,
   chart,
   attachment,
+  AIAutocomplete,
 ];

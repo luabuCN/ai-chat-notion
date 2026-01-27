@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { memo, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
+import { useCompletion } from "@ai-sdk/react";
 import "@repo/editor/styles";
 
 const TiptapEditor = dynamic(
@@ -33,6 +34,22 @@ export const EditorClient = memo(function EditorClient({
         ? JSON.parse(initialContentRef.current)
         : undefined,
     []
+  );
+
+  // AI 补全 Hook
+  const { complete, completion, isLoading } = useCompletion({
+    api: "/api/ai/completion",
+    streamProtocol: "text",
+  });
+
+  // 创建 completionProvider 对象
+  const completionProvider = useMemo(
+    () => ({
+      complete,
+      completion,
+      isLoading,
+    }),
+    [complete, completion, isLoading]
   );
 
   const uploadFile = useCallback(async (file: File) => {
@@ -69,10 +86,10 @@ export const EditorClient = memo(function EditorClient({
     <TiptapEditor
       content={parsedContent}
       placeholder="Type / for commands..."
-      showAiTools={true}
       uploadFile={uploadFile}
       onUpdate={handleUpdate}
       readonly={readonly}
+      completionProvider={completionProvider}
     />
   );
 });

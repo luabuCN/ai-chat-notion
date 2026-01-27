@@ -14,7 +14,6 @@ import {
   PaperclipIcon,
   ShapesIcon,
   Smile,
-  SparklesIcon,
   SquarePlayIcon,
   TableIcon,
   TextQuoteIcon,
@@ -214,20 +213,6 @@ const list: CommandSuggestionItem[] = [
   },
 ];
 
-const withAiList: CommandSuggestionItem[] = [
-  {
-    id: "aiWriter",
-    title: "AI Writer",
-    description: "Ask AI with custom prompt.",
-    keywords: ["ai"],
-    icon: SparklesIcon,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).setAiWriter().run();
-    },
-  },
-  ...list,
-];
-
 const uploadItems: CommandSuggestionItem[] = [
   {
     id: "image",
@@ -262,7 +247,8 @@ const updatePopupPosition = (
   const spaceAbove = rect.top;
 
   // Determine placement: prefer bottom, flip to top if not enough space
-  const placement = spaceBelow >= popupHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+  const placement =
+    spaceBelow >= popupHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
 
   let top: number;
   if (placement === "bottom") {
@@ -278,10 +264,8 @@ const updatePopupPosition = (
 };
 
 const getSuggestion = ({
-  ai,
   uploadFile,
 }: {
-  ai?: boolean;
   uploadFile?: (file: File) => Promise<string>;
 }): SuggestionType => {
   return {
@@ -290,8 +274,7 @@ const getSuggestion = ({
         return item.keywords.some((k) => k.startsWith(query.toLowerCase()));
       };
 
-      const baseList = ai ? withAiList : list;
-      const itemsWithUpload = uploadFile ? [...uploadItems, ...baseList] : baseList;
+      const itemsWithUpload = uploadFile ? [...uploadItems, ...list] : list;
       return itemsWithUpload.filter(filterFun);
     },
     render: () => {
