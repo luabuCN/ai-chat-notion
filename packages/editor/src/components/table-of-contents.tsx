@@ -3,7 +3,7 @@
 import { Editor } from "@tiptap/react";
 import { List } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "../lib/utils";
+import { cn, slugify } from "../lib/utils";
 
 interface TableOfContentsProps {
   editor: Editor | null;
@@ -32,10 +32,7 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
       doc.descendants((node) => {
         // 识别所有标题级别 (1, 2, 3)
         if (node.type.name === "heading" && node.attrs.level <= 3) {
-          let id = node.textContent
-            .toLowerCase()
-            .replace(/\s+/g, "-")
-            .replace(/[^\w\u4e00-\u9fa5-]/g, ""); // Allow Chinese characters in ID
+          let id = slugify(node.textContent);
 
           // 处理重复 ID
           if (idCounts[id]) {
@@ -95,7 +92,7 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
   return (
     <div
       className={cn(
-        "hidden xl:flex fixed right-4 top-1/2 -translate-y-1/2 z-50 flex-col items-end gap-2",
+        "hidden lg:flex fixed right-4 top-1/2 -translate-y-1/2 z-50 flex-col items-end gap-2",
         className
       )}
       onMouseEnter={() => setIsExpanded(true)}

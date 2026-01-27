@@ -1,4 +1,4 @@
-import { cn } from "../lib/utils";
+import { cn, slugify } from "../lib/utils";
 import { mergeAttributes } from "@tiptap/core";
 import Heading from "@tiptap/extension-heading";
 import Image from "@tiptap/extension-image";
@@ -111,7 +111,7 @@ const TiptapHeading = Heading.extend({
       return [
         `h${level}`,
         mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
-          id: node.textContent.replaceAll(/\s+/g, "-").toLowerCase(),
+          id: slugify(node.textContent),
         }),
         0,
       ];
