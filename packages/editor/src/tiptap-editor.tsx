@@ -6,7 +6,6 @@ import { GripVerticalIcon, Plus } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
-import { Ai } from "./tiptap/extensions/ai";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
@@ -21,8 +20,6 @@ export interface TiptapEditorProps {
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
   className?: string;
-  showAiTools?: boolean;
-  aiApiUrl?: string;
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
 }
@@ -33,8 +30,6 @@ export function TiptapEditor({
   onCreate,
   onUpdate,
   className = "",
-  showAiTools = true,
-  aiApiUrl,
   uploadFile,
   readonly = false,
 }: TiptapEditorProps) {
@@ -58,18 +53,8 @@ export function TiptapEditor({
         emptyEditorClass: "is-editor-empty text-gray-400",
         emptyNodeClass: "is-empty text-gray-400",
       }),
-      Ai.configure({
-        apiUrl: aiApiUrl,
-        onError: (error) => {
-          console.error(error);
-          toast.error("Error", {
-            description: error.message,
-          });
-        },
-      }),
       SlashCommand.configure({
         suggestion: getSuggestion({
-          ai: showAiTools,
           uploadFile: uploadFile ? stableUploadFile : undefined,
         }),
       }),
@@ -136,7 +121,7 @@ export function TiptapEditor({
             className="prose dark:prose-invert focus:outline-none max-w-full z-0"
           />
           <TableHandle editor={editor} />
-          <DefaultBubbleMenu editor={editor} showAiTools={showAiTools} />
+          <DefaultBubbleMenu editor={editor} />
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
