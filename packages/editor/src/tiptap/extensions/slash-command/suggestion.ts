@@ -214,6 +214,30 @@ const list: CommandSuggestionItem[] = [
   },
 ];
 
+const withAiList: CommandSuggestionItem[] = [
+  {
+    id: "aiWriter",
+    title: "AI Writer",
+    description: "Ask AI with custom prompt.",
+    keywords: ["ai"],
+    icon: SparklesIcon,
+    command: ({ editor, range }) => {
+      // This will trigger our unified AI panel
+      editor.chain().focus().deleteRange(range).run();
+      // Wait a tiny bit for the range deletion to settle, then pop up AI panel
+      // We can actually use the store directly here
+      import("../../../components/ai-panel/ai-panel-store").then(
+        ({ store }) => {
+          // 设置为 command 模式（显示输入框）
+          store.getState().setMode("command");
+          store.getState().setVisible(true);
+        }
+      );
+    },
+  },
+  ...list,
+];
+
 const uploadItems: CommandSuggestionItem[] = [
   {
     id: "image",
@@ -265,8 +289,10 @@ const updatePopupPosition = (
 };
 
 const getSuggestion = ({
+  ai,
   uploadFile,
 }: {
+  ai?: boolean;
   uploadFile?: (file: File) => Promise<string>;
 }): SuggestionType => {
   return {
@@ -275,7 +301,7 @@ const getSuggestion = ({
         return item.keywords.some((k) => k.startsWith(query.toLowerCase()));
       };
 
-      const baseList = list;
+      const baseList = ai ? withAiList : list;
       const itemsWithUpload = uploadFile
         ? [...uploadItems, ...baseList]
         : baseList;

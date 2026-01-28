@@ -5,8 +5,11 @@ import { Button } from "@repo/ui/button";
 import { CopyIcon, CheckIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Separator } from "@repo/ui/separator";
+import { useAIPanelStore } from "../../components/ai-panel/ai-panel-store";
 
 export const CodeBlockBubbleMenu = ({ editor }: { editor: Editor | null }) => {
+  const isThinking = useAIPanelStore((state) => state.isThinking);
+  const isStreaming = useAIPanelStore((state) => state.isStreaming);
   const [copied, setCopied] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<HTMLElement | null>(null);
 
@@ -36,7 +39,9 @@ export const CodeBlockBubbleMenu = ({ editor }: { editor: Editor | null }) => {
   return (
     <BubbleMenu
       editor={editor}
-      shouldShow={() => editor.isActive("codeBlock")}
+      shouldShow={() =>
+        editor.isActive("codeBlock") && !isThinking && !isStreaming
+      }
       getReferencedVirtualElement={() => {
         const parentNode = findParentNode(
           (node) => node.type.name === "codeBlock"

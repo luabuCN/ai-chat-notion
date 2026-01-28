@@ -3,13 +3,14 @@ import DragHandle from "@tiptap/extension-drag-handle-react";
 import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon, Plus } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
+import AIPanel from "./components/ai-panel";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
@@ -20,6 +21,8 @@ export interface TiptapEditorProps {
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
   className?: string;
+  showAiTools?: boolean;
+  aiApiUrl?: string; // Will use /api/ai/completion by default in AIPanel as per user request
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
 }
@@ -32,6 +35,8 @@ export function TiptapEditor({
   className = "",
   uploadFile,
   readonly = false,
+  showAiTools = true,
+  aiApiUrl,
 }: TiptapEditorProps) {
   // Use ref to store uploadFile to avoid editor recreation on every render
   const uploadFileRef = useRef(uploadFile);
@@ -44,9 +49,8 @@ export function TiptapEditor({
     throw new Error("Upload function not available");
   }).current;
 
-  const editor = useEditor({
-    editable: !readonly,
-    extensions: [
+  const extensions = useMemo(() => {
+    return [
       ...defaultExtensions,
       Placeholder.configure({
         placeholder: placeholder ?? "Type  /  for commands...",
@@ -55,10 +59,16 @@ export function TiptapEditor({
       }),
       SlashCommand.configure({
         suggestion: getSuggestion({
-          uploadFile: uploadFile ? stableUploadFile : undefined,
+          ai: showAiTools,
+          uploadFile: stableUploadFile,
         }),
       }),
-    ],
+    ];
+  }, [placeholder, showAiTools]);
+
+  const editor = useEditor({
+    editable: !readonly,
+    extensions,
     content: content,
     immediatelyRender: false, // 禁用立即渲染,避免 flushSync 警告
     shouldRerenderOnTransaction: false,
@@ -125,6 +135,7 @@ export function TiptapEditor({
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
+          <AIPanel editor={editor} />
         </>
       )}
     </div>

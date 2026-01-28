@@ -10,8 +10,11 @@ import { Editor } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { LinkIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
+import { useAIPanelStore } from "../../components/ai-panel/ai-panel-store";
 
 export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
+  const isThinking = useAIPanelStore((state) => state.isThinking);
+  const isStreaming = useAIPanelStore((state) => state.isStreaming);
   const [urlDialogOpen, setUrlDialogOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [mediaType, setMediaType] = useState<"image" | "attachment">("image");
@@ -69,7 +72,11 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
           offset: 8,
         }}
         shouldShow={({ editor }) => {
-          return editor.isActive("image") || editor.isActive("attachment");
+          return (
+            (editor.isActive("image") || editor.isActive("attachment")) &&
+            !isThinking &&
+            !isStreaming
+          );
         }}
       >
         <div className="flex items-center gap-1 rounded-md border bg-popover p-1 shadow-xl">

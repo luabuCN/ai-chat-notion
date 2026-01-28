@@ -15,6 +15,7 @@ import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
+import AIPanel from "./components/ai-panel";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
@@ -39,6 +40,8 @@ export interface CollaborativeEditorProps {
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   className?: string;
+  showAiTools?: boolean;
+  aiApiUrl?: string; // Will use /api/ai/completion by default in AIPanel as per user request
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
 }
@@ -62,6 +65,8 @@ export function CollaborativeEditor({
   onConnectedUsersChange,
   onConnectionStatusChange,
   className = "",
+  showAiTools = true,
+  aiApiUrl,
   uploadFile,
   readonly = false,
 }: CollaborativeEditorProps) {
@@ -222,7 +227,7 @@ export function CollaborativeEditor({
   }, [provider, user.name, user.color, user.avatar]);
 
   const extensions = useMemo(() => {
-    const baseExtensions = [
+    return [
       ...defaultExtensions,
       Placeholder.configure({
         placeholder: placeholder ?? "Type / for commands...",
@@ -231,7 +236,8 @@ export function CollaborativeEditor({
       }),
       SlashCommand.configure({
         suggestion: getSuggestion({
-          uploadFile: uploadFile ? stableUploadFile : undefined,
+          ai: showAiTools,
+          uploadFile: stableUploadFile,
         }),
       }),
       // Yjs 协同扩展
@@ -246,8 +252,7 @@ export function CollaborativeEditor({
         },
       }),
     ];
-    return baseExtensions;
-  }, [placeholder, stableUploadFile, ydoc, provider, user.name, user.color]);
+  }, [placeholder, ydoc, provider, showAiTools, user.name, user.color]);
 
   // 创建编辑器 - 保持 editor 实例稳定（不要把连接状态放进 useEditor 依赖，避免频繁重建导致闪烁/菜单失效）
   const editor = useEditor(
@@ -359,6 +364,7 @@ export function CollaborativeEditor({
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
+          <AIPanel editor={editor} />
         </>
       )}
     </div>
