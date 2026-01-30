@@ -69,7 +69,20 @@ export function SidebarSharedDocuments() {
   };
 
   if (loading) {
-    return null;
+    return (
+      <SidebarGroup>
+        <SidebarGroupLabel>
+          <Users className="size-4" />
+          他人文档
+        </SidebarGroupLabel>
+        <SidebarMenu>
+          <div className="space-y-1 px-2">
+            <div className="h-7 bg-muted/50 rounded-md animate-pulse" />
+            <div className="h-7 bg-muted/50 rounded-md animate-pulse" />
+          </div>
+        </SidebarMenu>
+      </SidebarGroup>
+    );
   }
 
   if (sharedGroups.length === 0) {

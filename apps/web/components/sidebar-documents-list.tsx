@@ -30,15 +30,18 @@ const DocumentsList = ({
       ? params.slug[0]
       : "";
   const { expanded, onExpand } = useSidebarDocumentsContext();
-  const { currentWorkspace } = useWorkspace();
+  const { currentWorkspace, isLoading: isWorkspaceLoading } = useWorkspace();
   const { canEdit } = useWorkspacePermission();
 
   // useSidebarDocuments hook 已经内置了监听 document-updated 事件的逻辑，会自动刷新
   const {
     data: documents,
-    isLoading,
+    isLoading: isDocumentsLoading,
     error,
   } = useSidebarDocuments(parentDocumentId, currentWorkspace?.id);
+
+  // 当 workspace 还在加载，或者文档还在加载时，都显示加载状态
+  const isLoading = isWorkspaceLoading || isDocumentsLoading;
 
   const onRedirect = (documentId: string) => {
     // 如果有工作空间 slug，使用 /[slug]/editor/[id] 格式
