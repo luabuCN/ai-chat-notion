@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePublishDocument } from "@/hooks/use-document-query";
+import { useCollaboration } from "./collaboration-context";
 
 interface Collaborator {
   id: string;
@@ -101,6 +102,7 @@ export function DocumentSharePopover({
   );
   const [publishing, setPublishing] = useState(false);
   const publishMutation = usePublishDocument();
+  const { connectedUsers } = useCollaboration();
 
   // 获取协作者列表
   const fetchCollaborators = useCallback(async () => {
@@ -427,7 +429,69 @@ export function DocumentSharePopover({
           ) : activeTab === "members" ? (
             /* 成员 Tab */
             <div className="space-y-3">
-              {workspaceId ? (
+              {isPublished ? (
+                /* 公开模式：显示在线用户 */
+                <>
+                  {/* 公开编辑提示 */}
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                      <Globe className="size-4" />
+                      <span className="text-sm font-medium">公开编辑模式</span>
+                    </div>
+                    <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                      任何人都可以通过链接编辑此文档
+                    </p>
+                  </div>
+
+                  {/* 在线用户列表 */}
+                  {connectedUsers.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground mb-2">
+                        当前在线 ({connectedUsers.length} 人)
+                      </div>
+                      {connectedUsers.map((user, index) => (
+                        <div
+                          key={`${user.name}-${index}`}
+                          className="flex items-center justify-between py-2"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar
+                              className="size-8"
+                              style={{ backgroundColor: user.color }}
+                            >
+                              <AvatarFallback
+                                className="text-xs text-white"
+                                style={{ backgroundColor: user.color }}
+                              >
+                                {user.name.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">
+                                {user.name}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="size-2 rounded-full bg-green-500" />
+                                <span className="text-xs text-muted-foreground">
+                                  在线
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            编辑
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground text-sm">
+                      暂无用户在线
+                    </div>
+                  )}
+                </>
+              ) : workspaceId ? (
+                /* 非公开模式：显示工作空间成员 */
                 <>
                   {/* 文档创建者（始终显示在最前面） */}
                   {documentOwner && (
@@ -515,79 +579,95 @@ export function DocumentSharePopover({
           ) : (
             /* 访客与公众 Tab */
             <div className="space-y-4">
-              {/* 邀请协作者 */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">访客协作者</span>
-                  {canInvite && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => {
-                        const input = document.querySelector<HTMLInputElement>(
-                          "#invite-email-input"
-                        );
-                        input?.focus();
-                      }}
-                    >
-                      <UserPlus className="size-3.5" />
-                      添加访客
-                    </Button>
+              {/* 邀请协作者 - 只在非公开状态下显示 */}
+              {!isPublished && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">访客协作者</span>
+                    {canInvite && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => {
+                          const input =
+                            document.querySelector<HTMLInputElement>(
+                              "#invite-email-input"
+                            );
+                          input?.focus();
+                        }}
+                      >
+                        <UserPlus className="size-3.5" />
+                        添加访客
+                      </Button>
+                    )}
+                  </div>
+
+                  {canInvite ? (
+                    <div className="flex gap-2">
+                      <Input
+                        id="invite-email-input"
+                        type="email"
+                        placeholder="输入邮箱地址..."
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        className="h-9 text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleInvite();
+                          }
+                        }}
+                      />
+                      <Select
+                        value={invitePermission}
+                        onValueChange={(v) =>
+                          setInvitePermission(v as "view" | "edit")
+                        }
+                      >
+                        <SelectTrigger className="w-24 h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="edit">编辑</SelectItem>
+                          <SelectItem value="view">查看</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        className="h-9"
+                        onClick={handleInvite}
+                        disabled={inviting || !inviteEmail.trim()}
+                      >
+                        {inviting ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          "邀请"
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3 text-center">
+                      只有文档创建者或空间管理员可以邀请协作者
+                    </div>
                   )}
                 </div>
+              )}
 
-                {canInvite ? (
-                  <div className="flex gap-2">
-                    <Input
-                      id="invite-email-input"
-                      type="email"
-                      placeholder="输入邮箱地址..."
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      className="h-9 text-sm"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleInvite();
-                        }
-                      }}
-                    />
-                    <Select
-                      value={invitePermission}
-                      onValueChange={(v) =>
-                        setInvitePermission(v as "view" | "edit")
-                      }
-                    >
-                      <SelectTrigger className="w-24 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="edit">编辑</SelectItem>
-                        <SelectItem value="view">查看</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      className="h-9"
-                      onClick={handleInvite}
-                      disabled={inviting || !inviteEmail.trim()}
-                    >
-                      {inviting ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        "邀请"
-                      )}
-                    </Button>
+              {/* 公开状态提示 */}
+              {isPublished && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <Globe className="size-4" />
+                    <span className="text-sm font-medium">公开编辑模式</span>
                   </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3 text-center">
-                    只有文档创建者或空间管理员可以邀请协作者
-                  </div>
-                )}
-              </div>
+                  <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                    任何人都可以通过链接编辑此文档，无需邀请
+                  </p>
+                </div>
+              )}
 
-              {/* 协作者列表 */}
-              {collaborators.length > 0 && (
+              {/* 协作者列表 - 只在非公开状态下显示 */}
+              {!isPublished && collaborators.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
                   {collaborators.map((collaborator) => (
                     <div

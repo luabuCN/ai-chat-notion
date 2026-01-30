@@ -67,7 +67,7 @@ export function checkDocumentPermission(
   // 未登录用户
   if (!currentUserId) {
     if (documentIsPublished) {
-      return createPermissionResult("view", "Public published document");
+      return createPermissionResult("edit", "Public published document");
     }
     return createPermissionResult("none", "Not authenticated");
   }
@@ -138,10 +138,10 @@ export function checkDocumentPermission(
   // ========================================
   // 4. 公开链接 (Public)
   // ========================================
-  // 已发布文档的公开访问（只读）
+  // 已发布文档的公开访问（可编辑）
 
   if (documentIsPublished) {
-    return createPermissionResult("view", "Public published document");
+    return createPermissionResult("edit", "Public published document");
   }
 
   // ========================================
