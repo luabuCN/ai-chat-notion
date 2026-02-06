@@ -52,8 +52,7 @@ export function EditorPageClient({
             currentUserId={userId}
           />
         </div>
-        {/* 内容区域：添加 pt-14 补偿头部高度 */}
-        <div className="flex-1 pt-14">
+        <div className="flex-1 pt-14  overflow-y-hidden">
           <EditorContent
             locale={locale}
             documentId={documentId}

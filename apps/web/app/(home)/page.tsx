@@ -1,9 +1,5 @@
 import { auth } from "../(auth)/auth";
-import {
-  getWorkspacesByUserId,
-  createWorkspace,
-  generateWorkspaceSlug,
-} from "@repo/database";
+import { getWorkspacesByUserId } from "@repo/database";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
@@ -32,26 +28,7 @@ export default async function Page() {
   }
 
   // 获取用户的空间列表
-  let workspaces = await getWorkspacesByUserId({ userId: session.user.id });
-
-  // 如果没有空间，创建默认空间
-  if (workspaces.length === 0) {
-    try {
-      const slug = generateWorkspaceSlug();
-      await createWorkspace({
-        name: "我的空间",
-        slug,
-        ownerId: session.user.id,
-      });
-    } catch (error) {
-      // 可能是并发创建导致的错误，忽略
-      console.log(
-        "Workspace creation failed (possibly due to race condition):",
-        error
-      );
-    }
-    workspaces = await getWorkspacesByUserId({ userId: session.user.id });
-  }
+  const workspaces = await getWorkspacesByUserId({ userId: session.user.id });
 
   const defaultWorkspace = workspaces[0];
 

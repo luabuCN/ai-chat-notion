@@ -20,7 +20,26 @@ export async function GET(request: Request) {
   }
 
   try {
-    const workspaces = await getWorkspacesByUserId({ userId: user.id });
+    let workspaces = await getWorkspacesByUserId({ userId: user.id });
+
+    // 如果用户没有任何空间，自动创建一个默认空间并将其设置为当前空间
+    if (workspaces.length === 0) {
+      const slug = generateWorkspaceSlug();
+      const workspace = await createWorkspace({
+        name: "我的空间",
+        slug,
+        ownerId: user.id,
+      });
+
+      // 设置为当前工作空间
+      await updateUserCurrentWorkspace({
+        userId: user.id,
+        workspaceId: workspace.id,
+      });
+
+      workspaces = [workspace as any]; // 确保返回类型一致
+    }
+
     return NextResponse.json(workspaces);
   } catch (error) {
     console.error("Failed to get workspaces:", error);

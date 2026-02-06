@@ -47,28 +47,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
 
-        // 如果用户没有任何空间，自动创建一个默认空间
-        if (data.length === 0) {
-          const createResponse = await fetch("/api/workspaces", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "我的空间" }),
-          });
-
-          if (createResponse.ok) {
-            const newWorkspace = await createResponse.json();
-            setWorkspaces([newWorkspace]);
-            setCurrentWorkspace(newWorkspace);
-          }
-        } else {
-          setWorkspaces(data);
-          // 如果没有当前空间，选择第一个
-          if (!currentWorkspace) {
-            const matchingWorkspace = slug
-              ? data.find((w: Workspace) => w.slug === slug)
-              : undefined;
-            setCurrentWorkspace(matchingWorkspace || data[0]);
-          }
+        setWorkspaces(data);
+        // 如果没有当前空间，选择第一个
+        if (!currentWorkspace) {
+          const matchingWorkspace = slug
+            ? data.find((w: Workspace) => w.slug === slug)
+            : undefined;
+          setCurrentWorkspace(matchingWorkspace || data[0]);
         }
       }
     } catch (error) {
