@@ -73,13 +73,12 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          size="sm"
           variant="ghost"
           tabIndex={-1}
-          className="gap-1 text-muted-foreground hover:text-primary"
+          className="gap-1 rounded-none text-muted-foreground hover:text-primary h-full px-3"
         >
-          <WandSparkles className="w-4 h-4" />
-          <span>Ask AI</span>
+          <WandSparkles className="w-4 h-4 text-primary" />
+          <span className="text-sm">Ask AI</span>
           <ChevronDown className="w-3 h-3" />
         </Button>
       </PopoverTrigger>
