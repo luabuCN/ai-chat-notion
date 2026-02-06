@@ -17,11 +17,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@repo/ui";
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@repo/ui";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@repo/ui";
 import { guestRegex } from "@/lib/constants";
 import { setUserLocale } from "@/i18n/service";
 import { LoaderIcon } from "./icons";
@@ -32,8 +28,6 @@ export function SidebarUserNav({ user }: { user: User }) {
   const { data, status } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
   const [isPending, startTransition] = useTransition();
-
-  const isGuest = guestRegex.test(data?.user?.email ?? "");
 
   const handleLocaleChange = (locale: string) => {
     startTransition(() => {
@@ -65,14 +59,23 @@ export function SidebarUserNav({ user }: { user: User }) {
                 data-testid="user-nav-button"
               >
                 <Image
-                  alt={user.email ?? "User Avatar"}
+                  alt={user.name ?? user.email ?? "User Avatar"}
                   className="rounded-full"
                   height={24}
-                  src={`https://avatar.vercel.sh/${user.email}`}
+                  src={
+                    (user as any).avatarUrl ||
+                    `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(
+                      user.name ?? user.email ?? "default"
+                    )}`
+                  }
                   width={24}
+                  unoptimized
                 />
-                <span className="truncate" data-testid="user-email">
-                  {isGuest ? "Guest" : user?.email}
+                <span
+                  className="truncate font-medium text-zinc-900 dark:text-zinc-100"
+                  data-testid="user-name"
+                >
+                  {user.name || user.email}
                 </span>
                 <ChevronUp className="ml-auto" />
               </SidebarMenuButton>
@@ -131,17 +134,13 @@ export function SidebarUserNav({ user }: { user: User }) {
                     return;
                   }
 
-                  if (isGuest) {
-                    router.push("/login");
-                  } else {
-                    signOut({
-                      redirectTo: "/",
-                    });
-                  }
+                  signOut({
+                    redirectTo: "/",
+                  });
                 }}
                 type="button"
               >
-                {isGuest ? "Login to your account" : "Sign out"}
+                Sign out
               </button>
             </DropdownMenuItem>
           </DropdownMenuContent>

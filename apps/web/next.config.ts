@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   transpilePackages: ["@repo/database"],
   images: {
+    dangerouslyAllowSVG: true,
     remotePatterns: [
       {
         hostname: "avatar.vercel.sh",
@@ -22,6 +23,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "api.dicebear.com",
       },
     ],
   },

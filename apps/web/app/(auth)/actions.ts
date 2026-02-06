@@ -6,9 +6,15 @@ import { createUser, getUser } from "@repo/database";
 
 import { signIn } from "./auth";
 
-const authFormSchema = z.object({
+const loginFormSchema = z.object({
+  identifier: z.string().min(3),
+  password: z.string().min(6),
+});
+
+const registerFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  name: z.string().min(2).max(100),
 });
 
 export type LoginActionState = {
@@ -20,16 +26,20 @@ export const login = async (
   formData: FormData
 ): Promise<LoginActionState> => {
   try {
-    const validatedData = authFormSchema.parse({
-      email: formData.get("email"),
+    const validatedData = loginFormSchema.parse({
+      identifier: formData.get("email"), // 仍然使用 email 作为 input name，但内容可以是用户名
       password: formData.get("password"),
     });
 
-    await signIn("credentials", {
-      email: validatedData.email,
+    const result = await signIn("credentials", {
+      email: validatedData.identifier,
       password: validatedData.password,
       redirect: false,
     });
+
+    if (result?.error) {
+      return { status: "failed" };
+    }
 
     return { status: "success" };
   } catch (error) {
@@ -56,17 +66,28 @@ export const register = async (
   formData: FormData
 ): Promise<RegisterActionState> => {
   try {
-    const validatedData = authFormSchema.parse({
+    const validatedData = registerFormSchema.parse({
       email: formData.get("email"),
       password: formData.get("password"),
+      name: formData.get("name"),
     });
 
-    const [user] = await getUser(validatedData.email);
-
-    if (user) {
-      return { status: "user_exists" } as RegisterActionState;
+    const [existingUser] = await getUser(validatedData.email);
+    if (existingUser) {
+      return { status: "user_exists" };
     }
-    await createUser(validatedData.email, validatedData.password);
+
+    const [existingName] = await getUser(validatedData.name);
+    if (existingName) {
+      return { status: "user_exists" };
+    }
+
+    await createUser(
+      validatedData.email,
+      validatedData.password,
+      validatedData.name
+    );
+
     await signIn("credentials", {
       email: validatedData.email,
       password: validatedData.password,

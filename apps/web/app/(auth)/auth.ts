@@ -6,13 +6,11 @@ import { DUMMY_PASSWORD } from "@/lib/constants";
 import { getUser } from "@repo/database";
 import { authConfig } from "./auth.config";
 
-export type UserType = "guest" | "regular";
-
 declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      type: UserType;
+      avatarUrl?: string | null;
     } & DefaultSession["user"];
   }
 
@@ -20,15 +18,16 @@ declare module "next-auth" {
   interface User {
     id?: string;
     email?: string | null;
-    type: UserType;
+    name?: string | null;
+    avatarUrl?: string | null;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
-    type: UserType;
     name?: string | null;
+    avatarUrl?: string | null;
   }
 }
 
@@ -43,6 +42,7 @@ export const {
     Credentials({
       credentials: {},
       async authorize({ email, password }: any) {
+        // 这里的 email 实际上是前端传来的 identifier (email 或 username)
         const users = await getUser(email);
 
         if (users.length === 0) {
@@ -63,7 +63,7 @@ export const {
           return null;
         }
 
-        return { ...user, type: "regular" };
+        return user;
       },
     }),
   ],
@@ -71,8 +71,8 @@ export const {
     jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
-        token.type = user.type;
         token.name = user.name;
+        token.avatarUrl = (user as any).avatarUrl;
       }
 
       return token;
@@ -80,7 +80,7 @@ export const {
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
-        session.user.type = token.type;
+        session.user.avatarUrl = token.avatarUrl;
       }
 
       return session;

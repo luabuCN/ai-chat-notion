@@ -53,25 +53,30 @@ export default function Page() {
   };
 
   return (
-    <div className="flex h-dvh w-screen items-start justify-center bg-background pt-12 md:items-center md:pt-0">
-      <div className="flex w-full max-w-md flex-col gap-12 overflow-hidden rounded-2xl">
+    <div className="flex h-dvh w-screen items-start justify-center bg-gray-50/50 dark:bg-zinc-950/50 pt-12 md:items-center md:pt-0">
+      <div className="absolute inset-0 -z-10 h-full w-full bg-white dark:bg-zinc-950 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[14px_24px]">
+        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/5 opacity-20 blur-[100px]" />
+      </div>
+
+      <div className="flex w-full max-w-md flex-col gap-8 overflow-hidden rounded-2xl bg-background border border-zinc-200 dark:border-zinc-800 p-4 shadow-xl shadow-zinc-200/50 dark:shadow-none sm:p-0 sm:py-12">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="font-semibold text-xl dark:text-zinc-50">Sign Up</h3>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">
-            Create an account with your email and password
+          <h3 className="font-semibold text-2xl tracking-tight dark:text-zinc-50">
+            Create Account
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            Enter your details below to create your account
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
+        <AuthForm action={handleSubmit} defaultEmail={email} showName>
           <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {"Already have an account? "}
             <Link
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+              className="font-semibold text-primary hover:underline"
               href="/login"
             >
               Sign in
             </Link>
-            {" instead."}
           </p>
         </AuthForm>
       </div>

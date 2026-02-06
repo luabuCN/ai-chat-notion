@@ -41,13 +41,27 @@ export default async function Page() {
         </h1>
         <p className="mt-2 text-muted-foreground">智能对话，让创意更简单</p>
       </div>
-      <Link
-        href={`/${defaultWorkspace.slug}/chat`}
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-      >
-        进入我的空间
-        <ArrowRight className="h-4 w-4" />
-      </Link>
+      {defaultWorkspace ? (
+        <Link
+          href={`/${defaultWorkspace.slug}/chat`}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+        >
+          进入我的空间
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      ) : (
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground mb-4">
+            您还没有任何工作空间，请刷新页面或重新登录。
+          </p>
+          <a
+            href="/api/auth/signout"
+            className="text-sm text-primary hover:underline"
+          >
+            重新登录
+          </a>
+        </div>
+      )}
     </div>
   );
 }

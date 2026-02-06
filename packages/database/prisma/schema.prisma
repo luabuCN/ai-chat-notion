@@ -10,9 +10,9 @@ datasource db {
 
 model User {
   id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email              String            @db.VarChar(64)
+  email              String            @unique @db.VarChar(64)
   password           String?           @db.VarChar(64)
-  name               String?           @db.VarChar(100)
+  name               String            @unique @db.VarChar(100)
   avatarUrl          String?
   currentWorkspaceId String?           @db.Uuid
   editorDocuments    EditorDocument[]
