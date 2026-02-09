@@ -15,6 +15,7 @@ const registerFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(2).max(100),
+  code: z.string().length(6),
 });
 
 export type LoginActionState = {
@@ -58,7 +59,9 @@ export type RegisterActionState = {
     | "success"
     | "failed"
     | "user_exists"
-    | "invalid_data";
+    | "invalid_data"
+    | "invalid_code"
+    | "code_expired";
 };
 
 const onboardingFormSchema = z.object({
@@ -120,6 +123,33 @@ export const register = async (
       email: formData.get("email"),
       password: formData.get("password"),
       name: formData.get("name"),
+      code: formData.get("code"),
+    });
+
+    const { prisma: db } = await import("@repo/database");
+
+    // 验证邮箱验证码
+    const verificationCode = await db.emailVerificationCode.findFirst({
+      where: {
+        email: validatedData.email,
+        code: validatedData.code,
+      },
+    });
+
+    if (!verificationCode) {
+      return { status: "invalid_code" as any };
+    }
+
+    if (verificationCode.expiresAt < new Date()) {
+      await db.emailVerificationCode.delete({
+        where: { id: verificationCode.id },
+      });
+      return { status: "code_expired" as any };
+    }
+
+    // 删除已使用的验证码
+    await db.emailVerificationCode.delete({
+      where: { id: verificationCode.id },
     });
 
     const [existingUser] = await getUser(validatedData.email);
@@ -150,6 +180,165 @@ export const register = async (
       return { status: "invalid_data" };
     }
 
+    return { status: "failed" };
+  }
+};
+
+// ==================== 邮箱验证码登录 ====================
+
+const emailCodeSchema = z.object({
+  email: z.string().email(),
+});
+
+const verifyCodeSchema = z.object({
+  email: z.string().email(),
+  code: z.string().length(6),
+});
+
+export type SendCodeActionState = {
+  status:
+    | "idle"
+    | "in_progress"
+    | "success"
+    | "failed"
+    | "invalid_data"
+    | "rate_limited";
+};
+
+export type VerifyCodeActionState = {
+  status:
+    | "idle"
+    | "in_progress"
+    | "success"
+    | "failed"
+    | "invalid_data"
+    | "invalid_code"
+    | "expired";
+};
+
+// 生成6位数字验证码
+function generateCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// 发送邮箱验证码
+export const sendEmailCode = async (
+  _: SendCodeActionState,
+  formData: FormData
+): Promise<SendCodeActionState> => {
+  try {
+    const validatedData = emailCodeSchema.parse({
+      email: formData.get("email"),
+    });
+
+    const { prisma: db } = await import("@repo/database");
+    const { sendVerificationCodeEmail } = await import("@/lib/email");
+
+    // 检查是否有 60 秒内发送的验证码（防止频繁发送）
+    const recentCode = await db.emailVerificationCode.findFirst({
+      where: {
+        email: validatedData.email,
+        createdAt: {
+          gt: new Date(Date.now() - 60 * 1000),
+        },
+      },
+    });
+
+    if (recentCode) {
+      return { status: "rate_limited" };
+    }
+
+    // 删除该邮箱之前的验证码
+    await db.emailVerificationCode.deleteMany({
+      where: { email: validatedData.email },
+    });
+
+    // 生成新验证码
+    const code = generateCode();
+
+    // 存储验证码（5分钟过期）
+    await db.emailVerificationCode.create({
+      data: {
+        email: validatedData.email,
+        code,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      },
+    });
+
+    // 发送邮件
+    const result = await sendVerificationCodeEmail(validatedData.email, code);
+
+    if (!result.success) {
+      console.error("发送验证码失败:", result.error);
+      return { status: "failed" };
+    }
+
+    return { status: "success" };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { status: "invalid_data" };
+    }
+
+    console.error("发送验证码异常:", error);
+    return { status: "failed" };
+  }
+};
+
+// 验证码登录
+export const loginWithEmailCode = async (
+  _: VerifyCodeActionState,
+  formData: FormData
+): Promise<VerifyCodeActionState> => {
+  try {
+    const validatedData = verifyCodeSchema.parse({
+      email: formData.get("email"),
+      code: formData.get("code"),
+    });
+
+    const { prisma: db } = await import("@repo/database");
+
+    // 查找验证码
+    const verificationCode = await db.emailVerificationCode.findFirst({
+      where: {
+        email: validatedData.email,
+        code: validatedData.code,
+      },
+    });
+
+    if (!verificationCode) {
+      return { status: "invalid_code" };
+    }
+
+    // 检查是否过期
+    if (verificationCode.expiresAt < new Date()) {
+      await db.emailVerificationCode.delete({
+        where: { id: verificationCode.id },
+      });
+      return { status: "expired" };
+    }
+
+    // 删除已使用的验证码
+    await db.emailVerificationCode.delete({
+      where: { id: verificationCode.id },
+    });
+
+    // 使用 email-code provider 登录
+    const result = await signIn("email-code", {
+      email: validatedData.email,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      return { status: "failed" };
+    }
+
+    return { status: "success" };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { status: "invalid_data" };
+    }
+
+    console.error("验证码登录异常:", error);
     return { status: "failed" };
   }
 };

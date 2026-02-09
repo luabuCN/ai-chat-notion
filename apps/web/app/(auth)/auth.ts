@@ -82,6 +82,41 @@ export const {
         return user;
       },
     }),
+    // 邮箱验证码登录
+    Credentials({
+      id: "email-code",
+      credentials: {},
+      async authorize({ email }: any) {
+        // 验证码已在 action 中验证，这里只需要获取或创建用户
+        let users = await getUser(email);
+
+        if (users.length === 0) {
+          // 用户不存在，自动创建
+          const newUser = await prisma.user.create({
+            data: {
+              email,
+              name: null, // 触发 onboarding 流程
+            },
+          });
+
+          // 为新用户创建工作空间
+          const workspace = await createWorkspace({
+            name: "我的空间",
+            slug: generateWorkspaceSlug(),
+            ownerId: newUser.id,
+          });
+
+          await prisma.user.update({
+            where: { id: newUser.id },
+            data: { currentWorkspaceId: workspace.id },
+          });
+
+          return newUser;
+        }
+
+        return users[0];
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {

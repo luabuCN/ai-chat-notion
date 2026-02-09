@@ -62,6 +62,18 @@ model VerificationToken {
   @@map("VerificationToken")
 }
 
+// 邮箱验证码
+model EmailVerificationCode {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String   @db.VarChar(100)
+  code      String   @db.VarChar(6)
+  expiresAt DateTime @db.Timestamp(6)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([email])
+  @@map("EmailVerificationCode")
+}
+
 // 空间模型
 model Workspace {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
