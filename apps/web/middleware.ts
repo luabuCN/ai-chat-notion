@@ -21,10 +21,16 @@ function createResponseWithUserHeaders(
   }
 
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-user-id", (token.id as string) || "");
-  requestHeaders.set("x-user-email", token.email || "");
-  requestHeaders.set("x-user-name", token.name || "");
-  requestHeaders.set("x-user-type", (token.type as string) || "regular");
+  requestHeaders.set(
+    "x-user-id",
+    encodeURIComponent((token.id as string) || "")
+  );
+  requestHeaders.set("x-user-email", encodeURIComponent(token.email || ""));
+  requestHeaders.set("x-user-name", encodeURIComponent(token.name || ""));
+  requestHeaders.set(
+    "x-user-type",
+    encodeURIComponent((token.type as string) || "regular")
+  );
 
   return NextResponse.next({
     request: { headers: requestHeaders },
@@ -57,11 +63,22 @@ export async function middleware(request: NextRequest) {
   });
 
   // 认证页面：直接放行，不需要检查 token
-  const authPages = ["/login", "/register"];
+  const authPages = ["/login", "/register", "/onboarding"];
   if (authPages.includes(pathname)) {
-    // 如果已登录且不是访客，重定向到首页
+    // 如果已登录且不是访客，检查是否需要引导
     if (token && !guestRegex.test(token?.email ?? "")) {
-      return NextResponse.redirect(new URL("/", request.url));
+      // 如果没有名字，且当前不在引导页，重定向到引导页
+      if (!token.name && pathname !== "/onboarding") {
+        return NextResponse.redirect(new URL("/onboarding", request.url));
+      }
+      // 如果有名字，且当前在引导页，重定向到首页
+      if (token.name && pathname === "/onboarding") {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+      // 已登录且有名字，访问登录/注册则去首页
+      if (pathname !== "/onboarding") {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
     }
     return NextResponse.next();
   }
@@ -86,6 +103,16 @@ export async function middleware(request: NextRequest) {
   }
 
   const isGuest = guestRegex.test(token?.email ?? "");
+
+  // 如果已登录但没有名字，重定向到引导页（除非是 API 请求）
+  if (
+    !isGuest &&
+    !token.name &&
+    pathname !== "/onboarding" &&
+    !pathname.startsWith("/api")
+  ) {
+    return NextResponse.redirect(new URL("/onboarding", request.url));
+  }
 
   // 访客用户访问非公开路由时，重定向到登录页
   if (isGuest && !isPublicRoute) {

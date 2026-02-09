@@ -61,6 +61,56 @@ export type RegisterActionState = {
     | "invalid_data";
 };
 
+const onboardingFormSchema = z.object({
+  name: z.string().min(2).max(100),
+});
+
+export type OnboardingActionState = {
+  status:
+    | "idle"
+    | "in_progress"
+    | "success"
+    | "failed"
+    | "user_exists"
+    | "invalid_data"
+    | "not_logged_in";
+};
+
+export const completeOnboarding = async (
+  _: OnboardingActionState,
+  formData: FormData
+): Promise<OnboardingActionState> => {
+  try {
+    const { auth } = await import("./auth");
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { status: "not_logged_in" };
+    }
+
+    const name = formData.get("name") as string;
+    const validatedData = onboardingFormSchema.parse({ name });
+
+    // 检查用户名是否已存在
+    const [existingName] = await getUser(validatedData.name);
+    if (existingName && existingName.id !== session.user.id) {
+      return { status: "user_exists" };
+    }
+
+    const { prisma: db } = await import("@repo/database");
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { name: validatedData.name },
+    });
+    return { status: "success" };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { status: "invalid_data" };
+    }
+
+    return { status: "failed" };
+  }
+};
+
 export const register = async (
   _: RegisterActionState,
   formData: FormData

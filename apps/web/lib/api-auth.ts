@@ -30,10 +30,19 @@ export interface AuthResult {
  * ```
  */
 export function getAuthFromRequest(request: Request): AuthResult {
-  const userId = request.headers.get("x-user-id");
-  const userEmail = request.headers.get("x-user-email");
-  const userName = request.headers.get("x-user-name");
-  const userType = request.headers.get("x-user-type");
+  const safeDecode = (val: string | null) => {
+    if (!val) return "";
+    try {
+      return decodeURIComponent(val);
+    } catch {
+      return val;
+    }
+  };
+
+  const userId = safeDecode(request.headers.get("x-user-id"));
+  const userEmail = safeDecode(request.headers.get("x-user-email"));
+  const userName = safeDecode(request.headers.get("x-user-name"));
+  const userType = safeDecode(request.headers.get("x-user-type"));
 
   if (!userId) {
     return { user: null };
@@ -42,8 +51,8 @@ export function getAuthFromRequest(request: Request): AuthResult {
   return {
     user: {
       id: userId,
-      email: userEmail || "",
-      name: userName || userEmail?.split("@")[0] || "Anonymous",
+      email: userEmail,
+      name: userName || userEmail.split("@")[0] || "Anonymous",
       type: userType || "regular",
     },
   };

@@ -11,13 +11,55 @@ datasource db {
 model User {
   id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email              String            @unique @db.VarChar(64)
-  password           String?           @db.VarChar(64)
-  name               String            @unique @db.VarChar(100)
+  emailVerified      DateTime?         @db.Timestamp(6)
+  password           String?           @db.VarChar(100)
+  name               String?           @unique @db.VarChar(100)
   avatarUrl          String?
   currentWorkspaceId String?           @db.Uuid
   editorDocuments    EditorDocument[]
   ownedWorkspaces    Workspace[]       @relation("OwnedWorkspaces")
   memberships        WorkspaceMember[]
+  accounts           Account[]
+  sessions           Session[]
+}
+
+model Account {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("Account")
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime @db.Timestamp(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("Session")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamp(6)
+
+  @@unique([identifier, token])
+  @@map("VerificationToken")
 }
 
 // 空间模型
