@@ -33,6 +33,7 @@ export const postRequestBodySchema = z.object({
   enableReasoning: z.boolean().optional(),
   modelSupportedParameters: z.array(z.string()).optional(),
   workspaceSlug: z.string().optional(),
+  documentIds: z.array(z.string().uuid()).optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

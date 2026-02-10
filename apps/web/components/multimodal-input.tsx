@@ -39,6 +39,7 @@ import {
 import { ArrowUpIcon, CpuIcon, PaperclipIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
+import { ContextSelector, type SelectedDocument } from "./context-selector";
 import { Button } from "@repo/ui";
 import {
   Tooltip,
@@ -46,7 +47,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
-import { Brain } from "lucide-react";
+import { Brain, XIcon } from "lucide-react";
 
 function PureMultimodalInput({
   chatId,
@@ -82,6 +83,9 @@ function PureMultimodalInput({
   workspaceSlug?: string;
 }) {
   const [enableReasoning, setEnableReasoning] = useState(false);
+  const [selectedDocuments, setSelectedDocuments] = useState<
+    SelectedDocument[]
+  >([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const { models, loading: modelsLoading } = useModels();
@@ -167,6 +171,20 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
+  // 切换选中/取消选中文档
+  const handleDocumentSelect = useCallback((doc: SelectedDocument) => {
+    setSelectedDocuments((prev) => {
+      const exists = prev.find((d) => d.id === doc.id);
+      if (exists) return prev.filter((d) => d.id !== doc.id);
+      return [...prev, doc];
+    });
+  }, []);
+
+  // 移除已选文档
+  const handleDocumentRemove = useCallback((docId: string) => {
+    setSelectedDocuments((prev) => prev.filter((d) => d.id !== docId));
+  }, []);
+
   const submitForm = useCallback(() => {
     window.history.pushState({}, "", `/${workspaceSlug}/chat/${chatId}`);
 
@@ -185,16 +203,31 @@ function PureMultimodalInput({
             text: input,
           },
         ],
+        // 传递引用文档元信息，用于消息 UI 即时显示
+        ...(selectedDocuments.length > 0
+          ? {
+              metadata: {
+                createdAt: new Date().toISOString(),
+                documentRefs: selectedDocuments.map((d) => ({
+                  id: d.id,
+                  title: d.title,
+                  icon: d.icon,
+                })),
+              },
+            }
+          : {}),
       },
       {
         body: {
           enableReasoning: enableReasoning && supportsReasoning,
           modelSupportedParameters: selectedModel?.supported_parameters ?? [],
+          documentIds: selectedDocuments.map((d) => d.id),
         },
       }
     );
 
     setAttachments([]);
+    setSelectedDocuments([]);
     setLocalStorageInput("");
     resetHeight();
     setInput("");
@@ -216,6 +249,7 @@ function PureMultimodalInput({
     supportsReasoning,
     selectedModel,
     workspaceSlug,
+    selectedDocuments,
   ]);
 
   const uploadFile = useCallback(async (file: File) => {
@@ -396,6 +430,29 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
+
+        {/* 已引用文档标签 */}
+        {selectedDocuments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-2 pt-1">
+            {selectedDocuments.map((doc) => (
+              <span
+                key={doc.id}
+                className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-xs text-accent-foreground"
+              >
+                {doc.icon && <span>{doc.icon}</span>}
+                <span className="max-w-[150px] truncate">{doc.title}</span>
+                <button
+                  className="ml-0.5 rounded-sm opacity-70 transition-opacity hover:opacity-100"
+                  onClick={() => handleDocumentRemove(doc.id)}
+                  type="button"
+                >
+                  <XIcon size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             autoFocus
@@ -418,6 +475,11 @@ function PureMultimodalInput({
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
               status={status}
+            />
+            <ContextSelector
+              onSelect={handleDocumentSelect}
+              selectedDocIds={selectedDocuments.map((d) => d.id)}
+              disabled={status !== "ready"}
             />
             <ReasoningToggle
               enabled={enableReasoning}

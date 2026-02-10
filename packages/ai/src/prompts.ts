@@ -59,15 +59,22 @@ About the origin of user's request:
 export const systemPrompt = ({
   enableReasoning,
   requestHints,
+  documentContext,
 }: {
   enableReasoning?: Boolean;
   requestHints: RequestHints;
+  documentContext?: string;
 }) => {
   const requestPrompt = getRequestPromptFromHints(requestHints);
+  // 如果用户引用了文档，将文档内容注入到 system prompt 中
+  const contextBlock = documentContext
+    ? `\n\nThe user has referenced the following documents as context for this conversation. Use them to inform your responses:\n\n${documentContext}\n\nYou also have access to a \`viewDocument\` tool that allows you to look up any document by its ID. Use it when the user mentions or references a document you haven't seen yet.`
+    : `\n\nYou have access to a \`viewDocument\` tool that allows you to look up documents by their ID. If the user provides a document ID or references a document, use it to retrieve the content.`;
+
   if (enableReasoning) {
-    return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
+    return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}${contextBlock}`;
   }
-  return `${regularPrompt}\n\n${requestPrompt}`;
+  return `${regularPrompt}\n\n${requestPrompt}${contextBlock}`;
 };
 
 export const codePrompt = `

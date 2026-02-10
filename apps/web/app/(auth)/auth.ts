@@ -9,6 +9,9 @@ import { DUMMY_PASSWORD } from "@/lib/constants";
 import { getUser } from "@repo/database";
 import { authConfig } from "./auth.config";
 
+// 用户类型，用于权限/配额控制
+export type UserType = "guest" | "regular";
+
 declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {

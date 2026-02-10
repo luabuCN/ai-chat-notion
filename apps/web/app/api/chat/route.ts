@@ -21,11 +21,13 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
+import { viewDocument } from "@/lib/ai/tools/view-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
   deleteChatById,
   getChatById,
+  getEditorDocumentById,
   getMessageCountByUserId,
   getMessagesByChatId,
   saveChat,
@@ -85,6 +87,7 @@ export async function POST(request: Request) {
       enableReasoning,
       modelSupportedParameters,
       workspaceSlug,
+      documentIds,
     }: {
       id: string;
       message: ChatMessage;
@@ -92,6 +95,7 @@ export async function POST(request: Request) {
       enableReasoning?: boolean;
       modelSupportedParameters?: string[];
       workspaceSlug?: string;
+      documentIds?: string[];
     } = requestBody;
     console.log(requestBody, "requestBody--------");
 
@@ -101,7 +105,8 @@ export async function POST(request: Request) {
       return new ChatSDKError("unauthorized:chat").toResponse();
     }
 
-    const userType: UserType = session.user.type;
+    // 所有已登录用户为 regular 类型
+    const userType: UserType = "regular";
 
     const messageCount = await getMessageCountByUserId({
       id: session.user.id,
@@ -190,6 +195,50 @@ export async function POST(request: Request) {
       country,
     };
 
+    // 获取引用文档的内容，构建文档上下文
+    let documentContext = "";
+    // 保存引用文档的元信息，用于前端显示
+    const documentAttachments: Array<{
+      type: string;
+      id: string;
+      title: string;
+      icon: string | null;
+    }> = [];
+
+    if (documentIds && documentIds.length > 0) {
+      const docs = await Promise.all(
+        documentIds.map(async (docId) => {
+          try {
+            return await getEditorDocumentById({ id: docId });
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      const validDocs = docs.filter(Boolean);
+      if (validDocs.length > 0) {
+        documentContext = validDocs
+          .map(
+            (doc) =>
+              `<reference_document title="${doc!.title}">\n${
+                doc!.content || "(空文档)"
+              }\n</reference_document>`
+          )
+          .join("\n\n");
+
+        // 收集文档元信息
+        for (const doc of validDocs) {
+          documentAttachments.push({
+            type: "document-reference",
+            id: doc!.id,
+            title: doc!.title,
+            icon: doc!.icon,
+          });
+        }
+      }
+    }
+
     await saveMessages({
       messages: [
         {
@@ -197,7 +246,7 @@ export async function POST(request: Request) {
           id: message.id,
           role: "user",
           parts: message.parts,
-          attachments: [],
+          attachments: documentAttachments,
           createdAt: new Date(),
         },
       ],
@@ -219,7 +268,11 @@ export async function POST(request: Request) {
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: modelProvider,
-          system: systemPrompt({ enableReasoning, requestHints }),
+          system: systemPrompt({
+            enableReasoning,
+            requestHints,
+            documentContext,
+          }),
           messages: convertToModelMessages(sanitizedMessages),
           stopWhen: stepCountIs(5),
           maxOutputTokens: 5000,
@@ -230,12 +283,14 @@ export async function POST(request: Request) {
                 "createDocument",
                 "updateDocument",
                 "requestSuggestions",
+                "viewDocument",
               ],
           experimental_transform: smoothStream({ chunking: "word" }),
           ...(supportsTools &&
             !enableReasoning && {
               tools: {
                 getWeather,
+                viewDocument,
                 createDocument: createDocument({ session, dataStream }),
                 updateDocument: updateDocument({ session, dataStream }),
                 requestSuggestions: requestSuggestions({

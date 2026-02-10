@@ -3,8 +3,11 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { motion } from "framer-motion";
 import { memo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import type { Vote } from "@repo/database";
 import type { ChatMessage } from "@/lib/types";
+import type { MessageMetadata } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
@@ -24,6 +27,7 @@ import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
+import { FileText } from "lucide-react";
 
 const PurePreviewMessage = ({
   chatId,
@@ -45,10 +49,21 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const params = useParams();
+  const workspaceSlug =
+    typeof params.slug === "string"
+      ? params.slug
+      : Array.isArray(params.slug)
+      ? params.slug[0]
+      : "";
 
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === "file"
   );
+
+  // 提取引用文档信息
+  const metadata = message.metadata as MessageMetadata | undefined;
+  const documentRefs = metadata?.documentRefs || [];
 
   useDataStream();
 
@@ -274,9 +289,69 @@ const PurePreviewMessage = ({
                 </Tool>
               );
             }
+            if (type === "tool-viewDocument") {
+              const { toolCallId, state } = part;
+
+              return (
+                <Tool defaultOpen={true} key={toolCallId}>
+                  <ToolHeader state={state} type="tool-viewDocument" />
+                  <ToolContent>
+                    {state === "input-available" && (
+                      <ToolInput input={part.input} />
+                    )}
+                    {state === "output-available" && (
+                      <ToolOutput
+                        errorText={
+                          "error" in part.output
+                            ? String(part.output.error)
+                            : undefined
+                        }
+                        output={
+                          !("error" in part.output) && (
+                            <Link
+                              href={`/${workspaceSlug}/editor/${part.output.id}`}
+                              className="inline-flex items-center gap-1.5 rounded-md bg-accent/60
+                                px-2 py-1 text-xs text-foreground
+                                hover:bg-accent transition-colors no-underline"
+                            >
+                              <span className="flex size-4 shrink-0 items-center justify-center">
+                                {part.output.icon || <FileText size={13} />}
+                              </span>
+                              <span className="truncate">
+                                {part.output.title}
+                              </span>
+                            </Link>
+                          )
+                        }
+                      />
+                    )}
+                  </ToolContent>
+                </Tool>
+              );
+            }
 
             return null;
           })}
+
+          {/* 引用文档标签 */}
+          {message.role === "user" && documentRefs.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-1 mt-1">
+              {documentRefs.map((ref) => (
+                <Link
+                  key={ref.id}
+                  href={`/${workspaceSlug}/editor/${ref.id}`}
+                  className="inline-flex items-center gap-1 rounded-md bg-accent/60
+                    px-1.5 py-0.5 text-[11px] text-muted-foreground
+                    hover:bg-accent transition-colors cursor-pointer no-underline"
+                >
+                  <span className="flex size-3.5 shrink-0 items-center justify-center text-xs">
+                    {ref.icon || <FileText size={11} />}
+                  </span>
+                  <span className="max-w-[120px] truncate">{ref.title}</span>
+                </Link>
+              ))}
+            </div>
+          )}
 
           {!isReadonly && (
             <MessageActions

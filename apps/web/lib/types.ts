@@ -5,6 +5,7 @@ import type { createDocument } from "./ai/tools/create-document";
 import type { getWeather } from "./ai/tools/get-weather";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
 import type { updateDocument } from "./ai/tools/update-document";
+import type { viewDocument } from "./ai/tools/view-document";
 import type { Suggestion } from "@repo/database";
 import type { AppUsage } from "./usage";
 
@@ -12,11 +13,22 @@ export type DataPart = { type: "append-message"; message: string };
 
 export const messageMetadataSchema = z.object({
   createdAt: z.string(),
+  // 引用文档的元信息
+  documentRefs: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        icon: z.string().nullable().optional(),
+      })
+    )
+    .optional(),
 });
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
 type weatherTool = InferUITool<typeof getWeather>;
+type viewDocumentTool = InferUITool<typeof viewDocument>;
 type createDocumentTool = InferUITool<ReturnType<typeof createDocument>>;
 type updateDocumentTool = InferUITool<ReturnType<typeof updateDocument>>;
 type requestSuggestionsTool = InferUITool<
@@ -25,6 +37,7 @@ type requestSuggestionsTool = InferUITool<
 
 export type ChatTools = {
   getWeather: weatherTool;
+  viewDocument: viewDocumentTool;
   createDocument: createDocumentTool;
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;

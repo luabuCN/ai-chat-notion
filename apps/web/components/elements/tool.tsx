@@ -11,11 +11,7 @@ import {
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { Badge } from "@repo/ui";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@repo/ui";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@repo/ui";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./code-block";
 
@@ -60,6 +56,15 @@ const getStatusBadge = (status: ToolUIPart["state"]) => {
   );
 };
 
+// 工具类型到友好名称的映射
+const toolDisplayNames: Record<string, string> = {
+  "tool-getWeather": "获取天气",
+  "tool-viewDocument": "查看文档",
+  "tool-createDocument": "创建文档",
+  "tool-updateDocument": "更新文档",
+  "tool-requestSuggestions": "获取建议",
+};
+
 export const ToolHeader = ({
   className,
   type,
@@ -75,7 +80,9 @@ export const ToolHeader = ({
   >
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <WrenchIcon className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate font-medium text-sm">{type}</span>
+      <span className="truncate font-medium text-sm">
+        {toolDisplayNames[type] || type}
+      </span>
     </div>
     <div className="flex shrink-0 items-center gap-2">
       {getStatusBadge(state)}

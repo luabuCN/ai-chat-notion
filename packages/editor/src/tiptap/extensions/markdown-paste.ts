@@ -71,7 +71,30 @@ export const MarkdownPaste = Extension.create({
 
             try {
               const json = manager.parse(processedText);
+
+              // 清洗 JSON 以防止冲突的 marks（如 bold 和 code 共存导致 ProseMirror 报错）
+              // Tiptap 的 code 标记通常具有互斥性 (excludes: "_")，不允许与其他任何标记共存
+              const sanitizeNodes = (nodes: any[]) => {
+                nodes.forEach((node) => {
+                  if (node.marks && node.marks.length > 1) {
+                    const hasCode = node.marks.some(
+                      (m: any) => m.type === "code"
+                    );
+                    if (hasCode) {
+                      // 如果同时存在 code 和其他标记，只保留 code 以满足 schema 约束
+                      node.marks = node.marks.filter(
+                        (m: any) => m.type === "code"
+                      );
+                    }
+                  }
+                  if (node.content) {
+                    sanitizeNodes(node.content);
+                  }
+                });
+              };
+
               if (json.content && json.content.length > 0) {
+                sanitizeNodes(json.content);
                 editor.chain().focus().insertContent(json.content).run();
                 return true;
               }
