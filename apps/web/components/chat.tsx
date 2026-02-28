@@ -153,10 +153,6 @@ export function Chat({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
-  useEffect(() => {
-    console.log("status", status);
-  }, [status]);
-
   useAutoResume({
     autoResume,
     initialMessages,

@@ -259,21 +259,40 @@ export async function POST(request: Request) {
 
     // Use custom model if provided, otherwise use first available model
     const modelSlug = selectedModelSlug || (await getFirstModelSlug());
+    console.log(modelSlug, "modelSlug====");
+
     const modelProvider = getProviderWithModel(modelSlug);
 
     // Check if model supports tools based on supported_parameters from frontend
     const supportsTools = modelSupportedParameters?.includes("tools") ?? false;
 
+    // 解析部分模型（如 gemma-3）不支持 developer instructions（系统提示词）的问题
+    // 对于这类模型，我们将系统提示词转换为普通的 user 消息放入上下文开头
+    const isModelWithoutSystemInstruction = modelSlug
+      .toLowerCase()
+      .includes("gemma-3");
+    const sysPrompt = systemPrompt({
+      enableReasoning,
+      requestHints,
+      documentContext,
+    });
+
+    const finalMessages = isModelWithoutSystemInstruction
+      ? [
+          {
+            role: "user" as const,
+            content: `System Instructions (Please follow these strictly):\n\n${sysPrompt}`,
+          },
+          ...convertToModelMessages(sanitizedMessages),
+        ]
+      : convertToModelMessages(sanitizedMessages);
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: modelProvider,
-          system: systemPrompt({
-            enableReasoning,
-            requestHints,
-            documentContext,
-          }),
-          messages: convertToModelMessages(sanitizedMessages),
+          system: isModelWithoutSystemInstruction ? undefined : sysPrompt,
+          messages: finalMessages,
           stopWhen: stepCountIs(5),
           maxOutputTokens: 5000,
           experimental_activeTools: !supportsTools

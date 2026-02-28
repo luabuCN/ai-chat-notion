@@ -44,6 +44,7 @@ function PureMessages({
   });
 
   useDataStream();
+  console.log(messages, "messages=======");
 
   useEffect(() => {
     if (status === "submitted") {

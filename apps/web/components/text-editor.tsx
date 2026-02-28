@@ -1,7 +1,5 @@
 "use client";
 
-console.log("=== text-editor.tsx module loaded ===");
-
 import { exampleSetup } from "prosemirror-example-setup";
 import { inputRules } from "prosemirror-inputrules";
 import { EditorState } from "prosemirror-state";
