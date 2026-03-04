@@ -1,29 +1,25 @@
 // app/api/models/route.ts
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 
 /* -------------------------
    类型定义
 --------------------------*/
 
-interface OpenRouterEndpoint {
-  supported_parameters?: string[];
-  model_variant_slug: string;
-}
-
-interface OpenRouterModel {
-  slug: string;
-  input_modalities?: string[];
-  output_modalities?: string[];
-  endpoint: OpenRouterEndpoint;
-}
-
 export interface ModelInfo {
   provider: string;
   model: string;
   full_slug: string;
-  input_modalities: string[];
-  output_modalities: string[];
-  supported_parameters: string[];
+  context_length: number;
+  supports_image_in: boolean;
+  supports_video_in: boolean;
+  supports_reasoning: boolean;
+  raw: {
+    context_length: number | null;
+    supports_image_in: boolean | null;
+    supports_video_in: boolean | null;
+    supports_reasoning: boolean | null;
+  };
 }
 
 /* -------------------------
@@ -31,36 +27,61 @@ export interface ModelInfo {
 --------------------------*/
 
 export async function GET() {
-  const url = "https://openrouter.ai/api/frontend/models/find?max_price=0";
-
   try {
-    const response = await fetch(url, { cache: "no-store" });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch model list" },
-        { status: 500 }
-      );
-    }
-
-    const jsonData = await response.json();
-    const models: OpenRouterModel[] = jsonData?.data?.models ?? [];
-
-    const result: ModelInfo[] = models.map((m) => {
-      const slug = m.slug;
-
-      const [provider, nameWithSuffix] = slug.split("/");
-      const model = nameWithSuffix.split(":")[0];
-
-      return {
-        provider,
-        model,
-        full_slug: m.endpoint?.model_variant_slug,
-        input_modalities: m.input_modalities ?? [],
-        output_modalities: m.output_modalities ?? [],
-        supported_parameters: m.endpoint?.supported_parameters ?? []
-      };
+    const client = new OpenAI({
+      apiKey: process.env.API_KEY || "",
+      baseURL: "https://api.moonshot.cn/v1",
     });
+
+    const model_list = await client.models.list();
+
+    // Moonshot models API returns an object with a data array of model objects that have an 'id' property.
+    const result: ModelInfo[] = [];
+
+    for await (const model of model_list) {
+      const supportsReasoning =
+        "supports_reasoning" in model && typeof model.supports_reasoning === "boolean"
+          ? model.supports_reasoning
+          : model.id.toLowerCase().includes("thinking");
+
+      result.push({
+        provider: "moonshot",
+        model: model.id,
+        full_slug: model.id,
+        context_length:
+          "context_length" in model && typeof model.context_length === "number"
+            ? model.context_length
+            : 0,
+        supports_image_in:
+          "supports_image_in" in model && typeof model.supports_image_in === "boolean"
+            ? model.supports_image_in
+            : false,
+        supports_video_in:
+          "supports_video_in" in model && typeof model.supports_video_in === "boolean"
+            ? model.supports_video_in
+            : false,
+        supports_reasoning: supportsReasoning,
+        raw: {
+          context_length:
+            "context_length" in model && typeof model.context_length === "number"
+              ? model.context_length
+              : null,
+          supports_image_in:
+            "supports_image_in" in model && typeof model.supports_image_in === "boolean"
+              ? model.supports_image_in
+              : null,
+          supports_video_in:
+            "supports_video_in" in model && typeof model.supports_video_in === "boolean"
+              ? model.supports_video_in
+              : null,
+          supports_reasoning:
+            "supports_reasoning" in model &&
+            typeof model.supports_reasoning === "boolean"
+              ? model.supports_reasoning
+              : null,
+        },
+      });
+    }
 
     return NextResponse.json(result);
   } catch (error) {

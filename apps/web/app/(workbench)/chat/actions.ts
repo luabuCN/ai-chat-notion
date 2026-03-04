@@ -22,10 +22,10 @@ export async function generateTitleFromUserMessage({
   message: UIMessage;
   modelSlug: string;
 }) {
-  // 不使用 system prompt，因为部分模型（如 gemma-3n）不支持 Developer instruction
   const { text: title } = await generateText({
     model: getProviderWithModel(modelSlug),
-    prompt: `${titlePrompt}\n\n用户消息: ${getTextFromMessage(message)}`,
+    system: titlePrompt,
+    prompt: getTextFromMessage(message),
   });
 
   return title;

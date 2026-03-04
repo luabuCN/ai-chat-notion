@@ -71,10 +71,11 @@ export const systemPrompt = ({
     ? `\n\nThe user has referenced the following documents as context for this conversation. Use them to inform your responses:\n\n${documentContext}\n\nYou also have access to a \`viewDocument\` tool that allows you to look up any document by its ID. Use it when the user mentions or references a document you haven't seen yet.`
     : `\n\nYou have access to a \`viewDocument\` tool that allows you to look up documents by their ID. If the user provides a document ID or references a document, use it to retrieve the content.`;
 
-  if (enableReasoning) {
-    return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}${contextBlock}`;
-  }
-  return `${regularPrompt}\n\n${requestPrompt}${contextBlock}`;
+  const reasoningHint = enableReasoning
+    ? "\n\nReasoning mode is enabled for this request. Think step by step when needed."
+    : "";
+
+  return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}${contextBlock}${reasoningHint}`;
 };
 
 export const codePrompt = `

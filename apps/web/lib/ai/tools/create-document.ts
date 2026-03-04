@@ -14,14 +14,31 @@ type CreateDocumentProps = {
 };
 
 export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
-  tool({
+  {
+    let createdDocument:
+      | {
+          id: string;
+          title: string;
+          kind: (typeof artifactKinds)[number];
+        }
+      | null = null;
+
+    return tool({
     description:
-      "Create a document for a writing or content creation activities. This tool will call other functions that will generate the contents of the document based on the title and kind.",
+      "Create one document for writing or content creation. Only call this tool once per assistant response unless the user explicitly requests multiple documents.",
     inputSchema: z.object({
       title: z.string(),
       kind: z.enum(artifactKinds),
     }),
     execute: async ({ title, kind }) => {
+      if (createdDocument) {
+        return {
+          ...createdDocument,
+          content:
+            "A document has already been created in this response. Reuse or update that document instead of creating another one.",
+        };
+      }
+
       const id = generateUUID();
 
       dataStream.write({
@@ -66,6 +83,12 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
 
       dataStream.write({ type: "data-finish", data: null, transient: true });
 
+      createdDocument = {
+        id,
+        title,
+        kind,
+      };
+
       return {
         id,
         title,
@@ -74,3 +97,4 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
       };
     },
   });
+  };

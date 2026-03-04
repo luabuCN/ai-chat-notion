@@ -86,14 +86,14 @@ export function Chat({
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
         const modelId = currentModelIdRef.current;
-        // Check if it's a dynamic model (contains /)
-        const isDynamicModel = modelId.includes("/");
+        // Backward compatibility: keep legacy placeholder ids out of API payload.
+        const isLegacyModelId = modelId.startsWith("chat-model");
 
         return {
           body: {
             id: request.id,
             message: request.messages.at(-1),
-            selectedModelSlug: isDynamicModel ? modelId : undefined,
+            selectedModelSlug: isLegacyModelId ? undefined : modelId,
             workspaceSlug: workspaceSlugRef.current || undefined,
             ...request.body,
           },

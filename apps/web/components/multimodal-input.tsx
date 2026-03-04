@@ -47,7 +47,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
-import { Brain, XIcon } from "lucide-react";
+import { Brain, Image, Video, XIcon } from "lucide-react";
 
 function PureMultimodalInput({
   chatId,
@@ -115,7 +115,15 @@ function PureMultimodalInput({
   }, [models, selectedModelId]);
 
   const supportsReasoning = useMemo(() => {
-    return selectedModel?.supported_parameters?.includes("reasoning") ?? false;
+    return selectedModel?.supports_reasoning ?? false;
+  }, [selectedModel]);
+
+  const supportsFileInput = useMemo(() => {
+    // The current upload flow is mainly multimodal-oriented.
+    // Gate it by provider-declared image/video input capabilities.
+    return Boolean(
+      selectedModel?.supports_image_in || selectedModel?.supports_video_in
+    );
   }, [selectedModel]);
 
   // Reset reasoning when model changes and doesn't support it
@@ -220,7 +228,11 @@ function PureMultimodalInput({
       {
         body: {
           enableReasoning: enableReasoning && supportsReasoning,
-          modelSupportedParameters: selectedModel?.supported_parameters ?? [],
+          modelCapabilities: {
+            supports_image_in: selectedModel?.supports_image_in ?? false,
+            supports_video_in: selectedModel?.supports_video_in ?? false,
+            supports_reasoning: selectedModel?.supports_reasoning ?? false,
+          },
           documentIds: selectedDocuments.map((d) => d.id),
         },
       }
@@ -247,6 +259,7 @@ function PureMultimodalInput({
     resetHeight,
     enableReasoning,
     supportsReasoning,
+    supportsFileInput,
     selectedModel,
     workspaceSlug,
     selectedDocuments,
@@ -315,6 +328,7 @@ function PureMultimodalInput({
     async (event: ClipboardEvent) => {
       const items = event.clipboardData?.items;
       if (!items) return;
+      if (!supportsFileInput) return;
 
       const imageItems = Array.from(items).filter((item) =>
         item.type.startsWith("image/")
@@ -353,7 +367,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments]
+    [setAttachments, supportsFileInput]
   );
 
   // Add paste event listener to textarea
@@ -473,7 +487,7 @@ function PureMultimodalInput({
           <PromptInputTools className="gap-0 sm:gap-0.5">
             <AttachmentsButton
               fileInputRef={fileInputRef}
-              selectedModelId={selectedModelId}
+              supportsFileInput={supportsFileInput}
               status={status}
             />
             <ContextSelector
@@ -536,19 +550,17 @@ export const MultimodalInput = memo(
 function PureAttachmentsButton({
   fileInputRef,
   status,
-  selectedModelId,
+  supportsFileInput,
 }: {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
   status: UseChatHelpers<ChatMessage>["status"];
-  selectedModelId: string;
+  supportsFileInput: boolean;
 }) {
-  const isReasoningModel = selectedModelId === "chat-model-reasoning";
-
   return (
     <Button
       className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
       data-testid="attachments-button"
-      disabled={status !== "ready" || isReasoningModel}
+      disabled={status !== "ready" || !supportsFileInput}
       onClick={(event) => {
         event.preventDefault();
         fileInputRef.current?.click();
@@ -678,11 +690,57 @@ function PureModelSelectorCompact({
               {models.map((model) => (
                 <SelectItem key={model.full_slug} value={model.full_slug}>
                   <div className="truncate font-medium text-xs">
-                    {model.provider}/{model.model}
+                    {model.model}
                   </div>
-                  <div className="mt-px truncate text-[10px] text-muted-foreground leading-tight">
-                    {model.input_modalities.join(", ")} →{" "}
-                    {model.output_modalities.join(", ")}
+                  <div className="mt-px flex flex-wrap items-center gap-1 text-[10px] leading-tight">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-sm px-1.5 py-0.5",
+                        model.supports_image_in
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-muted text-muted-foreground opacity-50"
+                      )}
+                      title={
+                        model.supports_image_in
+                          ? "支持图像输入"
+                          : "不支持图像输入"
+                      }
+                    >
+                      <Image size={12} />
+                      <span className="sr-only">图像输入</span>
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-sm px-1.5 py-0.5",
+                        model.supports_video_in
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-muted text-muted-foreground opacity-50"
+                      )}
+                      title={
+                        model.supports_video_in
+                          ? "支持视频输入"
+                          : "不支持视频输入"
+                      }
+                    >
+                      <Video size={12} />
+                      <span className="sr-only">视频输入</span>
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-sm px-1.5 py-0.5",
+                        model.supports_reasoning
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-muted text-muted-foreground opacity-50"
+                      )}
+                      title={
+                        model.supports_reasoning
+                          ? "支持深度思考"
+                          : "不支持深度思考"
+                      }
+                    >
+                      <Brain size={12} />
+                      <span className="sr-only">深度思考</span>
+                    </span>
                   </div>
                 </SelectItem>
               ))}

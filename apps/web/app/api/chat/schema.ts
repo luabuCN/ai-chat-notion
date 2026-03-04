@@ -31,7 +31,13 @@ export const postRequestBodySchema = z.object({
   }),
   selectedModelSlug: z.string().optional(),
   enableReasoning: z.boolean().optional(),
-  modelSupportedParameters: z.array(z.string()).optional(),
+  modelCapabilities: z
+    .object({
+      supports_image_in: z.boolean().optional(),
+      supports_video_in: z.boolean().optional(),
+      supports_reasoning: z.boolean().optional(),
+    })
+    .optional(),
   workspaceSlug: z.string().optional(),
   documentIds: z.array(z.string().uuid()).optional(),
 });

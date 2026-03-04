@@ -1,56 +1,37 @@
-import {
-  type LanguageModel,
-} from "ai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { type LanguageModel } from "ai";
+import { createMoonshotAI } from "@ai-sdk/moonshotai";
+import OpenAI from "openai";
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.API_KEY || ''
+const moonshot = createMoonshotAI({
+  apiKey: process.env.API_KEY || "",
+  baseURL: "https://api.moonshot.cn/v1",
 });
 
-// Function to get provider with custom model
+const openaiClient = new OpenAI({
+  apiKey: process.env.API_KEY || "",
+  baseURL: "https://api.moonshot.cn/v1",
+});
+
+// 使用指定模型创建 provider
 export function getProviderWithModel(modelSlug: string): LanguageModel {
-  return openrouter(modelSlug);
+  return moonshot(modelSlug) as unknown as LanguageModel;
 }
 
-// Get first available model slug from OpenRouter API
+// 通过 OpenAI SDK 获取第一个可用模型 slug
 export async function getFirstModelSlug(): Promise<string> {
   try {
-    // 在客户端通过 API 路由获取，避免 CORS 问题
-    const baseUrl =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    
-    const url = typeof window !== "undefined"
-      ? `${baseUrl}/api/models`
-      : "https://openrouter.ai/api/frontend/models/find?max_price=0";
-    
-    const response = await fetch(url, { cache: 'no-store' });
-    
-    if (response.ok) {
-      const jsonData = await response.json();
-      
-      // 处理 API 路由返回的格式
-      if (Array.isArray(jsonData)) {
-        // 来自 /api/models 路由的格式
-        if (jsonData.length > 0) {
-          return jsonData[0].endpoint.model_variant_slug;
-        }
-      } else {
-        // 直接调用 OpenRouter API 的格式
-        const models = jsonData?.data?.models ?? [];
-        if (models.length > 0) {
-          return models[0].endpoint.model_variant_slug;
-        }
-      }
+    const modelList = await openaiClient.models.list();
+    for await (const model of modelList) {
+      return model.id;
     }
   } catch (error) {
-    console.error('Failed to fetch first model:', error);
+    console.error("Failed to fetch first model:", error);
   }
-  // Fallback to a default model if API fails
-  return "openai/gpt-oss-20b:free";
+  // 回退到默认模型
+  return "moonshot-v1-8k";
 }
 
-// Default provider - will use first available model dynamically
-// For synchronous usage, this provides a fallback
-export const myProvider: LanguageModel = openrouter("openai/gpt-oss-20b:free");
+// 默认 provider - 用于需要同步 provider 的场景
+export const myProvider: LanguageModel = moonshot(
+  "moonshot-v1-8k"
+) as unknown as LanguageModel;

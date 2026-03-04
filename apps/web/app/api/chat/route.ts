@@ -47,6 +47,11 @@ export const maxDuration = 60;
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
+function isMoonshotThinkingModel(modelSlug: string): boolean {
+  const normalizedModelSlug = modelSlug.toLowerCase();
+  return normalizedModelSlug.includes("thinking");
+}
+
 export function getStreamContext() {
   if (!globalStreamContext) {
     try {
@@ -85,7 +90,7 @@ export async function POST(request: Request) {
       message,
       selectedModelSlug,
       enableReasoning,
-      modelSupportedParameters,
+      modelCapabilities,
       workspaceSlug,
       documentIds,
     }: {
@@ -93,7 +98,11 @@ export async function POST(request: Request) {
       message: ChatMessage;
       selectedModelSlug?: string;
       enableReasoning?: boolean;
-      modelSupportedParameters?: string[];
+      modelCapabilities?: {
+        supports_image_in?: boolean;
+        supports_video_in?: boolean;
+        supports_reasoning?: boolean;
+      };
       workspaceSlug?: string;
       documentIds?: string[];
     } = requestBody;
@@ -155,7 +164,7 @@ export async function POST(request: Request) {
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
     // 确保每个 assistant 消息至少有一个非空的文本部分
-    // 这可以防止 Amazon Bedrock 报错："The text field in the ContentBlock object is blank"
+    // 防止 convertToModelMessages 产生空文本字段导致 API 报错
     const sanitizedMessages = uiMessages.map((msg) => {
       if (msg.role === "assistant") {
         const parts = msg.parts || [];
@@ -260,39 +269,42 @@ export async function POST(request: Request) {
     // Use custom model if provided, otherwise use first available model
     const modelSlug = selectedModelSlug || (await getFirstModelSlug());
     console.log(modelSlug, "modelSlug====");
-
     const modelProvider = getProviderWithModel(modelSlug);
 
-    // Check if model supports tools based on supported_parameters from frontend
-    const supportsTools = modelSupportedParameters?.includes("tools") ?? false;
+    // Use frontend capabilities first, and fallback to model-slug heuristics.
+    // This keeps features working even when /api/models metadata is stale.
+    const supportsToolsFromClient = true;
+    const supportsReasoningFromClient = modelCapabilities?.supports_reasoning;
+    const supportsTools = supportsToolsFromClient ?? true;
+    const supportsReasoning =
+      supportsReasoningFromClient ?? isMoonshotThinkingModel(modelSlug);
+    const reasoningEnabled = Boolean(enableReasoning && supportsReasoning);
 
-    // 解析部分模型（如 gemma-3）不支持 developer instructions（系统提示词）的问题
-    // 对于这类模型，我们将系统提示词转换为普通的 user 消息放入上下文开头
-    const isModelWithoutSystemInstruction = modelSlug
-      .toLowerCase()
-      .includes("gemma-3");
+    if (!isProductionEnvironment) {
+      console.log("[chat] model capability resolution", {
+        modelSlug,
+        enableReasoning: Boolean(enableReasoning),
+        modelCapabilities: modelCapabilities ?? {},
+        supportsTools,
+        supportsReasoning,
+        reasoningEnabled,
+      });
+    }
+
     const sysPrompt = systemPrompt({
       enableReasoning,
       requestHints,
       documentContext,
     });
 
-    const finalMessages = isModelWithoutSystemInstruction
-      ? [
-          {
-            role: "user" as const,
-            content: `System Instructions (Please follow these strictly):\n\n${sysPrompt}`,
-          },
-          ...convertToModelMessages(sanitizedMessages),
-        ]
-      : convertToModelMessages(sanitizedMessages);
+    const modelMessages = await convertToModelMessages(sanitizedMessages);
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: modelProvider,
-          system: isModelWithoutSystemInstruction ? undefined : sysPrompt,
-          messages: finalMessages,
+          system: sysPrompt,
+          messages: modelMessages,
           stopWhen: stepCountIs(5),
           maxOutputTokens: 5000,
           experimental_activeTools: !supportsTools
@@ -305,24 +317,30 @@ export async function POST(request: Request) {
                 "viewDocument",
               ],
           experimental_transform: smoothStream({ chunking: "word" }),
-          ...(supportsTools &&
-            !enableReasoning && {
-              tools: {
-                getWeather,
-                viewDocument,
-                createDocument: createDocument({ session, dataStream }),
-                updateDocument: updateDocument({ session, dataStream }),
-                requestSuggestions: requestSuggestions({
-                  session,
-                  dataStream,
-                }),
-              },
-            }),
+          ...(supportsTools && {
+            tools: {
+              getWeather,
+              viewDocument,
+              createDocument: createDocument({ session, dataStream }),
+              updateDocument: updateDocument({ session, dataStream }),
+              requestSuggestions: requestSuggestions({
+                session,
+                dataStream,
+              }),
+            },
+          }),
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
           },
-          ...(enableReasoning && { reasoning: { effort: "medium" } }),
+          ...(reasoningEnabled && {
+            providerOptions: {
+              moonshotai: {
+                thinking: { type: "enabled", budgetTokens: 4096 },
+                reasoningHistory: "interleaved",
+              },
+            },
+          }),
           onFinish: async ({ usage }) => {
             finalMergedUsage = usage;
             dataStream.write({ type: "data-usage", data: finalMergedUsage });
@@ -333,7 +351,7 @@ export async function POST(request: Request) {
 
         dataStream.merge(
           result.toUIMessageStream({
-            sendReasoning: true,
+            sendReasoning: reasoningEnabled,
           })
         );
       },
@@ -373,16 +391,6 @@ export async function POST(request: Request) {
 
     if (error instanceof ChatSDKError) {
       return error.toResponse();
-    }
-
-    // Check for Vercel AI Gateway credit card error
-    if (
-      error instanceof Error &&
-      error.message?.includes(
-        "AI Gateway requires a valid credit card on file to service requests"
-      )
-    ) {
-      return new ChatSDKError("bad_request:activate_gateway").toResponse();
     }
 
     console.error("Unhandled error in chat API:", error, { vercelId });
