@@ -196,11 +196,33 @@ function PureMultimodalInput({
   const submitForm = useCallback(() => {
     window.history.pushState({}, "", `/${workspaceSlug}/chat/${chatId}`);
 
+    // 区分多媒体附件和文档附件
+    // 图片/视频可以作为 file part 直接发送给模型
+    // 其他类型（PDF、Word 等）当前模型 API 不支持 file part，跳过
+    const mediaAttachments = attachments.filter(
+      (a) =>
+        a.contentType?.startsWith("image/") ||
+        a.contentType?.startsWith("video/")
+    );
+    const skippedAttachments = attachments.filter(
+      (a) =>
+        !a.contentType?.startsWith("image/") &&
+        !a.contentType?.startsWith("video/")
+    );
+
+    if (skippedAttachments.length > 0) {
+      toast.warning(
+        `${skippedAttachments
+          .map((a) => a.name)
+          .join(", ")} 暂不支持作为附件发送，仅支持图片和视频文件`
+      );
+    }
+
     sendMessage(
       {
         role: "user",
         parts: [
-          ...attachments.map((attachment) => ({
+          ...mediaAttachments.map((attachment) => ({
             type: "file" as const,
             url: attachment.url,
             name: attachment.name,
@@ -392,6 +414,7 @@ function PureMultimodalInput({
         )}
 
       <input
+        accept="image/*,video/*"
         className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}
@@ -650,7 +673,7 @@ function PureModelSelectorCompact({
     (models.length > 0 ? models[0] : undefined);
 
   const displayName = selectedDynamicModel
-    ? `${selectedDynamicModel.provider}/${selectedDynamicModel.model}`
+    ? `${selectedDynamicModel.model}`
     : "Select Model";
 
   return (
@@ -672,7 +695,7 @@ function PureModelSelectorCompact({
         disabled={modelsLoading}
       >
         <CpuIcon size={16} />
-        <span className="hidden font-medium text-xs sm:block">
+        <span className="hidden font-medium text-xs sm:block ml-1">
           {modelsLoading ? "Loading..." : displayName}
         </span>
       </PromptInputModelSelectTrigger>
@@ -687,63 +710,65 @@ function PureModelSelectorCompact({
               <div className="px-2 py-1.5 font-semibold text-[10px] text-muted-foreground uppercase">
                 Available Models
               </div>
-              {models.map((model) => (
-                <SelectItem key={model.full_slug} value={model.full_slug}>
-                  <div className="truncate font-medium text-xs">
-                    {model.model}
-                  </div>
-                  <div className="mt-px flex flex-wrap items-center gap-1 text-[10px] leading-tight">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-sm px-1.5 py-0.5",
-                        model.supports_image_in
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-muted text-muted-foreground opacity-50"
-                      )}
-                      title={
-                        model.supports_image_in
-                          ? "支持图像输入"
-                          : "不支持图像输入"
-                      }
-                    >
-                      <Image size={12} />
-                      <span className="sr-only">图像输入</span>
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-sm px-1.5 py-0.5",
-                        model.supports_video_in
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-muted text-muted-foreground opacity-50"
-                      )}
-                      title={
-                        model.supports_video_in
-                          ? "支持视频输入"
-                          : "不支持视频输入"
-                      }
-                    >
-                      <Video size={12} />
-                      <span className="sr-only">视频输入</span>
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-sm px-1.5 py-0.5",
-                        model.supports_reasoning
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-muted text-muted-foreground opacity-50"
-                      )}
-                      title={
-                        model.supports_reasoning
-                          ? "支持深度思考"
-                          : "不支持深度思考"
-                      }
-                    >
-                      <Brain size={12} />
-                      <span className="sr-only">深度思考</span>
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
+              {[...models]
+                .sort((a, b) => a.model.localeCompare(b.model))
+                .map((model) => (
+                  <SelectItem key={model.full_slug} value={model.full_slug}>
+                    <div className="truncate font-medium text-xs">
+                      {model.model}
+                    </div>
+                    <div className="mt-px flex flex-wrap items-center gap-1 text-[10px] leading-tight">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-sm px-1.5 py-0.5",
+                          model.supports_image_in
+                            ? "bg-accent text-accent-foreground"
+                            : "bg-muted text-muted-foreground opacity-50"
+                        )}
+                        title={
+                          model.supports_image_in
+                            ? "支持图像输入"
+                            : "不支持图像输入"
+                        }
+                      >
+                        <Image size={12} />
+                        <span className="sr-only">图像输入</span>
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-sm px-1.5 py-0.5",
+                          model.supports_video_in
+                            ? "bg-accent text-accent-foreground"
+                            : "bg-muted text-muted-foreground opacity-50"
+                        )}
+                        title={
+                          model.supports_video_in
+                            ? "支持视频输入"
+                            : "不支持视频输入"
+                        }
+                      >
+                        <Video size={12} />
+                        <span className="sr-only">视频输入</span>
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-sm px-1.5 py-0.5",
+                          model.supports_reasoning
+                            ? "bg-accent text-accent-foreground"
+                            : "bg-muted text-muted-foreground opacity-50"
+                        )}
+                        title={
+                          model.supports_reasoning
+                            ? "支持深度思考"
+                            : "不支持深度思考"
+                        }
+                      >
+                        <Brain size={12} />
+                        <span className="sr-only">深度思考</span>
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
             </>
           ) : (
             <div className="p-4 text-center text-xs text-muted-foreground">

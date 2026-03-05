@@ -40,7 +40,8 @@ export async function GET() {
 
     for await (const model of model_list) {
       const supportsReasoning =
-        "supports_reasoning" in model && typeof model.supports_reasoning === "boolean"
+        "supports_reasoning" in model &&
+        typeof model.supports_reasoning === "boolean"
           ? model.supports_reasoning
           : model.id.toLowerCase().includes("thinking");
 
@@ -53,25 +54,30 @@ export async function GET() {
             ? model.context_length
             : 0,
         supports_image_in:
-          "supports_image_in" in model && typeof model.supports_image_in === "boolean"
+          "supports_image_in" in model &&
+          typeof model.supports_image_in === "boolean"
             ? model.supports_image_in
             : false,
         supports_video_in:
-          "supports_video_in" in model && typeof model.supports_video_in === "boolean"
+          "supports_video_in" in model &&
+          typeof model.supports_video_in === "boolean"
             ? model.supports_video_in
             : false,
         supports_reasoning: supportsReasoning,
         raw: {
           context_length:
-            "context_length" in model && typeof model.context_length === "number"
+            "context_length" in model &&
+            typeof model.context_length === "number"
               ? model.context_length
               : null,
           supports_image_in:
-            "supports_image_in" in model && typeof model.supports_image_in === "boolean"
+            "supports_image_in" in model &&
+            typeof model.supports_image_in === "boolean"
               ? model.supports_image_in
               : null,
           supports_video_in:
-            "supports_video_in" in model && typeof model.supports_video_in === "boolean"
+            "supports_video_in" in model &&
+            typeof model.supports_video_in === "boolean"
               ? model.supports_video_in
               : null,
           supports_reasoning:

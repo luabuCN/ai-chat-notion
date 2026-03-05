@@ -1,5 +1,5 @@
-import { getFirstModelSlug, getProviderWithModel } from "@repo/ai";
-import { streamText } from "ai";
+import { getProviderWithModel } from "@repo/ai";
+import { streamText, type LanguageModel } from "ai";
 
 export async function POST(req: Request) {
   try {
@@ -13,9 +13,9 @@ export async function POST(req: Request) {
     if (!prompt && (!messages || messages.length === 0)) {
       return new Response("Missing prompt or messages", { status: 400 });
     }
-
-    // const modelSlug = await getFirstModelSlug();
-    const model = getProviderWithModel("openai/gpt-oss-20b:free");
+    const model = getProviderWithModel(
+      "moonshot-v1-8k"
+    ) as unknown as LanguageModel;
 
     const result = streamText({
       model,

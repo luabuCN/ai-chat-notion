@@ -6,6 +6,7 @@ import {
   smoothStream,
   stepCountIs,
   streamText,
+  type LanguageModel,
 } from "ai";
 import { after } from "next/server";
 import {
@@ -13,8 +14,6 @@ import {
   type ResumableStreamContext,
 } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
-import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import type { ChatModel } from "@repo/ai";
 import { type RequestHints, systemPrompt } from "@repo/ai";
 import { getProviderWithModel, getFirstModelSlug } from "@repo/ai";
 import { createDocument } from "@/lib/ai/tools/create-document";
@@ -121,10 +120,6 @@ export async function POST(request: Request) {
       id: session.user.id,
       differenceInHours: 24,
     });
-
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerDay) {
-      return new ChatSDKError("rate_limit:chat").toResponse();
-    }
 
     const chat = await getChatById({ id });
     let messagesFromDb: DBMessage[] = [];
@@ -269,7 +264,9 @@ export async function POST(request: Request) {
     // Use custom model if provided, otherwise use first available model
     const modelSlug = selectedModelSlug || (await getFirstModelSlug());
     console.log(modelSlug, "modelSlug====");
-    const modelProvider = getProviderWithModel(modelSlug);
+    const modelProvider = getProviderWithModel(
+      modelSlug
+    ) as unknown as LanguageModel;
 
     // Use frontend capabilities first, and fallback to model-slug heuristics.
     // This keeps features working even when /api/models metadata is stale.

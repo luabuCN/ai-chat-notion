@@ -10,7 +10,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "ai": "^6.0.0",
+    "ai": "^5.0.28",
     "@ai-sdk/gateway": "^1.0.15",
     "@ai-sdk/moonshotai": "^2.0.6",
     "@repo/database": "workspace:*",
