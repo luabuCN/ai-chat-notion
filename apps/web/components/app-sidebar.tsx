@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 
-import { BotIcon, ClockRewind } from "@/components/icons";
+import { BotIcon, ClockRewind, ImageIcon } from "@/components/icons";
 import { SidebarHistory } from "@/components/sidebar-history";
 import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarSharedDocuments } from "@/components/sidebar-shared-documents";
@@ -98,6 +98,22 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       <SidebarHistory user={user} />
                     </PopoverContent>
                   </Popover>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => {
+                      setOpenMobile(false);
+                      if (currentWorkspace) {
+                        router.push(`/${currentWorkspace.slug}/image`);
+                      } else if (workspaces.length > 0) {
+                        router.push(`/${workspaces[0].slug}/image`);
+                      }
+                      router.refresh();
+                    }}
+                  >
+                    <ImageIcon />
+                    <span>AI 创作工坊</span>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
