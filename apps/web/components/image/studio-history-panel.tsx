@@ -1,8 +1,23 @@
-import { Badge, Button, ScrollArea } from "@repo/ui";
-import { History, Loader2 } from "lucide-react";
+import {
+  Badge,
+  ScrollArea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@repo/ui";
+import {
+  History,
+  Loader2,
+  Info,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Maximize,
+} from "lucide-react";
 import { SIZES } from "./constants";
 import type { HistoryItem } from "./types";
 import { formatTime, getStatusLabel } from "./utils";
+import { PhotoProvider, PhotoView } from "react-photo-view";
 
 type StudioHistoryPanelProps = {
   history: HistoryItem[];
@@ -35,72 +50,166 @@ export function StudioHistoryPanel({
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {history.map((item) => (
-            <article
-              key={item.id}
-              className="overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-sm"
-            >
-              <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
-                {item.outputImageUrl ? (
-                  <img
-                    src={item.outputImageUrl}
-                    alt={item.prompt}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center px-6 text-center text-sm text-zinc-500">
-                    {item.status === "FAILED" ? (
-                      item.errorMessage || "生成失败"
-                    ) : (
-                      <Loader2 className="size-6 animate-spin" />
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-4 p-5">
-                <div className="flex flex-wrap gap-2">
-                  <Badge className="border border-zinc-200 bg-zinc-50 text-zinc-700">
-                    {getStatusLabel(item.status)}
-                  </Badge>
-                </div>
-                <div>
-                  <h3 className="line-clamp-2 text-lg font-semibold text-zinc-950">
-                    {item.prompt}
-                  </h3>
-                  <p className="mt-2 text-sm text-zinc-500">
-                    {"比例 "}
-                    {SIZES.find((s) => s.id === item.size)?.name ||
-                      item.size ||
-                      "默认"}
-                    {" · "}
-                    {formatTime(item.createdAt)}
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1 border-zinc-200 bg-white text-zinc-950 hover:bg-zinc-100"
-                    onClick={() => onSelectHistory(item)}
+        <PhotoProvider
+          toolbarRender={({ index, scale, onScale, rotate, onRotate }) => {
+            const validItems = history.filter((item) => item.outputImageUrl);
+            const item = validItems[index];
+            if (!item) return null;
+
+            return (
+              <div className="flex items-center gap-5 pr-4">
+                <ZoomIn
+                  className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
+                  onClick={() => onScale(scale + 0.5)}
+                />
+                <ZoomOut
+                  className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
+                  onClick={() => onScale(scale - 0.5)}
+                />
+                <RotateCw
+                  className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
+                  onClick={() => onRotate(rotate + 90)}
+                />
+                <Maximize
+                  className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
+                  onClick={() => {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      document.documentElement.requestFullscreen();
+                    }
+                  }}
+                />
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center justify-center">
+                      <Info className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    align="end"
+                    className="z-[5000] w-80 rounded-xl border border-white/10 bg-zinc-900/95 p-4 text-left text-sm text-zinc-200 shadow-2xl backdrop-blur-md"
                   >
-                    {"查看详情"}
-                  </Button>
-                  {item.outputImageUrl ? (
-                    <a
-                      href={item.outputImageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100"
-                    >
-                      {"下载图片"}
-                    </a>
-                  ) : null}
-                </div>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs text-zinc-400">{"提示词"}</p>
+                        <p className="mt-1 leading-relaxed">{item.prompt}</p>
+                      </div>
+                      {item.negativePrompt ? (
+                        <div>
+                          <p className="text-xs text-zinc-400">
+                            {"负向提示词"}
+                          </p>
+                          <p className="mt-1 leading-relaxed">
+                            {item.negativePrompt}
+                          </p>
+                        </div>
+                      ) : null}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs text-zinc-400">{"模型"}</p>
+                          <p className="mt-1 truncate" title={item.model}>
+                            {item.model}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-zinc-400">{"比例"}</p>
+                          <p className="mt-1">
+                            {SIZES.find((s) => s.id === item.size)?.name ||
+                              item.size ||
+                              "默认"}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-zinc-400">{"生成时间"}</p>
+                          <p className="mt-1">{formatTime(item.createdAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
               </div>
-            </article>
-          ))}
-        </div>
+            );
+          }}
+        >
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            {history.map((item) => (
+              <article
+                key={item.id}
+                className="overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-sm"
+              >
+                <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
+                  {item.outputImageUrl ? (
+                    <img
+                      src={item.outputImageUrl}
+                      alt={item.prompt}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-zinc-500">
+                      {item.status === "FAILED" ? (
+                        item.errorMessage || "生成失败"
+                      ) : (
+                        <Loader2 className="size-6 animate-spin" />
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-4 p-5">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className="border border-zinc-200 bg-zinc-50 text-zinc-700">
+                      {getStatusLabel(item.status)}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h3 className="line-clamp-2 text-lg font-semibold text-zinc-950">
+                      {item.prompt}
+                    </h3>
+                    <p className="mt-2 text-sm text-zinc-500">
+                      {"比例 "}
+                      {SIZES.find((s) => s.id === item.size)?.name ||
+                        item.size ||
+                        "默认"}
+                      {" · "}
+                      {formatTime(item.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-3">
+                    {item.outputImageUrl ? (
+                      <PhotoView src={item.outputImageUrl}>
+                        <button
+                          type="button"
+                          className="flex h-9 flex-1 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100"
+                        >
+                          {"查看详情"}
+                        </button>
+                      </PhotoView>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex h-9 flex-1 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-400 opacity-50 transition-colors"
+                      >
+                        {"生成中..."}
+                      </button>
+                    )}
+                    {item.outputImageUrl ? (
+                      <a
+                        href={item.outputImageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100"
+                      >
+                        {"下载图片"}
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </PhotoProvider>
       )}
     </ScrollArea>
   );

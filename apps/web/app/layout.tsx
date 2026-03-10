@@ -10,6 +10,7 @@ import { SessionProvider } from "next-auth/react";
 import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryProvider } from "@/lib/query-client";
+import { PhotoProvider } from "@/components/photo-provider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.vercel.ai"),
@@ -75,15 +76,17 @@ export default async function RootLayout({
         >
           <QueryProvider>
             <NextIntlClientProvider messages={messages}>
-              <TooltipProvider>
-                <Toaster position="top-center" />
-                <SessionProvider
-                  refetchInterval={5 * 60} // 5分钟刷新一次
-                  refetchOnWindowFocus={false} // 窗口聚焦时不刷新
-                >
-                  {children}
-                </SessionProvider>
-              </TooltipProvider>
+              <PhotoProvider>
+                <TooltipProvider>
+                  <Toaster position="top-center" />
+                  <SessionProvider
+                    refetchInterval={5 * 60} // 5分钟刷新一次
+                    refetchOnWindowFocus={false} // 窗口聚焦时不刷新
+                  >
+                    {children}
+                  </SessionProvider>
+                </TooltipProvider>
+              </PhotoProvider>
             </NextIntlClientProvider>
           </QueryProvider>
         </ThemeProvider>
