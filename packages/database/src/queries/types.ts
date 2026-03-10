@@ -96,3 +96,28 @@ export type WorkspaceMember = {
 export type WorkspaceWithMemberCount = Workspace & {
   _count: { members: number };
 };
+export type ImageGeneration = {
+  id: string;
+  userId: string;
+  workspaceId: string | null;
+  workspaceRole: string;
+  workspacePermission: string | null;
+  prompt: string;
+  negativePrompt: string | null;
+  promptOptions: unknown;
+  model: string;
+  aspectRatio: string | null;
+  size: string | null;
+  seed: number | null;
+  steps: number | null;
+  status: string;
+  providerTaskId: string | null;
+  providerStatus: string | null;
+  sourceImageUrl: string | null;
+  outputImageUrl: string | null;
+  outputFileKey: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+

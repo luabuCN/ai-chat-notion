@@ -17,6 +17,7 @@ model User {
   avatarUrl          String?
   currentWorkspaceId String?           @db.Uuid
   editorDocuments    EditorDocument[]
+  imageGenerations   ImageGeneration[]
   ownedWorkspaces    Workspace[]       @relation("OwnedWorkspaces")
   memberships        WorkspaceMember[]
   accounts           Account[]
@@ -88,6 +89,7 @@ model Workspace {
   members   WorkspaceMember[]
   chats     Chat[]
   documents EditorDocument[]
+  images    ImageGeneration[]
   invites   WorkspaceInvite[]
 
   inviteCode          String?   @unique @db.VarChar(64)
@@ -97,6 +99,40 @@ model Workspace {
   @@index([slug])
   @@index([inviteCode])
   @@map("Workspace")
+}
+
+// 图片生成记录
+model ImageGeneration {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String    @db.Uuid
+  workspaceId         String?   @db.Uuid
+  workspaceRole       String    @default("member") @db.VarChar(20)
+  workspacePermission String?   @db.VarChar(20)
+  prompt              String    @db.Text
+  negativePrompt      String?   @db.Text
+  promptOptions       Json?
+  model               String    @db.VarChar(100)
+  aspectRatio         String?   @db.VarChar(20)
+  size                String?   @db.VarChar(20)
+  seed                Int?
+  steps               Int?
+  status              String    @default("PENDING") @db.VarChar(20)
+  providerTaskId      String?   @unique @db.VarChar(100)
+  providerStatus      String?   @db.VarChar(30)
+  sourceImageUrl      String?
+  outputImageUrl      String?
+  outputFileKey       String?   @db.VarChar(255)
+  errorMessage        String?   @db.Text
+  createdAt           DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime  @updatedAt @db.Timestamp(6)
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("ImageGeneration")
 }
 
 // 空间成员关系

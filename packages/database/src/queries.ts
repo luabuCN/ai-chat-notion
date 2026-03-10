@@ -10,3 +10,6 @@ export * from "./queries/suggestion";
 export * from "./queries/stream";
 export * from "./queries/editor-document";
 export * from "./queries/workspace";
+export * from "./queries/image-generation";
+
+

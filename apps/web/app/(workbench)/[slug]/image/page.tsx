@@ -17,5 +17,6 @@ export default async function Page({
   const { slug } = await params;
   await requireWorkspaceAccess(slug);
 
-  return <ImageGenerationStudio />;
+  return <ImageGenerationStudio workspaceSlug={slug} />;
 }
+
