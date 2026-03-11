@@ -1,6 +1,6 @@
 import { auth } from "../../(auth)/auth";
 import { redirect } from "next/navigation";
-import { ImageGenerationStudio } from "@/components/image-generation-studio";
+import { ImageGenerationStudio } from "@/components/image/image-generation-studio";
 
 export default async function Page() {
   const session = await auth();
@@ -11,4 +11,3 @@ export default async function Page() {
 
   return <ImageGenerationStudio />;
 }
-

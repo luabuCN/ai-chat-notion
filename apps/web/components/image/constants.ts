@@ -16,12 +16,12 @@ export const MODELS = [
   {
     id: "MusePublic/489_ckpt_FLUX_1",
     name: "Flux 1",
-    badge: "质感写实",
+    badge: "插画风格",
   },
   {
     id: "MAILAND/majicflus_v1",
     name: "Majicflux v1",
-    badge: "插画风格",
+    badge: "质感写实",
   },
 ];
 
@@ -150,6 +150,4 @@ export const NEGATIVE_OPTIONS = [
 export const PROMPT_TEMPLATES = [
   "电商产品海报，主体居中，干净高级背景，品牌级灯光，细节锐利",
   "二次元角色立绘，完整构图，服装细节丰富，光影通透，背景统一",
-  "社媒封面主视觉，强记忆点，中心聚焦，清晰标题留白区域",
-  "室内空间效果图，现代审美，真实材质，高级氛围光",
 ];

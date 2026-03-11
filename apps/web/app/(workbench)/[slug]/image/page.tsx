@@ -1,7 +1,7 @@
 import { auth } from "../../../(auth)/auth";
 import { redirect } from "next/navigation";
 import { requireWorkspaceAccess } from "@/lib/workspace-access";
-import { ImageGenerationStudio } from "@/components/image-generation-studio";
+import { ImageGenerationStudio } from "@/components/image/image-generation-studio";
 
 export default async function Page({
   params,
@@ -19,4 +19,3 @@ export default async function Page({
 
   return <ImageGenerationStudio workspaceSlug={slug} />;
 }
-

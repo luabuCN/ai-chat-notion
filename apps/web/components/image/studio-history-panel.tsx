@@ -13,7 +13,10 @@ import {
   ZoomOut,
   RotateCw,
   Maximize,
+  Maximize2,
+  Download,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { SIZES } from "./constants";
 import type { HistoryItem } from "./types";
 import { formatTime, getStatusLabel } from "./utils";
@@ -38,7 +41,12 @@ export function StudioHistoryPanel({
           {"正在加载历史记录..."}
         </div>
       ) : history.length === 0 ? (
-        <div className="flex h-[320px] flex-col items-center justify-center rounded-[28px] border border-dashed border-zinc-300 bg-zinc-50 text-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="flex h-[320px] flex-col items-center justify-center rounded-[28px] border border-dashed border-zinc-300 bg-zinc-50 text-center"
+        >
           <History className="size-12 text-zinc-400" />
           <h3 className="mt-4 text-xl font-semibold text-zinc-950">
             {"当前还没有图片历史"}
@@ -48,7 +56,7 @@ export function StudioHistoryPanel({
               "生成完成后的图片会自动归档，并带上空间、角色和时间信息，方便团队追踪。"
             }
           </p>
-        </div>
+        </motion.div>
       ) : (
         <PhotoProvider
           toolbarRender={({ index, scale, onScale, rotate, onRotate }) => {
@@ -133,80 +141,57 @@ export function StudioHistoryPanel({
             );
           }}
         >
-          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
             {history.map((item) => (
-              <article
+              <motion.article
                 key={item.id}
-                className="overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-sm"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+                className="group relative aspect-4/3 overflow-hidden rounded-[24px] border border-zinc-200 bg-zinc-100 shadow-sm cursor-pointer"
               >
-                <div className="aspect-[4/3] overflow-hidden bg-zinc-100">
-                  {item.outputImageUrl ? (
+                {item.outputImageUrl ? (
+                  <>
                     <img
                       src={item.outputImageUrl}
                       alt={item.prompt}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-zinc-500">
-                      {item.status === "FAILED" ? (
-                        item.errorMessage || "生成失败"
-                      ) : (
-                        <Loader2 className="size-6 animate-spin" />
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4 p-5">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge className="border border-zinc-200 bg-zinc-50 text-zinc-700">
-                      {getStatusLabel(item.status)}
-                    </Badge>
-                  </div>
-                  <div>
-                    <h3 className="line-clamp-2 text-lg font-semibold text-zinc-950">
-                      {item.prompt}
-                    </h3>
-                    <p className="mt-2 text-sm text-zinc-500">
-                      {"比例 "}
-                      {SIZES.find((s) => s.id === item.size)?.name ||
-                        item.size ||
-                        "默认"}
-                      {" · "}
-                      {formatTime(item.createdAt)}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-center gap-3">
-                    {item.outputImageUrl ? (
+                    <div className="absolute right-3 top-3 flex gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <PhotoView src={item.outputImageUrl}>
                         <button
                           type="button"
-                          className="flex h-9 flex-1 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100"
+                          className="flex size-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-colors hover:bg-black/80"
+                          title="查看详情"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {"查看详情"}
+                          <Maximize2 className="size-4" />
                         </button>
                       </PhotoView>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="flex h-9 flex-1 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-400 opacity-50 transition-colors"
-                      >
-                        {"生成中..."}
-                      </button>
-                    )}
-                    {item.outputImageUrl ? (
                       <a
                         href={item.outputImageUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100"
+                        className="flex size-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-colors hover:bg-black/80"
+                        title="下载图片"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {"下载图片"}
+                        <Download className="size-4" />
                       </a>
-                    ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-zinc-500">
+                    {item.status === "FAILED" ? (
+                      item.errorMessage || "生成失败"
+                    ) : (
+                      <>
+                        <Loader2 className="mb-2 size-6 animate-spin" />
+                        <span className="text-xs">{"生成中..."}</span>
+                      </>
+                    )}
                   </div>
-                </div>
-              </article>
+                )}
+              </motion.article>
             ))}
           </div>
         </PhotoProvider>

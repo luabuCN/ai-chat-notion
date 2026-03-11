@@ -13,18 +13,24 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo/ui";
 import {
   Camera,
   Loader2,
   PanelLeft,
-  Palette,
-  Image,
-  Settings2,
   Sparkles,
   Sun,
+  Eraser,
+  Wand2,
+  Palette,
+  Image as ImageIcon,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useOptimizePrompt } from "./actions";
 import {
   MODELS,
   NEGATIVE_OPTIONS,
@@ -52,7 +58,7 @@ const PROMPT_GROUP_ICONS: Record<
   React.ComponentType<{ className?: string }>
 > = {
   styles: Palette,
-  scenes: Image,
+  scenes: ImageIcon,
   lighting: Sun,
   camera: Camera,
   quality: Sparkles,
@@ -80,6 +86,7 @@ type StudioSidebarProps = {
   ) => void;
   onApplyTemplate: (template: string) => void;
   onGenerate: () => void;
+  onReset: () => void;
 };
 
 export function StudioSidebar({
@@ -98,9 +105,13 @@ export function StudioSidebar({
   onTogglePromptOption,
   onApplyTemplate,
   onGenerate,
+  onReset,
 }: StudioSidebarProps) {
+  const { mutate: optimizePrompt, isPending: isOptimizing } =
+    useOptimizePrompt();
+
   return (
-    <aside className="flex h-full w-full flex-col border-b border-zinc-200 bg-white xl:w-[380px] xl:border-b-0 xl:border-r">
+    <aside className="flex h-full w-full flex-col border-b border-zinc-200 bg-white xl:w-[480px] xl:border-b-0 xl:border-r">
       <div className="p-5 pb-0 md:p-6 md:pb-0">
         <section className="rounded-2xl border border-zinc-200 px-4 py-3">
           <div className="flex items-center gap-3">
@@ -121,17 +132,35 @@ export function StudioSidebar({
         </section>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-5 p-5 md:p-6">
+      <div className="min-h-0 flex-1">
+        <div className="space-y-4 p-5 md:p-6">
           {/* 描述 + 模型 + 图片比例 + 增强提示词（合并为一个区域） */}
-          <section className="space-y-5 rounded-[28px] border border-zinc-200 bg-white p-5 shadow-sm">
+          <section className="space-y-3.5 rounded-[28px] border border-zinc-200 bg-white p-5 shadow-sm">
             {/* AI 模型选择器 */}
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-zinc-950">{"AI 模型"}</p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {"选择适合当前视觉风格的出图引擎"}
-                </p>
+            <div className="space-y-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-zinc-950">
+                    {"AI 模型"}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {"选择适合当前视觉风格的出图引擎"}
+                  </p>
+                </div>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onReset}
+                      className="rounded-full p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+                    >
+                      <Eraser className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>{"清空所有设置和提示词"}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <Select value={model} onValueChange={onModelChange}>
                 <SelectTrigger className="w-full">
@@ -152,31 +181,51 @@ export function StudioSidebar({
               </Select>
             </div>
             {/* 描述输入 */}
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-zinc-950">
                     {"描述你想生成的图片"}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {"尽量写清主体、场景、风格和镜头感"}
                   </p>
                 </div>
                 <span className="text-xs text-zinc-400">
                   {prompt.length}/4000
                 </span>
               </div>
-              <Textarea
-                value={prompt}
-                onChange={(event) => onPromptChange(event.target.value)}
-                placeholder="例如：高端咖啡品牌包装，暖调电影灯光，产品居中，桌面细节清晰，适合首页 banner"
-                className="min-h-[150px] border-zinc-200 bg-zinc-50 text-zinc-950 placeholder:text-zinc-400"
-                maxLength={4000}
-              />
+              <div className="flex flex-col rounded-xl border border-zinc-200 bg-zinc-50 shadow-sm transition-colors focus-within:border-zinc-400 focus-within:ring-1 focus-within:ring-zinc-400">
+                <textarea
+                  value={prompt}
+                  onChange={(event) => onPromptChange(event.target.value)}
+                  placeholder="例如：高端咖啡品牌包装，暖调电影灯光，桌面细节清晰..."
+                  className="min-h-[140px] w-full resize-none border-0 bg-transparent px-3 py-3 text-sm text-zinc-950 placeholder:text-zinc-400 outline-none focus:outline-none focus:ring-0"
+                  style={{ boxShadow: "none" }}
+                  maxLength={4000}
+                />
+                <div className="flex justify-end p-2 pt-0 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (prompt.trim()) {
+                        optimizePrompt({ prompt, onUpdate: onPromptChange });
+                      }
+                    }}
+                    disabled={isOptimizing || !prompt.trim()}
+                    className="flex items-center gap-1.5 rounded-full bg-zinc-900/5 px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-900/10 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-50"
+                    title="AI 优化提示词"
+                  >
+                    {isOptimizing ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Wand2 className="size-3.5" />
+                    )}
+                    {"AI 优化"}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* 图片比例（嵌入在描述下方） */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div>
                 <p className="text-sm font-medium text-zinc-950">
                   {"图片比例"}
@@ -217,6 +266,27 @@ export function StudioSidebar({
               </div>
             </div>
 
+            {/* 灵感模板 */}
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm font-medium text-zinc-950">
+                  {"灵感模板"}
+                </p>
+              </div>
+              <div className="space-y-2">
+                {PROMPT_TEMPLATES.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => onApplyTemplate(item)}
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs leading-5 text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-100"
+                  >
+                    <span className="line-clamp-1">{item}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* 高级设置弹窗 */}
             <Dialog>
               <DialogTrigger asChild>
@@ -226,7 +296,7 @@ export function StudioSidebar({
                 >
                   <Settings2 className="size-4" />
                   <span className="text-xs text-zinc-400">
-                    {"高级设置：增强提示词 · 负向提示词 · 灵感模板"}
+                    {"高级设置：增强提示词 · 负向提示词"}
                   </span>
                 </button>
               </DialogTrigger>
@@ -234,7 +304,7 @@ export function StudioSidebar({
                 <DialogHeader>
                   <DialogTitle>{"高级设置"}</DialogTitle>
                   <DialogDescription>
-                    {"增强提示词、负向提示词和灵感模板"}
+                    {"增强提示词与负向提示词"}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6 py-2">
@@ -308,25 +378,6 @@ export function StudioSidebar({
                               ? "border-zinc-400 bg-zinc-200 text-zinc-900"
                               : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100"
                           )}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 灵感模板 */}
-                  <div className="grid gap-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">
-                      {"灵感模板"}
-                    </p>
-                    <div className="space-y-2">
-                      {PROMPT_TEMPLATES.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => onApplyTemplate(item)}
-                          className="w-full rounded-xl bg-zinc-50 px-3 py-2.5 text-left text-xs leading-5 text-zinc-600 transition hover:bg-zinc-100"
                         >
                           {item}
                         </button>

@@ -6,11 +6,12 @@ import { HistoryIcon, ImageIcon } from "lucide-react";
 import { toast } from "@/components/toast";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
-import { MODELS, SIZES } from "./image/constants";
-import { StudioHistoryPanel } from "./image/studio-history-panel";
-import { StudioResultPanel } from "./image/studio-result-panel";
-import { StudioSidebar } from "./image/studio-sidebar";
-import type { HistoryItem, PromptOptions } from "./image/types";
+import { MODELS, SIZES } from "./constants";
+import { StudioHistoryPanel } from "./studio-history-panel";
+import { StudioResultPanel } from "./studio-result-panel";
+import { StudioSidebar } from "./studio-sidebar";
+import { useImageGeneration, useImageHistory } from "./actions";
+import type { HistoryItem, PromptOptions } from "./types";
 
 export function ImageGenerationStudio({
   workspaceSlug,
@@ -37,45 +38,16 @@ export function ImageGenerationStudio({
     quality: [],
     negatives: [],
   });
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [resultImage, setResultImage] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
 
-  async function loadHistory(scope = historyScope) {
-    setIsHistoryLoading(true);
-    setHistoryLoadFailed(false);
+  const {
+    data: history = [],
+    isLoading: isHistoryLoading,
+    refetch: loadHistory,
+  } = useImageHistory(workspaceSlug, historyScope);
 
-    try {
-      const params = new URLSearchParams({ scope, limit: "30" });
-      if (workspaceSlug) {
-        params.set("workspace", workspaceSlug);
-      }
-
-      const response = await fetch(`/api/image/history?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error("加载历史记录失败");
-      }
-
-      const data = await response.json();
-      startTransition(() => {
-        setHistory(data.items || []);
-      });
-    } catch (error) {
-      console.error(error);
-      setHistoryLoadFailed(true);
-      startTransition(() => {
-        setHistory([]);
-      });
-    } finally {
-      setIsHistoryLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadHistory();
-  }, [workspaceSlug, historyScope]);
+  const { mutate: generateImage, isPending: isGenerating } =
+    useImageGeneration();
 
   function togglePromptOption(
     group: keyof PromptOptions,
@@ -86,30 +58,9 @@ export function ImageGenerationStudio({
       const exists = current[group].includes(value);
       return {
         ...current,
-        [group]: exists
-          ? current[group].filter((item) => item !== value)
-          : [...current[group], value],
+        [group]: exists ? [] : [value],
       };
     });
-
-    if (target === "negative") {
-      setNegativePrompt((current) =>
-        current.includes(value)
-          ? current.replace(`, ${value}`, "").replace(value, "").trim()
-          : current.trim()
-          ? `${current}, ${value}`
-          : value
-      );
-      return;
-    }
-
-    setPrompt((current) =>
-      current.includes(value)
-        ? current.replace(`, ${value}`, "").replace(value, "").trim()
-        : current.trim()
-        ? `${current}, ${value}`
-        : value
-    );
   }
 
   function applyTemplate(template: string) {
@@ -123,6 +74,22 @@ export function ImageGenerationStudio({
     if (item.outputImageUrl) {
       setResultImage(item.outputImageUrl);
     }
+  }
+
+  function handleReset() {
+    setPrompt("");
+    setNegativePrompt("");
+    setModel(MODELS[0].id);
+    setSize(SIZES[0].id);
+    setPromptOptions({
+      styles: [],
+      scenes: [],
+      lighting: [],
+      camera: [],
+      quality: [],
+      negatives: [],
+    });
+    setResultImage(null);
   }
 
   async function handleGenerate() {
@@ -139,72 +106,49 @@ export function ImageGenerationStudio({
       return;
     }
 
-    setIsGenerating(true);
     setResultImage(null);
     setActiveTab("result");
 
-    try {
-      const response = await fetch("/api/image/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt,
-          negative_prompt: negativePrompt,
-          size,
-          workspaceSlug,
-          promptOptions,
-        }),
-      });
+    const promptAdditions = Object.entries(promptOptions)
+      .filter(([key]) => key !== "negatives")
+      .flatMap(([, values]) => values);
 
-      if (!response.ok) {
-        throw new Error((await response.text()) || "创建任务失败");
-      }
+    const composedPrompt = [prompt.trim(), ...promptAdditions]
+      .filter(Boolean)
+      .join(", ");
 
-      const { task_id, historyId } = await response.json();
+    const composedNegative = [negativePrompt.trim(), ...promptOptions.negatives]
+      .filter(Boolean)
+      .join(", ");
 
-      const poll = async () => {
-        const pollResponse = await fetch(`/api/image/tasks/${task_id}`);
-
-        if (!pollResponse.ok) {
-          throw new Error((await pollResponse.text()) || "查询任务状态失败");
-        }
-
-        const data = await pollResponse.json();
-
-        if (data.task_status === "SUCCEED") {
-          setResultImage(data.output_images?.[0] ?? null);
-          setIsGenerating(false);
+    generateImage(
+      {
+        model,
+        prompt: composedPrompt,
+        negative_prompt: composedNegative,
+        size,
+        workspaceSlug,
+        promptOptions,
+      },
+      {
+        onSuccess: (imageUrl) => {
+          setResultImage(imageUrl);
           toast({
             type: "success",
             description: "图片已生成并自动上传到素材库",
           });
-          await loadHistory();
-          return;
-        }
-
-        if (data.task_status === "FAILED") {
-          setIsGenerating(false);
+          loadHistory();
+        },
+        onError: (error) => {
           toast({
             type: "error",
-            description: data.history?.errorMessage || "图片生成失败",
+            description:
+              error instanceof Error ? error.message : "图片生成失败",
           });
-          await loadHistory();
-          return;
-        }
-
-        setTimeout(poll, 2500);
-      };
-
-      poll();
-    } catch (error) {
-      console.error(error);
-      toast({
-        type: "error",
-        description: error instanceof Error ? error.message : "生成请求失败",
-      });
-      setIsGenerating(false);
-    }
+          loadHistory();
+        },
+      }
+    );
   }
 
   return (
@@ -228,6 +172,7 @@ export function ImageGenerationStudio({
           onTogglePromptOption={togglePromptOption}
           onApplyTemplate={applyTemplate}
           onGenerate={handleGenerate}
+          onReset={handleReset}
         />
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white">
