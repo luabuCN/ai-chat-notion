@@ -53,6 +53,10 @@
   width: 1.5rem;
 }
 
+:has(> .bubbleMenu-floating) {
+  z-index: 99999 !important;
+}
+
 .tiptap {
   overflow: auto hidden;
   outline: none;

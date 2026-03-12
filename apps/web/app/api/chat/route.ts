@@ -105,7 +105,6 @@ export async function POST(request: Request) {
       workspaceSlug?: string;
       documentIds?: string[];
     } = requestBody;
-    console.log(requestBody, "requestBody--------");
 
     const session = await auth();
 
@@ -263,30 +262,14 @@ export async function POST(request: Request) {
 
     // Use custom model if provided, otherwise use first available model
     const modelSlug = selectedModelSlug || (await getFirstModelSlug());
-    console.log(modelSlug, "modelSlug====");
     const modelProvider = getProviderWithModel(
       modelSlug
     ) as unknown as LanguageModel;
 
-    // Use frontend capabilities first, and fallback to model-slug heuristics.
-    // This keeps features working even when /api/models metadata is stale.
-    const supportsToolsFromClient = true;
     const supportsReasoningFromClient = modelCapabilities?.supports_reasoning;
-    const supportsTools = supportsToolsFromClient ?? true;
     const supportsReasoning =
       supportsReasoningFromClient ?? isMoonshotThinkingModel(modelSlug);
     const reasoningEnabled = Boolean(enableReasoning && supportsReasoning);
-
-    if (!isProductionEnvironment) {
-      console.log("[chat] model capability resolution", {
-        modelSlug,
-        enableReasoning: Boolean(enableReasoning),
-        modelCapabilities: modelCapabilities ?? {},
-        supportsTools,
-        supportsReasoning,
-        reasoningEnabled,
-      });
-    }
 
     const sysPrompt = systemPrompt({
       enableReasoning,
@@ -304,28 +287,24 @@ export async function POST(request: Request) {
           messages: modelMessages,
           stopWhen: stepCountIs(5),
           maxOutputTokens: 5000,
-          experimental_activeTools: !supportsTools
-            ? []
-            : [
-                "getWeather",
-                "createDocument",
-                "updateDocument",
-                "requestSuggestions",
-                "viewDocument",
-              ],
+          experimental_activeTools: [
+            "getWeather",
+            "createDocument",
+            "updateDocument",
+            "requestSuggestions",
+            "viewDocument",
+          ],
           experimental_transform: smoothStream({ chunking: "word" }),
-          ...(supportsTools && {
-            tools: {
-              getWeather,
-              viewDocument,
-              createDocument: createDocument({ session, dataStream }),
-              updateDocument: updateDocument({ session, dataStream }),
-              requestSuggestions: requestSuggestions({
-                session,
-                dataStream,
-              }),
-            },
-          }),
+          tools: {
+            getWeather,
+            viewDocument,
+            createDocument: createDocument({ session, dataStream }),
+            updateDocument: updateDocument({ session, dataStream }),
+            requestSuggestions: requestSuggestions({
+              session,
+              dataStream,
+            }),
+          },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",

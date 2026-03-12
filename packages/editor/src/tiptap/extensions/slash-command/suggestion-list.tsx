@@ -10,8 +10,12 @@ import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
 import { useTheme } from "next-themes";
 
+export type SuggestionCategory = "format" | "insert" | null;
+
 export interface CommandSuggestionItem extends SuggestionItem {
   icon: LucideIcon;
+  /** 分类：format=格式, insert=插入, null=无分类（如 AI） */
+  category?: SuggestionCategory;
 }
 
 export type SuggestionListProps = SuggestionProps<
@@ -132,18 +136,27 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
           <div className="z-20 flex flex-col space-y-1 bg-popover rounded-md border shadow-md transition-all p-1 max-h-[320px] w-72 overflow-y-auto">
             {props.items.length > 0 ? (
               props.items.map((item, i) => {
+                const category = item.category;
+                const prevCategory = i > 0 ? props.items[i - 1]?.category : null;
+                const showCategoryHeader =
+                  category &&
+                  category !== prevCategory;
+
                 return (
-                  <div
-                    key={i}
-                    className={cn(
-                      [
-                        "flex space-x-2 hover:bg-accent p-1 rounded-md cursor-pointer text-foreground",
-                      ],
-                      {
-                        "bg-accent": i === selectedIndex,
-                      }
+                  <div key={i} className="flex flex-col">
+                    {showCategoryHeader && (
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        {category === "format" ? "格式" : "插入"}
+                      </div>
                     )}
-                    onClick={() => {
+                    <div
+                      className={cn(
+                        "flex space-x-2 hover:bg-accent p-1 rounded-md cursor-pointer text-foreground",
+                        {
+                          "bg-accent": i === selectedIndex,
+                        }
+                      )}
+                      onClick={() => {
                       if (item.id === "mermaid") {
                         setOpenMermaidInputDialog(true);
                         return;
@@ -173,15 +186,16 @@ const SuggestionList = forwardRef<SuggestionListHandle, SuggestionListProps>(
 
                       props.command(item);
                     }}
-                  >
-                    <div className="size-10 flex items-center justify-center border bg-popover rounded-md">
-                      <item.icon className="size-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <p className="font-medium text-sm">{item.title}</p>
-                      <span className="text-xs text-muted-foreground">
-                        {item.description}
-                      </span>
+                    >
+                      <div className="size-10 flex items-center justify-center border bg-popover rounded-md">
+                        <item.icon className="size-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="font-medium text-sm">{item.title}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {item.description}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );

@@ -320,10 +320,32 @@ function PureMultimodalInput({
     async (event: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
 
-      setUploadQueue(files.map((file) => file.name));
+      const supportedFiles = files.filter(
+        (file) =>
+          file.type.startsWith("image/") || file.type.startsWith("video/")
+      );
+      const unsupportedFiles = files.filter(
+        (file) =>
+          !file.type.startsWith("image/") && !file.type.startsWith("video/")
+      );
+
+      if (unsupportedFiles.length > 0) {
+        toast.error(
+          `仅支持图片和视频格式，已忽略 ${unsupportedFiles.length} 个不支持的文件`
+        );
+      }
+
+      if (supportedFiles.length === 0) {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
+      setUploadQueue(supportedFiles.map((file) => file.name));
 
       try {
-        const uploadPromises = files.map((file) => uploadFile(file));
+        const uploadPromises = supportedFiles.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
           (attachment) => attachment !== undefined
@@ -337,7 +359,6 @@ function PureMultimodalInput({
         console.error("Error uploading files!", error);
       } finally {
         setUploadQueue([]);
-        // 重置文件输入，允许用户重新选择文件（包括相同的文件）
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }

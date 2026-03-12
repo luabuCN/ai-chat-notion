@@ -37,6 +37,7 @@ export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
   return (
     <BubbleMenu
       editor={editor}
+      className="bubbleMenu-floating"
       options={{
         placement: "top",
         offset: 8,
@@ -65,7 +66,7 @@ export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
         return true;
       }}
     >
-      <div className="flex w-fit max-w-[90vw] overflow-x-auto rounded-md border bg-popover shadow-xl overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-999">
+      <div className="flex w-fit max-w-[90vw] overflow-x-auto rounded-md border bg-popover shadow-xl overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex h-9 items-center shrink-0">
           <AiSelector editor={editor} />
           <Separator orientation="vertical" />

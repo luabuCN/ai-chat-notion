@@ -31,10 +31,11 @@ type SuggestionType = Omit<
   "editor"
 >;
 
-const list: CommandSuggestionItem[] = [
+const formatItems: CommandSuggestionItem[] = [
   {
     id: "text",
     title: "Text",
+    category: "format",
     description: "Just start typing with plain text.",
     keywords: ["p", "paragraph"],
     icon: LetterTextIcon,
@@ -50,6 +51,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "h1",
     title: "Heading 1",
+    category: "format",
     description: "Big section heading.",
     keywords: ["title", "big", "large", "heading"],
     icon: Heading1Icon,
@@ -65,6 +67,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "h2",
     title: "Heading 2",
+    category: "format",
     description: "Medium section heading.",
     keywords: ["subtitle", "medium", "heading"],
     icon: Heading2Icon,
@@ -80,6 +83,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "h3",
     title: "Heading 3",
+    category: "format",
     description: "Small section heading.",
     keywords: ["subtitle", "small", "heading"],
     icon: Heading3Icon,
@@ -95,6 +99,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "ul",
     title: "Bullet List",
+    category: "format",
     description: "Create a simple bullet list.",
     keywords: ["unordered", "list", "bullet"],
     icon: ListIcon,
@@ -105,6 +110,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "ol",
     title: "Numbered List",
+    category: "format",
     description: "Create a list with numbering.",
     keywords: ["ordered", "list"],
     icon: ListOrderedIcon,
@@ -115,6 +121,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "blockquote",
     title: "Quote",
+    category: "format",
     description: "Capture a quote.",
     keywords: ["blockquote"],
     icon: TextQuoteIcon,
@@ -130,6 +137,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "codeBlock",
     title: "Code",
+    category: "format",
     description: "Capture a code snippet.",
     keywords: ["codeblock"],
     icon: CodeIcon,
@@ -144,6 +152,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "table",
     title: "Table",
+    category: "format",
     description: "Capture a table.",
     keywords: ["table"],
     icon: TableIcon,
@@ -153,6 +162,7 @@ const list: CommandSuggestionItem[] = [
   {
     id: "mermaid",
     title: "Mermaid",
+    category: "format",
     description: "Render a mermaid diagram.",
     keywords: ["mermaid", "diagram"],
     icon: ShapesIcon,
@@ -161,14 +171,29 @@ const list: CommandSuggestionItem[] = [
   {
     id: "chart",
     title: "Chart",
+    category: "format",
     description: "Render a chart.",
     keywords: ["chart"],
     icon: ChartPieIcon,
     command: () => {},
   },
   {
+    id: "divider",
+    title: "Divider",
+    category: "format",
+    description: "Create a horizontal divider.",
+    keywords: ["divider"],
+    icon: DivideIcon,
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
+  },
+];
+
+const insertItems: CommandSuggestionItem[] = [
+  {
     id: "youtube",
     title: "Youtube",
+    category: "insert",
     description: "Embed a Youtube video.",
     keywords: ["youtube"],
     icon: SquarePlayIcon,
@@ -198,50 +223,37 @@ const list: CommandSuggestionItem[] = [
   {
     id: "emoji",
     title: "Emoji",
+    category: "insert",
     description: "Insert an emoji.",
     keywords: ["emoji", "smile", "face"],
     icon: Smile,
     command: () => {},
   },
-  {
-    id: "divider",
-    title: "Divider",
-    description: "Create a horizontal divider.",
-    keywords: ["divider"],
-    icon: DivideIcon,
-    command: ({ editor, range }) =>
-      editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
-  },
 ];
 
-const withAiList: CommandSuggestionItem[] = [
-  {
-    id: "aiWriter",
-    title: "AI Writer",
-    description: "Ask AI with custom prompt.",
-    keywords: ["ai"],
-    icon: SparklesIcon,
-    command: ({ editor, range }) => {
-      // This will trigger our unified AI panel
-      editor.chain().focus().deleteRange(range).run();
-      // Wait a tiny bit for the range deletion to settle, then pop up AI panel
-      // We can actually use the store directly here
-      import("../../../components/ai-panel/ai-panel-store").then(
-        ({ store }) => {
-          // 设置为 command 模式（显示输入框）
-          store.getState().setMode("command");
-          store.getState().setVisible(true);
-        }
-      );
-    },
+const aiWriterItem: CommandSuggestionItem = {
+  id: "aiWriter",
+  title: "AI Writer",
+  description: "Ask AI with custom prompt.",
+  keywords: ["ai"],
+  category: null,
+  icon: SparklesIcon,
+  command: ({ editor, range }) => {
+    editor.chain().focus().deleteRange(range).run();
+    import("../../../components/ai-panel/ai-panel-store").then(
+      ({ store }) => {
+        store.getState().setMode("command");
+        store.getState().setVisible(true);
+      }
+    );
   },
-  ...list,
-];
+};
 
 const uploadItems: CommandSuggestionItem[] = [
   {
     id: "image",
     title: "Image",
+    category: "insert",
     description: "Upload an image or embed from URL.",
     keywords: ["image", "picture", "photo", "upload"],
     icon: ImageIcon,
@@ -250,6 +262,7 @@ const uploadItems: CommandSuggestionItem[] = [
   {
     id: "attachment",
     title: "Attachment",
+    category: "insert",
     description: "Upload a file or embed from URL.",
     keywords: ["attachment", "file", "upload", "document"],
     icon: PaperclipIcon,
@@ -301,11 +314,14 @@ const getSuggestion = ({
         return item.keywords.some((k) => k.startsWith(query.toLowerCase()));
       };
 
-      const baseList = ai ? withAiList : list;
-      const itemsWithUpload = uploadFile
-        ? [...uploadItems, ...baseList]
-        : baseList;
-      return itemsWithUpload.filter(filterFun);
+      const items = ai
+        ? uploadFile
+          ? [aiWriterItem, ...formatItems, ...uploadItems, ...insertItems]
+          : [aiWriterItem, ...formatItems, ...insertItems]
+        : uploadFile
+          ? [...formatItems, ...uploadItems, ...insertItems]
+          : [...formatItems, ...insertItems];
+      return items.filter(filterFun);
     },
     render: () => {
       let component: ReactRenderer<SuggestionListHandle, SuggestionListProps>;
