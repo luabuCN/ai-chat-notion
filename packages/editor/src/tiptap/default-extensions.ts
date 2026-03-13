@@ -1,7 +1,7 @@
 import { cn, slugify } from "../lib/utils";
 import { mergeAttributes } from "@tiptap/core";
 import Heading from "@tiptap/extension-heading";
-import Image from "@tiptap/extension-image";
+import { TiptapImage } from "./extensions/image/image";
 import { TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -224,12 +224,6 @@ const TiptapTableCell = TableCell.extend({
   },
 });
 
-const TiptapImage = Image.configure({
-  allowBase64: false,
-  HTMLAttributes: {
-    class: cn("rounded border mx-auto"),
-  },
-});
 
 const TipTapMarkdown = Markdown.configure({
   indentation: {

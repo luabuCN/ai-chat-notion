@@ -1,6 +1,6 @@
+import { ImagePreview } from "@repo/ui";
 import { Download, ImagePlus, Loader2, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import { PhotoProvider, PhotoView } from "react-photo-view";
 
 type StudioResultPanelProps = {
   resultImage: string | null;
@@ -24,15 +24,13 @@ export function StudioResultPanel({
             <div className="absolute left-1/2 top-1/2 -z-10 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-200/50 blur-[100px]" />
 
             <div className="group relative aspect-square h-full max-h-full w-full max-w-[800px] overflow-hidden rounded-[24px] border border-zinc-200/60 bg-white shadow-xl ring-1 ring-zinc-900/5 transition-all hover:shadow-2xl">
-              <PhotoProvider>
-                <PhotoView src={resultImage}>
-                  <img
-                    src={resultImage}
-                    alt="Generated outcome"
-                    className="h-full w-full cursor-zoom-in object-contain transition-transform duration-700 group-hover:scale-[1.02]"
-                  />
-                </PhotoView>
-              </PhotoProvider>
+              <ImagePreview src={resultImage}>
+                <img
+                  src={resultImage}
+                  alt="Generated outcome"
+                  className="h-full w-full cursor-zoom-in object-contain transition-transform duration-700 group-hover:scale-[1.02]"
+                />
+              </ImagePreview>
 
               <div className="absolute right-5 top-5 flex -translate-y-2 gap-3 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
                 <a

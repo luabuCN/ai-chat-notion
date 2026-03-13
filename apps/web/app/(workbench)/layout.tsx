@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DataStreamProvider } from "@/components/data-stream-provider";
 import { WorkspaceProvider } from "@/components/workspace-provider";
+import { MaterialLibraryDialog } from "@/components/editor/material-library-dialog";
 import { SidebarInset, SidebarProvider } from "@repo/ui";
 import { auth } from "../(auth)/auth";
 
@@ -19,7 +20,10 @@ export default async function Layout({
         <DataStreamProvider>
           <SidebarProvider defaultOpen={!isCollapsed}>
             <AppSidebar user={session?.user} />
-            <SidebarInset>{children}</SidebarInset>
+            <SidebarInset>
+              {children}
+              <MaterialLibraryDialog />
+            </SidebarInset>
           </SidebarProvider>
         </DataStreamProvider>
       </WorkspaceProvider>

@@ -10,7 +10,7 @@ import { SessionProvider } from "next-auth/react";
 import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryProvider } from "@/lib/query-client";
-import { PhotoProvider } from "@/components/photo-provider";
+import { ImagePreview } from "@repo/ui";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.vercel.ai"),
@@ -76,7 +76,7 @@ export default async function RootLayout({
         >
           <QueryProvider>
             <NextIntlClientProvider messages={messages}>
-              <PhotoProvider>
+              <ImagePreview>
                 <TooltipProvider>
                   <Toaster position="top-center" />
                   <SessionProvider
@@ -86,7 +86,7 @@ export default async function RootLayout({
                     {children}
                   </SessionProvider>
                 </TooltipProvider>
-              </PhotoProvider>
+              </ImagePreview>
             </NextIntlClientProvider>
           </QueryProvider>
         </ThemeProvider>

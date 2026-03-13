@@ -1,5 +1,6 @@
 import {
-  Badge,
+  ImagePreview,
+  PhotoView,
   ScrollArea,
   Tooltip,
   TooltipContent,
@@ -7,11 +8,8 @@ import {
 } from "@repo/ui";
 import {
   History,
-  Loader2,
   Info,
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
+  Loader2,
   Maximize,
   Maximize2,
   Download,
@@ -19,8 +17,7 @@ import {
 import { motion } from "framer-motion";
 import { SIZES } from "./constants";
 import type { HistoryItem } from "./types";
-import { formatTime, getStatusLabel } from "./utils";
-import { PhotoProvider, PhotoView } from "react-photo-view";
+import { formatTime } from "./utils";
 
 type StudioHistoryPanelProps = {
   history: HistoryItem[];
@@ -58,26 +55,14 @@ export function StudioHistoryPanel({
           </p>
         </motion.div>
       ) : (
-        <PhotoProvider
-          toolbarRender={({ index, scale, onScale, rotate, onRotate }) => {
+        <ImagePreview
+          toolbarRender={({ index }) => {
             const validItems = history.filter((item) => item.outputImageUrl);
             const item = validItems[index];
             if (!item) return null;
 
             return (
-              <div className="flex items-center gap-5 pr-4">
-                <ZoomIn
-                  className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
-                  onClick={() => onScale(scale + 0.5)}
-                />
-                <ZoomOut
-                  className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
-                  onClick={() => onScale(scale - 0.5)}
-                />
-                <RotateCw
-                  className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
-                  onClick={() => onRotate(rotate + 90)}
-                />
+              <>
                 <Maximize
                   className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white"
                   onClick={() => {
@@ -90,7 +75,7 @@ export function StudioHistoryPanel({
                 />
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center pl-4">
                       <Info className="size-5 cursor-pointer text-white/70 transition-colors hover:text-white" />
                     </div>
                   </TooltipTrigger>
@@ -99,31 +84,31 @@ export function StudioHistoryPanel({
                     align="end"
                     className="z-[5000] w-80 rounded-xl border border-white/10 bg-zinc-900/95 p-4 text-left text-sm text-zinc-200 shadow-2xl backdrop-blur-md"
                   >
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <div>
                         <p className="text-xs text-zinc-400">{"提示词"}</p>
-                        <p className="mt-1 leading-relaxed">{item.prompt}</p>
+                        <p className="mt-1.5 leading-relaxed">{item.prompt}</p>
                       </div>
                       {item.negativePrompt ? (
                         <div>
                           <p className="text-xs text-zinc-400">
                             {"负向提示词"}
                           </p>
-                          <p className="mt-1 leading-relaxed">
+                          <p className="mt-1.5 leading-relaxed">
                             {item.negativePrompt}
                           </p>
                         </div>
                       ) : null}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                         <div className="min-w-0">
                           <p className="text-xs text-zinc-400">{"模型"}</p>
-                          <p className="mt-1 truncate" title={item.model}>
+                          <p className="mt-1.5 truncate" title={item.model}>
                             {item.model}
                           </p>
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs text-zinc-400">{"比例"}</p>
-                          <p className="mt-1">
+                          <p className="mt-1.5">
                             {SIZES.find((s) => s.id === item.size)?.name ||
                               item.size ||
                               "默认"}
@@ -131,13 +116,13 @@ export function StudioHistoryPanel({
                         </div>
                         <div className="col-span-2">
                           <p className="text-xs text-zinc-400">{"生成时间"}</p>
-                          <p className="mt-1">{formatTime(item.createdAt)}</p>
+                          <p className="mt-1.5">{formatTime(item.createdAt)}</p>
                         </div>
                       </div>
                     </div>
                   </TooltipContent>
                 </Tooltip>
-              </div>
+              </>
             );
           }}
         >
@@ -148,6 +133,7 @@ export function StudioHistoryPanel({
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.2 }}
                 className="group relative aspect-4/3 overflow-hidden rounded-[24px] border border-zinc-200 bg-zinc-100 shadow-sm cursor-pointer"
+                onClick={() => onSelectHistory(item)}
               >
                 {item.outputImageUrl ? (
                   <>
@@ -194,7 +180,7 @@ export function StudioHistoryPanel({
               </motion.article>
             ))}
           </div>
-        </PhotoProvider>
+        </ImagePreview>
       )}
     </ScrollArea>
   );

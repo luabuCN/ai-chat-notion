@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import "@repo/editor/styles";
 import type { CollaborativeUser, ConnectionStatus } from "@repo/editor";

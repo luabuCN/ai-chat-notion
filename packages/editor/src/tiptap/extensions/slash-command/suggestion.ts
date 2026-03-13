@@ -4,6 +4,7 @@ import {
   ChartPieIcon,
   CodeIcon,
   DivideIcon,
+  FolderOpenIcon,
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
@@ -30,6 +31,13 @@ type SuggestionType = Omit<
   SuggestionOptions<CommandSuggestionItem, SlashCommandNodeAttrs>,
   "editor"
 >;
+
+export const EDITOR_SELECT_FROM_MATERIAL_LIBRARY =
+  "editor:selectFromMaterialLibrary";
+
+export type MaterialLibrarySelectDetail = {
+  onSelect: (url: string) => void;
+};
 
 const formatItems: CommandSuggestionItem[] = [
   {
@@ -249,6 +257,27 @@ const aiWriterItem: CommandSuggestionItem = {
   },
 };
 
+const materialLibraryItem: CommandSuggestionItem = {
+  id: "materialLibrary",
+  title: "插入图片从素材库",
+  description: "从当前空间 AI 生成的历史图片中选择插入。",
+  keywords: ["素材", "素材库", "历史", "图片"],
+  category: null,
+  icon: FolderOpenIcon,
+  command: ({ editor, range }) => {
+    editor.chain().focus().deleteRange(range).run();
+    window.dispatchEvent(
+      new CustomEvent(EDITOR_SELECT_FROM_MATERIAL_LIBRARY, {
+        detail: {
+          onSelect: (url: string) => {
+            editor.chain().focus().setImage({ src: url }).run();
+          },
+        },
+      })
+    );
+  },
+};
+
 const uploadItems: CommandSuggestionItem[] = [
   {
     id: "image",
@@ -316,8 +345,8 @@ const getSuggestion = ({
 
       const items = ai
         ? uploadFile
-          ? [aiWriterItem, ...formatItems, ...uploadItems, ...insertItems]
-          : [aiWriterItem, ...formatItems, ...insertItems]
+          ? [aiWriterItem, materialLibraryItem, ...formatItems, ...uploadItems, ...insertItems]
+          : [aiWriterItem, materialLibraryItem, ...formatItems, ...insertItems]
         : uploadFile
           ? [...formatItems, ...uploadItems, ...insertItems]
           : [...formatItems, ...insertItems];
