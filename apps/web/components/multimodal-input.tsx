@@ -4,10 +4,12 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   type ChangeEvent,
   type Dispatch,
   memo,
+  type ReactNode,
   type SetStateAction,
   startTransition,
   useCallback,
@@ -16,6 +18,7 @@ import {
   useRef,
   useState,
 } from "react";
+import useSWR from "swr";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
@@ -23,7 +26,7 @@ import { SelectItem } from "@repo/ui";
 
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { cn } from "@/lib/utils";
+import { cn, fetcher } from "@/lib/utils";
 import { useModels } from "@/hooks/use-models";
 import type { ModelInfo } from "@/app/api/models/route";
 import {
@@ -47,7 +50,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
-import { Brain, Image, Video, XIcon } from "lucide-react";
+import { Brain, Clock3, FileUp, Image, Video, XIcon } from "lucide-react";
+
+type RecentChat = {
+  id: string;
+  title: string;
+  createdAt: string;
+};
+
+type RecentHistoryResponse = {
+  chats: RecentChat[];
+};
+
+function buildChatPath(chatId: string, workspaceSlug?: string) {
+  return workspaceSlug ? `/${workspaceSlug}/chat/${chatId}` : `/chat/${chatId}`;
+}
 
 function PureMultimodalInput({
   chatId,
@@ -65,6 +82,11 @@ function PureMultimodalInput({
   onModelChange,
   usage,
   workspaceSlug,
+  landingInputOffsetClassName,
+  showLandingPanels = false,
+  showSuggestedActions = true,
+  greeting,
+  landingPanelsPosition = "inline",
 }: {
   chatId: string;
   input: string;
@@ -81,6 +103,11 @@ function PureMultimodalInput({
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
   workspaceSlug?: string;
+  landingInputOffsetClassName?: string;
+  showLandingPanels?: boolean;
+  showSuggestedActions?: boolean;
+  greeting?: ReactNode;
+  landingPanelsPosition?: "inline" | "bottom";
 }) {
   const [enableReasoning, setEnableReasoning] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<
@@ -194,7 +221,7 @@ function PureMultimodalInput({
   }, []);
 
   const submitForm = useCallback(() => {
-    window.history.pushState({}, "", `/${workspaceSlug}/chat/${chatId}`);
+    window.history.pushState({}, "", buildChatPath(chatId, workspaceSlug));
 
     // 区分多媒体附件和文档附件
     // 图片/视频可以作为 file part 直接发送给模型
@@ -422,9 +449,16 @@ function PureMultimodalInput({
     return () => textarea.removeEventListener("paste", handlePaste);
   }, [handlePaste]);
 
-  return (
-    <div className={cn("relative flex w-full flex-col gap-4", className)}>
-      {messages.length === 0 &&
+  const isPanelsAtBottom =
+    showLandingPanels && landingPanelsPosition === "bottom";
+
+  const centeredContent = (
+    <>
+      {greeting && (
+        <div className="mb-6 w-full md:mb-8">{greeting}</div>
+      )}
+      {showSuggestedActions &&
+        messages.length === 0 &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
           <SuggestedActions
@@ -433,19 +467,11 @@ function PureMultimodalInput({
             sendMessage={sendMessage}
           />
         )}
-
-      <input
-        accept="image/*,video/*"
-        className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
-        multiple
-        onChange={handleFileChange}
-        ref={fileInputRef}
-        tabIndex={-1}
-        type="file"
-      />
-
       <PromptInput
-        className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
+        className={cn(
+          "rounded-2xl border border-border/80 bg-background p-2.5 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/40 md:p-3",
+          showLandingPanels && landingInputOffsetClassName
+        )}
         onSubmit={(event) => {
           event.preventDefault();
           if (status == "streaming") {
@@ -514,7 +540,7 @@ function PureMultimodalInput({
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             autoFocus
-            className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
+            className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/90 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden md:min-h-[92px]"
             data-testid="multimodal-input"
             disableAutoResize={true}
             maxHeight={200}
@@ -567,6 +593,66 @@ function PureMultimodalInput({
           )}
         </PromptInputToolbar>
       </PromptInput>
+    </>
+  );
+
+  const landingPanels = showLandingPanels &&
+    messages.length === 0 &&
+    status === "ready" && (
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto grid w-full gap-3 md:grid-cols-2"
+        exit={{ opacity: 0, y: 14 }}
+        initial={{ opacity: 0, y: 18 }}
+        key="landing-panels"
+        transition={{ duration: 0.28, ease: "easeOut", delay: 0.08 }}
+      >
+        <LandingUploadCard
+          disabled={status !== "ready" || !supportsFileInput}
+          onClick={() => fileInputRef.current?.click()}
+        />
+        <RecentChatsCard workspaceSlug={workspaceSlug} />
+      </motion.div>
+    );
+
+  return (
+    <div
+      className={cn(
+        "relative flex w-full flex-col gap-4",
+        showLandingPanels && "flex-1",
+        isPanelsAtBottom && "min-h-0",
+        className
+      )}
+    >
+      <input
+        accept="image/*,video/*"
+        className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
+        multiple
+        onChange={handleFileChange}
+        ref={fileInputRef}
+        tabIndex={-1}
+        type="file"
+      />
+
+      {isPanelsAtBottom ? (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+            <div className="w-full">{centeredContent}</div>
+          </div>
+          <div className="shrink-0 pt-5">
+            <AnimatePresence initial={false}>
+              {landingPanels}
+            </AnimatePresence>
+          </div>
+        </>
+      ) : (
+        <>
+          {centeredContent}
+          <AnimatePresence initial={false}>
+            {landingPanels}
+          </AnimatePresence>
+        </>
+      )}
     </div>
   );
 }
@@ -586,10 +672,134 @@ export const MultimodalInput = memo(
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
       return false;
     }
+    if (prevProps.showLandingPanels !== nextProps.showLandingPanels) {
+      return false;
+    }
+    if (prevProps.landingPanelsPosition !== nextProps.landingPanelsPosition) {
+      return false;
+    }
 
     return true;
   }
 );
+
+function LandingUploadCard({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <motion.button
+      className="group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-55 md:min-h-[188px]"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+      whileHover={disabled ? undefined : { y: -2 }}
+      whileTap={disabled ? undefined : { scale: 0.99 }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-foreground text-background">
+          <FileUp size={16} />
+        </div>
+        <div>
+          <div className="font-medium text-[17px]">上传文档</div>
+          <div className="mt-1 text-[13px] text-muted-foreground">
+            上传图片或视频，直接带着附件开始提问
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-[12px] leading-5 text-muted-foreground">
+          支持文档、网页、音频和视频等多种类型
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs">
+            本地上传
+          </span>
+          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs">
+            粘贴图片
+          </span>
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
+function RecentChatsCard({ workspaceSlug }: { workspaceSlug?: string }) {
+  const workspaceParam = workspaceSlug
+    ? `&workspace=${encodeURIComponent(workspaceSlug)}`
+    : "";
+  const { data, isLoading } = useSWR<RecentHistoryResponse>(
+    `/api/history?limit=5${workspaceParam}`,
+    fetcher
+  );
+
+  const recentChats = data?.chats?.slice(0, 2) ?? [];
+
+  return (
+    <motion.div
+      className="rounded-2xl border border-border/70 bg-background/95 p-4"
+      transition={{ type: "spring", stiffness: 320, damping: 28 }}
+    >
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
+          <Clock3 size={16} />
+        </div>
+        <div>
+          <div className="font-medium text-[17px]">最近更新</div>
+          <div className="text-[13px] text-muted-foreground">
+            从最近对话里继续追问
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {isLoading &&
+          Array.from({ length: 3 }).map((_, index) => (
+            <div
+              className="h-12 animate-pulse rounded-xl bg-muted/60"
+              key={index}
+            />
+          ))}
+
+        {!isLoading && recentChats.length === 0 && (
+          <div className="rounded-xl bg-muted/35 px-4 py-6 text-center text-muted-foreground text-sm">
+            还没有最近记录，发出第一条消息后会显示在这里
+          </div>
+        )}
+
+        {!isLoading &&
+          recentChats.map((chat) => (
+            <button
+              className="flex w-full items-center justify-between rounded-xl border border-transparent bg-muted/20 px-3 py-2.5 text-left transition-colors hover:border-border hover:bg-muted/40"
+              key={chat.id}
+              onClick={() => {
+                window.location.href = buildChatPath(chat.id, workspaceSlug);
+              }}
+              type="button"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-[13px]">
+                  {chat.title}
+                </div>
+                <div className="mt-1 text-[12px] text-muted-foreground">
+                  {new Date(chat.createdAt).toLocaleString("zh-CN", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+            </button>
+          ))}
+      </div>
+    </motion.div>
+  );
+}
 
 function PureAttachmentsButton({
   fileInputRef,

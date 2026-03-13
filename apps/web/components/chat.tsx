@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import { AnimatePresence, motion } from "framer-motion";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -26,6 +27,7 @@ import type { AppUsage } from "@/lib/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
+import { Greeting } from "./greeting";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
@@ -160,41 +162,91 @@ export function Chat({
     setMessages,
   });
 
+  const isHomeState = messages.length === 0 && status === "ready";
+
   return (
     <>
       <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
         <ChatHeader chatId={id} />
 
-        <Messages
-          chatId={id}
-          isArtifactVisible={isArtifactVisible}
-          isReadonly={isReadonly}
-          messages={messages}
-          regenerate={regenerate}
-          selectedModelId={initialChatModel}
-          setMessages={setMessages}
-          status={status}
-          votes={votes}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <AnimatePresence initial={false} mode="wait">
+            {!isHomeState && (
+              <motion.div
+                animate={{ opacity: 1, y: 0 }}
+                className="min-h-0 flex-1"
+                exit={{ opacity: 0, y: -12 }}
+                initial={{ opacity: 0, y: 12 }}
+                key="messages"
+                transition={{ duration: 0.28, ease: "easeOut" }}
+              >
+                <Messages
+                  chatId={id}
+                  isArtifactVisible={isArtifactVisible}
+                  isReadonly={isReadonly}
+                  messages={messages}
+                  regenerate={regenerate}
+                  selectedModelId={initialChatModel}
+                  setMessages={setMessages}
+                  status={status}
+                  votes={votes}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
           {!isReadonly && (
-            <MultimodalInput
-              attachments={attachments}
-              chatId={id}
-              input={input}
-              messages={messages}
-              onModelChange={setCurrentModelId}
-              selectedModelId={currentModelId}
-              sendMessage={sendMessage}
-              setAttachments={setAttachments}
-              setInput={setInput}
-              setMessages={setMessages}
-              status={status}
-              stop={stop}
-              usage={usage}
-              workspaceSlug={workspaceSlug}
-            />
+            <motion.div
+              className={
+                isHomeState
+                  ? "mx-auto flex w-full max-w-4xl flex-1 flex-col px-2 pt-8 pb-8 md:px-4 md:pt-10 md:pb-10"
+                  : "sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4"
+              }
+              layout
+              transition={{
+                layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
+                duration: 0.24,
+              }}
+            >
+              <div
+                className={
+                  isHomeState ? "flex min-h-0 flex-1 flex-col" : "w-full"
+                }
+              >
+                <MultimodalInput
+                  attachments={attachments}
+                  chatId={id}
+                  greeting={
+                    isHomeState ? (
+                      <motion.div
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -16 }}
+                        initial={{ opacity: 0, y: 24 }}
+                        transition={{ duration: 0.35, ease: "easeOut" }}
+                      >
+                        <Greeting />
+                      </motion.div>
+                    ) : undefined
+                  }
+                  input={input}
+                  landingInputOffsetClassName="mt-4 md:mt-6"
+                  landingPanelsPosition={isHomeState ? "bottom" : "inline"}
+                  messages={messages}
+                  onModelChange={setCurrentModelId}
+                  selectedModelId={currentModelId}
+                  sendMessage={sendMessage}
+                  setAttachments={setAttachments}
+                  setInput={setInput}
+                  setMessages={setMessages}
+                  showLandingPanels={isHomeState}
+                  showSuggestedActions={false}
+                  status={status}
+                  stop={stop}
+                  usage={usage}
+                  workspaceSlug={workspaceSlug}
+                />
+              </div>
+            </motion.div>
           )}
         </div>
       </div>

@@ -2,8 +2,10 @@
   "Home": {
     "hellow": "你好"
   },
-   "Chat": {
-    "hellow":"你好!",
-    "help":"今天我能帮你什么吗?"
+  "Chat": {
+    "greeting": "{time}，今天有什么可以帮您的吗？",
+    "greetingMorning": "上午好",
+    "greetingAfternoon": "下午好",
+    "greetingEvening": "晚上好"
   }
 }

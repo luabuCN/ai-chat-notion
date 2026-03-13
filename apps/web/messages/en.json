@@ -3,7 +3,9 @@
     "hellow": "hellow"
   },
   "Chat": {
-    "hellow":"Hello there!",
-    "help":"How can I help you today?"
+    "greeting": "{time}, how can I help you today?",
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening"
   }
 }
