@@ -166,15 +166,15 @@ export function Chat({
 
   return (
     <>
-      <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
+      <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col overflow-hidden bg-background">
         <ChatHeader chatId={id} />
 
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <AnimatePresence initial={false} mode="wait">
             {!isHomeState && (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
-                className="min-h-0 flex-1"
+                className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 exit={{ opacity: 0, y: -12 }}
                 initial={{ opacity: 0, y: 12 }}
                 key="messages"
@@ -200,13 +200,9 @@ export function Chat({
               className={
                 isHomeState
                   ? "mx-auto flex w-full max-w-4xl flex-1 flex-col px-2 pt-8 pb-8 md:px-4 md:pt-10 md:pb-10"
-                  : "sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4"
+                  : "shrink-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4"
               }
-              layout
-              transition={{
-                layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
-                duration: 0.24,
-              }}
+              transition={{ duration: 0.24 }}
             >
               <div
                 className={
