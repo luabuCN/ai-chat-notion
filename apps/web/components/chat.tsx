@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
+import useSWRInfinite from "swr/infinite";
 import { unstable_serialize } from "swr/infinite";
 import { ChatHeader } from "@/components/chat-header";
 import {
@@ -30,7 +31,7 @@ import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { getChatHistoryPaginationKey } from "./sidebar-history";
+import { createChatHistoryPaginationKey, getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 
 export function Chat({
@@ -134,6 +135,24 @@ export function Chat({
   const query = searchParams.get("query");
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
+
+  const { data: history } = useSWRInfinite<ChatHistory>(
+    (index) => createChatHistoryPaginationKey()(index, null as any),
+    fetcher,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  useEffect(() => {
+    if (history) {
+      const allChats = history.flatMap((h) => h.chats);
+      const currentChat = allChats.find((c) => c.id === id);
+      if (currentChat?.title) {
+        window.document.title = `${currentChat.title} - 知作`;
+      }
+    }
+  }, [id, history]);
 
   useEffect(() => {
     if (query && !hasAppendedQuery) {

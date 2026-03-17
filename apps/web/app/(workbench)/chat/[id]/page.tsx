@@ -7,6 +7,18 @@ import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@repo/ai";
 import { getChatById, getMessagesByChatId } from "@repo/database";
 import { convertToUIMessages } from "@/lib/utils";
+import { Metadata } from "next";
+
+export async function generateMetadata(props: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await props.params;
+  const chat = await getChatById({ id });
+
+  return {
+    title: chat ? `${chat.title} - 知作` : "对话 - 知作",
+  };
+}
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;

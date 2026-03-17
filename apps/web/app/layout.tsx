@@ -13,9 +13,8 @@ import { QueryProvider } from "@/lib/query-client";
 import { ImagePreview } from "@repo/ui";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://chat.vercel.ai"),
-  title: "Next.js Chatbot Template",
-  description: "Next.js chatbot template using the AI SDK.",
+  title: "知作",
+  description: "知作是一款面向团队的 AI 文档协作平台，支持智能写作、内容编辑、多人协同和知识沉淀",
 };
 
 export const viewport = {

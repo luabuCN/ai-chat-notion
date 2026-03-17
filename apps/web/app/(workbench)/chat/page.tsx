@@ -5,6 +5,11 @@ import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@repo/ai";
 import { generateUUID } from "@/lib/utils";
 import { auth } from "../../(auth)/auth";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "新对话 - 知作",
+};
 
 export default async function Page() {
   const session = await auth();
