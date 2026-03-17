@@ -452,6 +452,14 @@ function PureMultimodalInput({
   const isPanelsAtBottom =
     showLandingPanels && landingPanelsPosition === "bottom";
 
+   const handleFileUpload = async () => {
+    // fileInputRef.current?.click();
+    const res = await fetch('/api/hello')
+    const data = await res.text()
+    console.log(data,'data==========')
+  };
+
+
   const centeredContent = (
     <>
       {greeting && (
@@ -596,6 +604,7 @@ function PureMultimodalInput({
     </>
   );
 
+ 
   const landingPanels = showLandingPanels &&
     messages.length === 0 &&
     status === "ready" && (
@@ -609,7 +618,7 @@ function PureMultimodalInput({
       >
         <LandingUploadCard
           disabled={status !== "ready" || !supportsFileInput}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => handleFileUpload()}
         />
         <RecentChatsCard workspaceSlug={workspaceSlug} />
       </motion.div>
@@ -694,9 +703,7 @@ function LandingUploadCard({
     <motion.button
       className="group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-55 md:min-h-[188px]"
       disabled={disabled}
-      onClick={onClick}
       type="button"
-      whileHover={disabled ? undefined : { y: -2 }}
       whileTap={disabled ? undefined : { scale: 0.99 }}
     >
       <div className="flex items-center gap-3">
@@ -716,10 +723,10 @@ function LandingUploadCard({
           支持文档、网页、音频和视频等多种类型
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs">
+          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs cursor-pointer" onClick={onClick}>
             本地上传
           </span>
-          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs">
+          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs cursor-pointer">
             粘贴图片
           </span>
         </div>

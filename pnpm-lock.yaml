@@ -135,6 +135,9 @@ importers:
       '@icons-pack/react-simple-icons':
         specifier: ^13.7.0
         version: 13.8.0(react@19.0.0-rc-45804af1-20241021)
+      '@netlify/functions':
+        specifier: ^5.1.3
+        version: 5.1.3
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.0
@@ -1667,6 +1670,14 @@ packages:
 
   '@mux/playback-core@0.32.0':
     resolution: {integrity: sha512-uXg7Qo/JvW7BviyDTnlHVqmLKqAxlP40wIE4+fawKQKM9MsmWSoxg6pRMW0wtMJ7pCg3jitefoox9OtKzVAy7g==}
+
+  '@netlify/functions@5.1.3':
+    resolution: {integrity: sha512-kRvesKsdSbP4XCBHg5WtGGoeoigxuDVpzHM6EI1dVxBiXLRGlazFP12gm/CBJyVhvlXpGHgetamdKCCLvVUB/Q==}
+    engines: {node: '>=18.0.0'}
+
+  '@netlify/types@2.4.0':
+    resolution: {integrity: sha512-FMHxZCa2XWIQgjt1WP1dTZ909XIbD1tWQYfXpIBZMq2H3hzFZV2HIDNWGfoL8INQ/CjGBP6dGbsfC6AbvHmH+Q==}
+    engines: {node: ^18.14.0 || >=20}
 
   '@next/env@15.3.0-canary.31':
     resolution: {integrity: sha512-+GFb0o+c/N7NVhEOVoaE1KaiYbtSUWCgVzS2OM1NqpesuzhOtz1nHYVGZTbLC8dipHOZsVdtsNSYOhk6HR4U0g==}
@@ -7010,6 +7021,12 @@ snapshots:
     dependencies:
       hls.js: 1.6.15
       mux-embed: 5.14.0
+
+  '@netlify/functions@5.1.3':
+    dependencies:
+      '@netlify/types': 2.4.0
+
+  '@netlify/types@2.4.0': {}
 
   '@next/env@15.3.0-canary.31': {}
 
