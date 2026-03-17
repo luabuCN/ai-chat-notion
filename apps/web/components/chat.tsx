@@ -31,8 +31,9 @@ import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { createChatHistoryPaginationKey, getChatHistoryPaginationKey } from "./sidebar-history";
+import { createChatHistoryPaginationKey, getChatHistoryPaginationKey, type ChatHistory } from "./sidebar-history";
 import { toast } from "./toast";
+
 
 export function Chat({
   id,
