@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
+import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 import "@repo/editor/styles";
 import type { CollaborativeUser, ConnectionStatus } from "@repo/editor";
 
@@ -35,29 +36,15 @@ export const CollaborativeEditorClient = memo(
     onConnectedUsersChange,
     onConnectionStatusChange,
   }: CollaborativeEditorClientProps) {
-    const uploadFile = useCallback(async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
+    const { mutateAsync: uploadFileMutation } = useFileUploadMutation();
 
-      try {
-        const response = await fetch("/api/files/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Upload successful", data);
-          return data.url;
-        }
-        const { error } = await response.json();
-        toast.error(error);
-        throw new Error(error);
-      } catch (_error) {
-        toast.error("Failed to upload file, please try again!");
-        throw _error;
-      }
-    }, []);
+    const uploadFile = useCallback(
+      async (file: File) => {
+        const result = await uploadFileMutation(file);
+        return result.url;
+      },
+      [uploadFileMutation]
+    );
 
     const handleSynced = useCallback(() => {
       console.log("[CollabEditor] Document synced");

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 
 interface UploadTabProps {
   onSelectCover: (url: string) => void;
@@ -10,8 +11,8 @@ interface UploadTabProps {
 }
 
 export function UploadTab({ onSelectCover, onClose }: UploadTabProps) {
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { mutateAsync, isPending } = useFileUploadMutation();
 
   const handleFileUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -19,29 +20,14 @@ export function UploadTab({ onSelectCover, onClose }: UploadTabProps) {
       return;
     }
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const response = await fetch("/api/files/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error("Upload failed");
-
-      const data = await response.json();
-
-      // 使用 queueMicrotask 确保状态更新在下一个微任务中执行
+      const result = await mutateAsync(file);
       queueMicrotask(() => {
-        onSelectCover(data.url);
+        onSelectCover(result.url);
         onClose();
       });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setUploading(false);
+    } catch {
+      // 错误提示由 useFileUploadMutation 的 onError 处理
     }
   };
 
@@ -60,10 +46,10 @@ export function UploadTab({ onSelectCover, onClose }: UploadTabProps) {
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
+        disabled={isPending}
         className="w-full py-2.5 border border-border rounded-md text-sm text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
       >
-        {uploading ? (
+        {isPending ? (
           <span className="flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             上传中...

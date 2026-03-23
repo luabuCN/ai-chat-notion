@@ -27,6 +27,7 @@ import { SelectItem } from "@repo/ui";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { cn, fetcher } from "@/lib/utils";
+import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 import { useModels } from "@/hooks/use-models";
 import type { ModelInfo } from "@/app/api/models/route";
 import {
@@ -116,6 +117,7 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const { models, loading: modelsLoading } = useModels();
+  const { mutateAsync: uploadFileMutation } = useFileUploadMutation();
 
   // Auto-select first model if selectedModelId is not in the models list
   useEffect(() => {
@@ -314,34 +316,21 @@ function PureMultimodalInput({
     selectedDocuments,
   ]);
 
-  const uploadFile = useCallback(async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const response = await fetch("/api/files/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Upload successful", data);
-
-        const { url, pathname, contentType } = data;
-
+  const uploadFile = useCallback(
+    async (file: File) => {
+      try {
+        const result = await uploadFileMutation(file);
         return {
-          url,
-          name: pathname,
-          contentType,
+          url: result.url,
+          name: result.pathname,
+          contentType: result.contentType,
         };
+      } catch {
+        return undefined;
       }
-      const { error } = await response.json();
-      toast.error(error);
-    } catch (_error) {
-      toast.error("Failed to upload file, please try again!");
-    }
-  }, []);
+    },
+    [uploadFileMutation]
+  );
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -382,8 +371,8 @@ function PureMultimodalInput({
           ...currentAttachments,
           ...successfullyUploadedAttachments,
         ]);
-      } catch (error) {
-        console.error("Error uploading files!", error);
+      } catch {
+        // 单文件失败时 uploadFile 已返回 undefined，此处兜底
       } finally {
         setUploadQueue([]);
         if (fileInputRef.current) {
