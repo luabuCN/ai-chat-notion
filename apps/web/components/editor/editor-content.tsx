@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { EditorPageHeader } from "./editor-page-header";
 import { EditorClient } from "./editor-client";
 import { CollaborativeEditorClient } from "./collaborative-editor-client";
+import { PdfConvertingOverlay } from "./pdf-converting-overlay";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
@@ -16,6 +17,8 @@ import {
   useCollaboration,
   type ConnectionStatus,
 } from "./collaboration-context";
+import { subscribeConvertTask, getConvertTask } from "@/lib/pdf/convert-store";
+import { markdownToTiptapJson } from "@/lib/pdf/markdown-to-tiptap";
 
 interface EditorContentProps {
   locale: string;
@@ -39,6 +42,8 @@ export function EditorContent({
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  // 每次 PDF 转换完成后递增，强制 EditorClient 重新挂载以加载新内容
+  const [editorVersion, setEditorVersion] = useState(0);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const contentDebounced = useDebounce(content, 1000);
@@ -187,6 +192,33 @@ export function EditorContent({
       toast.error(error.message || "加载文档失败");
     }
   }, [error]);
+
+  // 订阅 PDF 转换完成事件，直接将 markdown 写入编辑器
+  useEffect(() => {
+    // 如果页面加载时任务已经完成（极少情况），立即处理
+    const existing = getConvertTask(documentId);
+    if (existing?.status === "done" && existing.markdown) {
+      const tiptapJson = markdownToTiptapJson(existing.markdown);
+      const jsonStr = JSON.stringify(tiptapJson);
+      setContent(jsonStr);
+      prevContentRef.current = jsonStr;
+      isInitializedRef.current = true;
+      setEditorVersion((v) => v + 1);
+    }
+
+    return subscribeConvertTask(documentId, (task) => {
+      if (task?.status === "done" && task.markdown) {
+        const tiptapJson = markdownToTiptapJson(task.markdown);
+        const jsonStr = JSON.stringify(tiptapJson);
+        setContent(jsonStr);
+        prevContentRef.current = jsonStr;
+        // 确保初始化标志已设置，让防抖保存能触发
+        isInitializedRef.current = true;
+        // 递增版本号，强制 EditorClient 重新挂载以显示新内容
+        setEditorVersion((v) => v + 1);
+      }
+    });
+  }, [documentId]);
 
   // 防抖保存标题
   useEffect(() => {
@@ -381,7 +413,8 @@ export function EditorContent({
   }
 
   return (
-    <div className="min-h-full">
+    <div className="relative min-h-full">
+      <PdfConvertingOverlay documentId={documentId} />
       <EditorPageHeader
         initialTitle={title}
         initialIcon={icon}
@@ -416,7 +449,7 @@ export function EditorContent({
           // 传统编辑模式
           document && (
             <EditorClient
-              key={`${documentId}-${content ? "loaded" : "empty"}`}
+              key={`${documentId}-${editorVersion}-${content ? "loaded" : "empty"}`}
               initialContent={content}
               onChange={handleContentChange}
               readonly={isReadOnly}

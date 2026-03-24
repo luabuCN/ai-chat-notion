@@ -22,6 +22,7 @@ import useSWR from "swr";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
+import { usePdfUpload } from "@/app/(workbench)/chat/pdf-actions";
 import { SelectItem } from "@repo/ui";
 
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -441,11 +442,18 @@ function PureMultimodalInput({
   const isPanelsAtBottom =
     showLandingPanels && landingPanelsPosition === "bottom";
 
-   const handleFileUpload = async () => {
-    // fileInputRef.current?.click();
-    const res = await fetch('/api/hello')
-    const data = await res.text()
-    console.log(data,'data==========')
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const { handlePdfUpload } = usePdfUpload({ workspaceSlug });
+
+  const handleFileUpload = () => {
+    pdfInputRef.current?.click();
+  };
+
+  const handlePdfFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await handlePdfUpload(file);
+    if (pdfInputRef.current) pdfInputRef.current.value = "";
   };
 
 
@@ -631,6 +639,14 @@ function PureMultimodalInput({
         tabIndex={-1}
         type="file"
       />
+      <input
+        accept="application/pdf"
+        className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
+        onChange={handlePdfFileChange}
+        ref={pdfInputRef}
+        tabIndex={-1}
+        type="file"
+      />
 
       {isPanelsAtBottom ? (
         <>
@@ -689,11 +705,8 @@ function LandingUploadCard({
   disabled: boolean;
 }) {
   return (
-    <motion.button
-      className="group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-55 md:min-h-[188px]"
-      disabled={disabled}
-      type="button"
-      whileTap={disabled ? undefined : { scale: 0.99 }}
+    <motion.div
+      className="group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]"
     >
       <div className="flex items-center gap-3">
         <div className="flex size-9 items-center justify-center rounded-lg bg-foreground text-background">
@@ -702,25 +715,30 @@ function LandingUploadCard({
         <div>
           <div className="font-medium text-[17px]">上传文档</div>
           <div className="mt-1 text-[13px] text-muted-foreground">
-            上传图片或视频，直接带着附件开始提问
+            上传 PDF，自动创建文档并转换内容
           </div>
         </div>
       </div>
 
       <div className="space-y-3">
         <div className="text-[12px] leading-5 text-muted-foreground">
-          支持文档、网页、音频和视频等多种类型
+          支持 PDF、图片、视频等多种类型
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs cursor-pointer" onClick={onClick}>
-            本地上传
-          </span>
-          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs cursor-pointer">
+          <button
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={disabled}
+            onClick={onClick}
+            type="button"
+          >
+            上传 PDF
+          </button>
+          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs">
             粘贴图片
           </span>
         </div>
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
 
