@@ -96,21 +96,6 @@ export async function verifyDocumentAccess(
         });
       }
     }
-
-    // 调试日志：显示所有权限检查参数
-    console.log("[Doc Access] Permission check params:", {
-      documentId: document.id,
-      documentUserId: document.userId,
-      documentWorkspaceId: document.workspaceId,
-      currentUserId: userId,
-      currentUserEmail: userEmail,
-      workspaceOwnerId,
-      workspaceMemberRole,
-      workspaceMemberPermission,
-      documentCollaboratorPermission,
-      documentCollaboratorStatus,
-    });
-
     // 使用统一的权限检查逻辑
     const permissionResult: DocumentPermissionResult = checkDocumentPermission({
       documentId: document.id,
@@ -126,14 +111,6 @@ export async function verifyDocumentAccess(
       documentCollaboratorPermission,
       documentCollaboratorStatus,
     });
-
-    console.log("[Doc Access] Permission check result:", {
-      documentId,
-      userId,
-      access: permissionResult.access,
-      reason: permissionResult.reason,
-    });
-
     return {
       access: permissionResult.access,
       document,

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   generateUserColor,
+  markdownToTiptap,
   type ConnectionStatus as EditorConnectionStatus,
 } from "@repo/editor";
 import {
@@ -18,7 +19,6 @@ import {
   type ConnectionStatus,
 } from "./collaboration-context";
 import { subscribeConvertTask, getConvertTask } from "@/lib/pdf/convert-store";
-import { markdownToTiptapJson } from "@/lib/pdf/markdown-to-tiptap";
 
 interface EditorContentProps {
   locale: string;
@@ -50,20 +50,6 @@ export function EditorContent({
   const titleDebounced = useDebounce(title, 500);
   const iconDebounced = useDebounce(icon, 500);
 
-  // 调试日志：查看文档权限
-  useEffect(() => {
-    if (document) {
-      console.log("[Regular Editor Permission Debug]", {
-        documentId: document.id,
-        accessLevel: (document as any)?.accessLevel,
-        deletedAt: document.deletedAt,
-        userId: document.userId,
-        currentUserId: userId,
-        hasCollaborators: (document as any)?.hasCollaborators,
-        isCurrentUserCollaborator: (document as any)?.isCurrentUserCollaborator,
-      });
-    }
-  }, [document, userId]);
 
   // 只读模式：已删除的文档或只有查看权限
   const isReadOnly =
@@ -198,7 +184,7 @@ export function EditorContent({
     // 如果页面加载时任务已经完成（极少情况），立即处理
     const existing = getConvertTask(documentId);
     if (existing?.status === "done" && existing.markdown) {
-      const tiptapJson = markdownToTiptapJson(existing.markdown);
+      const tiptapJson = markdownToTiptap(existing.markdown);
       const jsonStr = JSON.stringify(tiptapJson);
       setContent(jsonStr);
       prevContentRef.current = jsonStr;
@@ -208,7 +194,7 @@ export function EditorContent({
 
     return subscribeConvertTask(documentId, (task) => {
       if (task?.status === "done" && task.markdown) {
-        const tiptapJson = markdownToTiptapJson(task.markdown);
+        const tiptapJson = markdownToTiptap(task.markdown);
         const jsonStr = JSON.stringify(tiptapJson);
         setContent(jsonStr);
         prevContentRef.current = jsonStr;

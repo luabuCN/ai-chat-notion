@@ -12,10 +12,12 @@
  * 任务状态存在 convert-store（模块级 Map），编辑器页面订阅并展示 overlay。
  */
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { documentKeys } from "@/hooks/use-document-query";
 import { fetcher } from "@/lib/utils";
 import {
   startConvertTask,
@@ -24,7 +26,7 @@ import {
   failConvertTask,
   clearConvertTask,
 } from "@/lib/pdf/convert-store";
-import { markdownToTiptapJson } from "@/lib/pdf/markdown-to-tiptap";
+import { markdownToTiptap } from "@repo/editor";
 
 // ─── 类型 ────────────────────────────────────────────────────
 
@@ -49,7 +51,7 @@ async function createDocument(
 
 /** 将 markdown 转为 Tiptap JSON 并保存到文档 */
 async function saveDocumentContent(docId: string, markdown: string) {
-  const doc = markdownToTiptapJson(markdown);
+  const doc = markdownToTiptap(markdown);
   const res = await fetch(`/api/editor-documents/${docId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -104,6 +106,7 @@ async function runConvertInBackground(file: File, docId: string) {
         if (json.type === "progress") {
           updateConvertProgress(docId, json.message);
         } else if (json.type === "done") {
+          console.log("json===========", json);
           finalMarkdown = json.markdown;
           finishConvertTask(docId, json.markdown);
         } else if (json.type === "error") {
@@ -132,6 +135,7 @@ async function runConvertInBackground(file: File, docId: string) {
  */
 export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // 拿 workspaces 列表，从 slug 找 workspaceId
   const { data: workspaces } = useSWR<Workspace[]>("/api/workspaces", fetcher);
@@ -157,6 +161,9 @@ export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
         // 1. 创建空文档
         const doc = await createDocument(title, workspaceId);
 
+        // 与 useCreateDocument 一致：刷新侧边栏「AI 文档」列表（否则仅 fetch 创建不会触发 React Query 失效）
+        await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+
         toast.dismiss(toastId);
 
         // 2. 跳转到编辑器
@@ -174,7 +181,7 @@ export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
         );
       }
     },
-    [workspaceSlug, workspaces, router]
+    [workspaceSlug, workspaces, router, queryClient]
   );
 
   return { handlePdfUpload };

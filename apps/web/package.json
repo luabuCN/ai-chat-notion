@@ -10,6 +10,7 @@
     "format": "npx ultracite@latest fix"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "2.0.31",
     "@ai-sdk/react": "3.0.39",
     "@auth/prisma-adapter": "^2.11.1",
     "@codemirror/lang-javascript": "^6.2.2",

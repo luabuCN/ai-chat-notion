@@ -157,13 +157,5 @@ export async function verifyDocumentAccess(
     documentCollaboratorPermission,
     documentCollaboratorStatus,
   });
-
-  console.log("[Collab Auth] Permission check result:", {
-    documentId,
-    userId,
-    access: permissionResult.access,
-    reason: permissionResult.reason,
-  });
-
   return { access: permissionResult.access, document };
 }

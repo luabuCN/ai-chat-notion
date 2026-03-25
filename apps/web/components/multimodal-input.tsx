@@ -614,7 +614,7 @@ function PureMultimodalInput({
         transition={{ duration: 0.28, ease: "easeOut", delay: 0.08 }}
       >
         <LandingUploadCard
-          disabled={status !== "ready" || !supportsFileInput}
+          disabled={status !== "ready"}
           onClick={() => handleFileUpload()}
         />
         <RecentChatsCard workspaceSlug={workspaceSlug} />

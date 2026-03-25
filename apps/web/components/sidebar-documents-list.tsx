@@ -33,7 +33,6 @@ const DocumentsList = ({
   const { currentWorkspace, isLoading: isWorkspaceLoading } = useWorkspace();
   const { canEdit } = useWorkspacePermission();
 
-  // useSidebarDocuments hook 已经内置了监听 document-updated 事件的逻辑，会自动刷新
   const {
     data: documents,
     isLoading: isDocumentsLoading,

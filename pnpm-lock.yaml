@@ -99,6 +99,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ai-sdk/openai-compatible':
+        specifier: 2.0.31
+        version: 2.0.31(zod@3.25.76)
       '@ai-sdk/react':
         specifier: 3.0.39
         version: 3.0.39(react@19.0.0-rc-45804af1-20241021)(zod@3.25.76)
@@ -6583,11 +6586,24 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.16(zod@4.1.13)
       zod: 4.1.13
 
+  '@ai-sdk/openai-compatible@2.0.31(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.16(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/openai-compatible@2.0.31(zod@4.1.13)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.16(zod@4.1.13)
       zod: 4.1.13
+
+  '@ai-sdk/provider-utils@4.0.16(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.6
+      zod: 3.25.76
 
   '@ai-sdk/provider-utils@4.0.16(zod@4.1.13)':
     dependencies:

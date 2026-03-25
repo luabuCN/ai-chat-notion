@@ -75,8 +75,8 @@ export async function POST(request: Request) {
         send({ type: "progress", message: "正在转换为 Markdown 格式..." });
         const rawMarkdown = convertToMarkdown(pageContentsWithImages);
 
-        // 4. AI 优化（限流时会自动退避重试，失败则降级返回原始 markdown）
-        send({ type: "progress", message: "AI 正在优化排版（如遇限流会自动重试）..." });
+        // 4. AI 优化（ModelScope 需流式才有正文；失败或空结果则降级为原始 markdown）
+        send({ type: "progress", message: "AI 正在优化排版..." });
         const markdown = await polishWithAI(rawMarkdown);
 
         send({
