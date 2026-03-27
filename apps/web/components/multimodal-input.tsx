@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
 import { usePdfUpload } from "@/app/(workbench)/chat/pdf-actions";
+import { usePdfConversionBusy } from "@/lib/pdf/convert-store";
 import { SelectItem } from "@repo/ui";
 
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -444,14 +445,23 @@ function PureMultimodalInput({
 
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const { handlePdfUpload } = usePdfUpload({ workspaceSlug });
+  const pdfConversionBusy = usePdfConversionBusy();
 
   const handleFileUpload = () => {
+    if (pdfConversionBusy) {
+      toast.error("已有 PDF 正在转换或保存中，请稍后再试");
+      return;
+    }
     pdfInputRef.current?.click();
   };
 
   const handlePdfFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (pdfConversionBusy) {
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+      return;
+    }
     await handlePdfUpload(file);
     if (pdfInputRef.current) pdfInputRef.current.value = "";
   };
@@ -614,7 +624,8 @@ function PureMultimodalInput({
         transition={{ duration: 0.28, ease: "easeOut", delay: 0.08 }}
       >
         <LandingUploadCard
-          disabled={status !== "ready"}
+          conversionBusy={pdfConversionBusy}
+          disabled={status !== "ready" || pdfConversionBusy}
           onClick={() => handleFileUpload()}
         />
         <RecentChatsCard workspaceSlug={workspaceSlug} />
@@ -700,30 +711,33 @@ export const MultimodalInput = memo(
 function LandingUploadCard({
   onClick,
   disabled,
+  conversionBusy,
 }: {
   onClick: () => void;
   disabled: boolean;
+  conversionBusy: boolean;
 }) {
   return (
     <motion.div
-      className="group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]"
+      className={cn(
+        "group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]",
+        disabled && "opacity-80"
+      )}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-foreground text-background">
+      <div className="flex items-start gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
           <FileUp size={16} />
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="font-medium text-[17px]">上传文档</div>
-          <div className="mt-1 text-[13px] text-muted-foreground">
-            上传 PDF，自动创建文档并转换内容
-          </div>
         </div>
       </div>
-
       <div className="space-y-3">
-        <div className="text-[12px] leading-5 text-muted-foreground">
-          支持 PDF、图片、视频等多种类型
-        </div>
+        {conversionBusy && (
+          <p className="text-[12px] font-medium text-amber-700 dark:text-amber-400">
+            当前有 PDF 正在转换或保存，请等待完成后再上传。
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <button
             className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
@@ -733,7 +747,7 @@ function LandingUploadCard({
           >
             上传 PDF
           </button>
-          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs">
+          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
             粘贴图片
           </span>
         </div>

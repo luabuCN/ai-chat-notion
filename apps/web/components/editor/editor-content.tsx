@@ -18,11 +18,17 @@ import {
   useCollaboration,
   type ConnectionStatus,
 } from "./collaboration-context";
-import { subscribeConvertTask, getConvertTask } from "@/lib/pdf/convert-store";
+import {
+  subscribeConvertTask,
+  getConvertTask,
+  isConvertTaskPipelineBusy,
+} from "@/lib/pdf/convert-store";
 
 interface EditorContentProps {
   locale: string;
   documentId: string;
+  /** PDF 转换流水线进行中：正文与页头编辑禁用 */
+  conversionLocked?: boolean;
   userId?: string;
   userName?: string;
   userEmail?: string;
@@ -31,6 +37,7 @@ interface EditorContentProps {
 export function EditorContent({
   locale,
   documentId,
+  conversionLocked = false,
   userId,
   userName,
   userEmail,
@@ -42,8 +49,8 @@ export function EditorContent({
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
-  // 每次 PDF 转换完成后递增，强制 EditorClient 重新挂载以加载新内容
-  const [editorVersion, setEditorVersion] = useState(0);
+  // 每次外部内容替换后递增，通知编辑器在挂载后异步灌入新内容
+  const [contentVersion, setContentVersion] = useState(0);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const contentDebounced = useDebounce(content, 1000);
@@ -189,7 +196,7 @@ export function EditorContent({
       setContent(jsonStr);
       prevContentRef.current = jsonStr;
       isInitializedRef.current = true;
-      setEditorVersion((v) => v + 1);
+      setContentVersion((v) => v + 1);
     }
 
     return subscribeConvertTask(documentId, (task) => {
@@ -200,8 +207,8 @@ export function EditorContent({
         prevContentRef.current = jsonStr;
         // 确保初始化标志已设置，让防抖保存能触发
         isInitializedRef.current = true;
-        // 递增版本号，强制 EditorClient 重新挂载以显示新内容
-        setEditorVersion((v) => v + 1);
+        // 递增版本号，让编辑器在挂载完成后异步替换内容
+        setContentVersion((v) => v + 1);
       }
     });
   }, [documentId]);
@@ -324,6 +331,37 @@ export function EditorContent({
     };
   }, []);
 
+  // 转换中：刷新/关标签前警告；若仍离开页面则永久删除未完成文档（非移入垃圾箱）
+  useEffect(() => {
+    if (!conversionLocked) {
+      return;
+    }
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const onPageHide = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        return;
+      }
+      const task = getConvertTask(documentId);
+      if (!isConvertTaskPipelineBusy(task)) {
+        return;
+      }
+      fetch(`/api/editor-documents/${documentId}?permanent=true`, {
+        method: "DELETE",
+        credentials: "include",
+        keepalive: true,
+      });
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [documentId, conversionLocked]);
+
   const handleTitleChange = useCallback((newTitle: string) => {
     setTitle(newTitle);
   }, []);
@@ -413,7 +451,7 @@ export function EditorContent({
         onIconChange={handleIconChange}
         onCoverChange={handleCoverChange}
         onCoverPositionChange={handleCoverPositionChange}
-        readonly={isReadOnly}
+        readonly={isReadOnly || conversionLocked}
         isOwner={isOwner}
         isLoggedIn={!!userId}
       />
@@ -427,7 +465,7 @@ export function EditorContent({
             token={collabData.token}
             user={user}
             serverUrl={collabServerUrl}
-            readonly={isReadOnly}
+            readonly={isReadOnly || conversionLocked}
             onConnectedUsersChange={setConnectedUsers}
             onConnectionStatusChange={handleConnectionStatusChange}
           />
@@ -435,10 +473,11 @@ export function EditorContent({
           // 传统编辑模式
           document && (
             <EditorClient
-              key={`${documentId}-${editorVersion}-${content ? "loaded" : "empty"}`}
+              key={documentId}
               initialContent={content}
+              contentVersion={contentVersion}
               onChange={handleContentChange}
-              readonly={isReadOnly}
+              readonly={isReadOnly || conversionLocked}
             />
           )
         )}

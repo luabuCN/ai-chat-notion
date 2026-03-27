@@ -7,12 +7,21 @@ import { auth } from "@/app/(auth)/auth";
 const utapi = new UTApi();
 
 // Use Blob instead of File since File is not available in Node.js environment
+const MAX_PDF_BYTES = 20 * 1024 * 1024;
+const MAX_OTHER_BYTES = 5 * 1024 * 1024;
+
 const FileSchema = z.object({
   file: z
     .instanceof(Blob)
-    .refine((file) => file.size <= 5 * 1024 * 1024, {
-      message: "File size should be less than 5MB",
-    })
+    .refine(
+      (file) =>
+        file.size <=
+        (file.type === "application/pdf" ? MAX_PDF_BYTES : MAX_OTHER_BYTES),
+      {
+        message:
+          "File size exceeds limit (PDF up to 20MB, other files up to 5MB)",
+      }
+    )
     // Update the file type based on the kind of files you want to accept
     .refine(
       (file) =>

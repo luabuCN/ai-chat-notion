@@ -73,6 +73,7 @@ export type EditorDocument = {
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  sourcePdfUrl: string | null;
 };
 
 export type Workspace = {

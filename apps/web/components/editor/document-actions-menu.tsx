@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   MoreHorizontal,
   FileText,
@@ -9,6 +9,7 @@ import {
   Copy,
   FolderInput,
   Trash2,
+  FileDown,
 } from "lucide-react";
 import {
   Button,
@@ -27,19 +28,24 @@ import {
 import { useEditorExport } from "@repo/editor";
 import { DocumentSelectorDialog } from "./document-selector-dialog";
 import { toast } from "sonner";
+import { getEditorListPathAfterLeavingDocument } from "@/lib/utils";
 
 interface DocumentActionsMenuProps {
   documentId: string;
   title: string;
   isOwner?: boolean; // 是否是文档所有者
+  /** PDF 导入时保存的原文 URL，存在则显示「下载原文档」 */
+  sourcePdfUrl?: string | null;
 }
 
 export function DocumentActionsMenu({
   documentId,
   title,
   isOwner = false,
+  sourcePdfUrl = null,
 }: DocumentActionsMenuProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useParams();
   const workspaceSlug =
     typeof params.slug === "string"
@@ -112,9 +118,11 @@ export function DocumentActionsMenu({
     try {
       await archiveMutation.mutateAsync(documentId);
       toast.success("文档已移至垃圾箱");
-      setTimeout(() => {
-        router.push(`/${workspaceSlug}/editor`);
-      }, 0);
+      const pathNow =
+        typeof window !== "undefined" ? window.location.pathname : pathname;
+      router.replace(
+        getEditorListPathAfterLeavingDocument(pathNow, workspaceSlug)
+      );
     } catch (error) {
       toast.error("删除文档失败");
       console.error("Failed to archive document:", error);
@@ -163,6 +171,20 @@ export function DocumentActionsMenu({
             <FileText className="mr-2 h-4 w-4" />
             导出 Markdown
           </DropdownMenuItem>
+          {sourcePdfUrl ? (
+            <DropdownMenuItem asChild>
+              <a
+                className="flex cursor-pointer items-center"
+                download
+                href={sourcePdfUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                下载原文档（PDF）
+              </a>
+            </DropdownMenuItem>
+          ) : null}
           {/* 仅文档所有者可见：移至垃圾箱 */}
           {isOwner && (
             <>

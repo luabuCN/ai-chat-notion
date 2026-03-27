@@ -8,7 +8,11 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui";
 import { Skeleton } from "@repo/ui";
-import { cn } from "@/lib/utils";
+import {
+  cn,
+  getEditorListPathAfterLeavingDocument,
+  isPathnameEditorDocument,
+} from "@/lib/utils";
 import {
   ChevronDown,
   ChevronRight,
@@ -64,22 +68,31 @@ const Item = ({
   const archiveMutation = useArchive();
   const [isHovered, setIsHovered] = useState(false);
 
-  const onArchive = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const isViewingThisDocument =
+    Boolean(id) && isPathnameEditorDocument(pathname, id);
+
+  const onArchive = async (
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>
+  ) => {
     if (!id) return;
     event.stopPropagation();
-    archiveMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success("笔记已移至回收站！");
-        // 如果当前正在查看被删除的文档，重定向到编辑器首页
-        if (pathname === `/${workspaceSlug}/editor/${id}`) {
-          router.push(`/${workspaceSlug}/editor`);
-        }
+    try {
+      await archiveMutation.mutateAsync(id);
+      toast.success("笔记已移至回收站！");
+      const pathNow =
+        typeof window !== "undefined" ? window.location.pathname : pathname;
+      if (isPathnameEditorDocument(pathNow, id)) {
+        router.replace(
+          getEditorListPathAfterLeavingDocument(pathNow, workspaceSlug)
+        );
+      } else {
         router.refresh();
-      },
-      onError: (error: Error) => {
-        toast.error(error.message || "移动到回收站失败");
-      },
-    });
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "移动到回收站失败"
+      );
+    }
   };
 
   const handleExpand = (
@@ -105,7 +118,11 @@ const Item = ({
           }
           // 延迟导航，确保列表已经更新
           setTimeout(() => {
-            router.push(`/${workspaceSlug}/editor/${res.id}`);
+            router.push(
+              workspaceSlug
+                ? `/${workspaceSlug}/editor/${res.id}`
+                : `/editor/${res.id}`
+            );
           }, 100);
           toast.success("新笔记已创建！");
         },
@@ -123,14 +140,7 @@ const Item = ({
   };
 
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
-  // 解码 pathname 以正确匹配含中文的 URL
-  const decodedPathname = decodeURIComponent(pathname);
-  const expectedPath = workspaceSlug
-    ? `/${workspaceSlug}/editor/${id}`
-    : `/editor/${id}`;
-  const isActive =
-    active ||
-    (id && (decodedPathname === expectedPath || pathname === `/editor/${id}`));
+  const isActive = active || isViewingThisDocument;
 
   return (
     <div
@@ -149,8 +159,7 @@ const Item = ({
         paddingLeft: level ? `${level * 12 + 12}px` : "12px",
       }}
       className={cn(
-        "group/item relative min-h-[27px] text-sm py-1 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium cursor-pointer",
-        isHovered ? "pr-12" : "pr-3",
+        "group/item relative flex min-h-[27px] w-full min-w-0 cursor-pointer items-center overflow-hidden py-1 pr-20 text-sm font-medium text-muted-foreground hover:bg-primary/5",
         isActive && "bg-primary/10 text-primary"
       )}
     >
@@ -190,7 +199,9 @@ const Item = ({
         </div>
       </div>
 
-      <span className="truncate flex-1 min-w-0">{label}</span>
+      <span className="min-w-0 flex-1 truncate" title={label}>
+        {label}
+      </span>
       {isSearch && (
         <kbd className="ml-2 pointer-events-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
           <span className=" text-sx">⌘</span>

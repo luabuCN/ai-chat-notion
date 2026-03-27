@@ -277,6 +277,8 @@ model EditorDocument {
   updatedAt          DateTime  @updatedAt @db.Timestamp(6)
   lastEditedBy       String?   @db.Uuid
   lastEditedByName   String?   @db.VarChar(100)
+  /** 从 PDF 导入时保存的原始文件 URL（UploadThing 等），用于「下载原文档」 */
+  sourcePdfUrl       String?
 
   user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace      Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

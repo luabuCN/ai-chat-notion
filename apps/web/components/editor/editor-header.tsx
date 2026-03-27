@@ -8,6 +8,9 @@ import {
   AvatarImage,
   Button,
   Separator,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo/ui";
 import { useWindowSize } from "usehooks-ts";
 import { useUpdateDocument } from "@/hooks/use-document-query";
@@ -22,6 +25,7 @@ import {
   CheckCircle2,
   Wifi,
   WifiOff,
+  FileText,
 } from "lucide-react";
 import { LanguageSwitcher } from "../language-switcher";
 import { cn } from "@/lib/utils";
@@ -47,6 +51,10 @@ interface EditorHeaderProps {
   documentOwnerId?: string;
   hasCollaborators?: boolean; // 是否有协作者
   publicShareToken?: string | null; // 公开分享链接 token
+  /** PDF 转换中：右侧协作/分享/发布/收藏/菜单禁用 */
+  conversionLocked?: boolean;
+  /** 从 PDF 导入时保存的原文链接，用于菜单内下载 */
+  sourcePdfUrl?: string | null;
 }
 
 export function EditorHeader({
@@ -66,6 +74,8 @@ export function EditorHeader({
   documentOwnerId,
   hasCollaborators = false,
   publicShareToken,
+  conversionLocked = false,
+  sourcePdfUrl = null,
 }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
@@ -74,7 +84,7 @@ export function EditorHeader({
   const { connectedUsers, connectionStatus } = useCollaboration();
 
   const toggleFavorite = () => {
-    if (isUpdatingFavorite) return;
+    if (conversionLocked || isUpdatingFavorite) return;
     setIsUpdatingFavorite(true);
     updateDocumentMutation.mutate(
       {
@@ -93,8 +103,8 @@ export function EditorHeader({
         {(!open || windowWidth < 768) && (
           <SidebarToggle className="" variant="ghost" />
         )}
-        <div className="flex items-center gap-2 px-2">
-          <div className="p-1 bg-muted rounded-sm flex items-center justify-center min-w-[24px] min-h-[24px]">
+        <div className="flex min-w-0 flex-1 items-center gap-2 px-2">
+          <div className="p-1 bg-muted rounded-sm flex items-center justify-center min-w-[24px] min-h-[24px] shrink-0">
             {isSaving ? (
               <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
             ) : isSaved ? (
@@ -103,13 +113,35 @@ export function EditorHeader({
               <span className="text-base leading-none">{documentIcon}</span>
             ) : null}
           </div>
-          <h1 className="font-semibold text-sm truncate">
+          <h1 className="min-w-0 flex-1 truncate font-semibold text-sm">
             {documentTitle || "未命名"}
           </h1>
+          {sourcePdfUrl ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="inline-flex shrink-0 items-center rounded border border-red-200/90 bg-red-50 px-1 py-0.5 text-red-700 transition-colors hover:bg-red-100/80 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-950/80"
+                  type="button"
+                  aria-label="由 PDF 转换的文档"
+                >
+                  <FileText className="size-3.5" aria-hidden />
+                  <span className="sr-only">PDF</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs" side="bottom">
+                本文档由 PDF 导入并转换生成；可在右上角「⋯」菜单中下载原始 PDF。
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div
+        className={cn(
+          "flex items-center gap-1",
+          conversionLocked && "pointer-events-none select-none opacity-60"
+        )}
+      >
         {/* 在线用户头像和连接状态 */}
         {connectionStatus !== "idle" && (
           <div className="flex items-center gap-2 mr-2">
@@ -216,7 +248,7 @@ export function EditorHeader({
               size="icon"
               className="h-8 w-8 text-muted-foreground"
               onClick={toggleFavorite}
-              disabled={isUpdatingFavorite}
+              disabled={conversionLocked || isUpdatingFavorite}
             >
               <Star
                 className={cn(
@@ -230,6 +262,7 @@ export function EditorHeader({
               documentId={documentId}
               title={documentTitle || "Untitled"}
               isOwner={isOwner}
+              sourcePdfUrl={sourcePdfUrl}
             />
           </>
         )}

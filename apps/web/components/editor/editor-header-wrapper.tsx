@@ -9,12 +9,15 @@ import { useGetDocument, documentKeys } from "@/hooks/use-document-query";
 interface EditorHeaderWrapperProps {
   locale: string;
   documentId: string;
+  /** PDF 转换进行中：顶部栏操作全部禁用 */
+  conversionLocked?: boolean;
   currentUserId?: string;
 }
 
 export function EditorHeaderWrapper({
   locale,
   documentId,
+  conversionLocked = false,
   currentUserId,
 }: EditorHeaderWrapperProps) {
   const { data: document } = useGetDocument(documentId);
@@ -92,6 +95,8 @@ export function EditorHeaderWrapper({
       isSaved={isSaved}
       readonly={isReadOnly}
       isOwner={isOwner}
+      conversionLocked={conversionLocked}
+      sourcePdfUrl={document?.sourcePdfUrl ?? null}
       currentUserId={currentUserId}
       documentOwnerId={document?.userId}
       hasCollaborators={(document as any)?.hasCollaborators ?? false}

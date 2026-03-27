@@ -12,12 +12,14 @@ const TiptapEditor = dynamic(
 
 interface EditorClientProps {
   initialContent?: any;
+  contentVersion?: number;
   onChange?: (content: any) => void;
   readonly?: boolean;
 }
 
 export const EditorClient = memo(function EditorClient({
   initialContent,
+  contentVersion = 0,
   onChange,
   readonly,
 }: EditorClientProps) {
@@ -25,14 +27,22 @@ export const EditorClient = memo(function EditorClient({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // 只在挂载时解析 initialContent
+  // 每次 contentVersion 变化时，把当前 initialContent 快照下来
+  // 这样用户本地编辑（content state 变化）不会触发 parsedContent 重新计算
   const initialContentRef = useRef(initialContent);
+  const prevVersionRef = useRef(contentVersion);
+  if (prevVersionRef.current !== contentVersion) {
+    prevVersionRef.current = contentVersion;
+    initialContentRef.current = initialContent;
+  }
+
   const parsedContent = useMemo(
     () =>
       initialContentRef.current
         ? JSON.parse(initialContentRef.current)
         : undefined,
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contentVersion]
   );
 
   const { mutateAsync: uploadFileMutation } = useFileUploadMutation();
@@ -52,6 +62,7 @@ export const EditorClient = memo(function EditorClient({
   return (
     <TiptapEditor
       content={parsedContent}
+      contentVersion={contentVersion}
       placeholder="Type / for commands..."
       showAiTools={true}
       uploadFile={uploadFile}

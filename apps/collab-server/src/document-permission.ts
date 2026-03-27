@@ -17,6 +17,7 @@ export interface DocumentPermissionParams {
   documentWorkspaceId: string | null;
   documentIsPublished: boolean;
   documentDeletedAt: Date | null;
+  ignoreDeletedAt?: boolean;
   currentUserId?: string;
   currentUserEmail?: string;
   workspaceOwnerId?: string;
@@ -50,6 +51,7 @@ export function checkDocumentPermission(
     documentWorkspaceId,
     documentIsPublished,
     documentDeletedAt,
+    ignoreDeletedAt,
     currentUserId,
     currentUserEmail,
     workspaceOwnerId,
@@ -59,8 +61,8 @@ export function checkDocumentPermission(
     documentCollaboratorStatus,
   } = params;
 
-  // 已删除的文档不允许访问
-  if (documentDeletedAt) {
+  // 已删除的文档不允许访问（需忽略时由调用方传 ignoreDeletedAt）
+  if (documentDeletedAt && !ignoreDeletedAt) {
     return createPermissionResult("none", "Document is deleted");
   }
 

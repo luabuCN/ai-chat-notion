@@ -74,6 +74,7 @@ export async function PATCH(
       coverImagePosition,
       isPublished,
       isFavorite,
+      sourcePdfUrl,
     }: {
       title?: string;
       content?: string;
@@ -83,6 +84,7 @@ export async function PATCH(
       coverImagePosition?: number | null;
       isPublished?: boolean;
       isFavorite?: boolean;
+      sourcePdfUrl?: string | null;
     } = body;
 
     const updatedDocument = await updateEditorDocument({
@@ -95,6 +97,7 @@ export async function PATCH(
       coverImagePosition,
       isPublished,
       isFavorite,
+      sourcePdfUrl,
       lastEditedBy: user.id,
       lastEditedByName: user.email?.split("@")[0] || "Unknown", // 用邮箱前缀作为名称
     });
@@ -126,7 +129,9 @@ export async function DELETE(
   const permanent = searchParams.get("permanent") === "true";
 
   try {
-    const { access } = await verifyDocumentAccess(id, user.id, user.email);
+    const { access } = await verifyDocumentAccess(id, user.id, user.email, {
+      ignoreDeletedAt: permanent,
+    });
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();

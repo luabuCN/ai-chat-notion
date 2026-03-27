@@ -134,3 +134,56 @@ export function getTextFromMessage(message: ChatMessage | UIMessage): string {
     .map((part) => (part as { type: "text"; text: string }).text)
     .join("");
 }
+
+/** 从路径解析「文档编辑器」页中的文档 id（…/editor/:id），否则为 null */
+export function getEditorDocumentIdFromPathname(pathname: string): string | null {
+  const normalized = decodeURIComponent(pathname.replace(/\/$/, "") || "/");
+  const m = normalized.match(/\/editor\/([^/]+)$/);
+  return m ? m[1] : null;
+}
+
+/**
+ * 若当前路径为 …/editor/:id，返回对应的编辑器列表页 …/editor；否则为 null。
+ * 兼容任意前缀（如 /[locale]/[workspace]/editor/:id 或 /editor/:id）。
+ */
+export function getEditorListPathFromEditorDocumentPath(
+  pathname: string
+): string | null {
+  const id = getEditorDocumentIdFromPathname(pathname);
+  if (!id) {
+    return null;
+  }
+  const normalized = decodeURIComponent(pathname.replace(/\/$/, "") || "/");
+  const suffix = `/editor/${id}`;
+  if (!normalized.endsWith(suffix)) {
+    return null;
+  }
+  return `${normalized.slice(0, -suffix.length)}/editor`;
+}
+
+/** 当前路径是否正在查看给定 id 的编辑器文档（忽略 UUID 大小写） */
+export function isPathnameEditorDocument(
+  pathname: string,
+  documentId: string
+): boolean {
+  const pathId = getEditorDocumentIdFromPathname(pathname);
+  if (pathId) {
+    return pathId.toLowerCase() === documentId.toLowerCase();
+  }
+  const normalized = decodeURIComponent(pathname.replace(/\/$/, "") || "/");
+  const suffix = `/editor/${documentId}`;
+  return normalized.toLowerCase().endsWith(suffix.toLowerCase());
+}
+
+/**
+ * 从文档页返回编辑器列表 …/editor；无法从路径解析时用 workspaceSlug 回退。
+ */
+export function getEditorListPathAfterLeavingDocument(
+  pathname: string,
+  workspaceSlug: string
+): string {
+  return (
+    getEditorListPathFromEditorDocumentPath(pathname) ??
+    (workspaceSlug ? `/${workspaceSlug}/editor` : `/editor`)
+  );
+}

@@ -5,6 +5,10 @@ import { CollaborationProvider } from "./collaboration-context";
 import { EditorHeaderWrapper } from "./editor-header-wrapper";
 import { EditorContent } from "./editor-content";
 import { useSidebar } from "@repo/ui";
+import {
+  useConvertTask,
+  isConvertTaskPipelineBusy,
+} from "@/lib/pdf/convert-store";
 
 interface EditorPageClientProps {
   locale: string;
@@ -23,6 +27,8 @@ export function EditorPageClient({
 }: EditorPageClientProps) {
   const { state, isMobile } = useSidebar();
   const [mounted, setMounted] = useState(false);
+  const convertTask = useConvertTask(documentId);
+  const conversionLocked = isConvertTaskPipelineBusy(convertTask);
 
   useEffect(() => {
     setMounted(true);
@@ -49,6 +55,7 @@ export function EditorPageClient({
           <EditorHeaderWrapper
             locale={locale}
             documentId={documentId}
+            conversionLocked={conversionLocked}
             currentUserId={userId}
           />
         </div>
@@ -56,6 +63,7 @@ export function EditorPageClient({
           <EditorContent
             locale={locale}
             documentId={documentId}
+            conversionLocked={conversionLocked}
             userId={userId}
             userName={userName}
             userEmail={userEmail}

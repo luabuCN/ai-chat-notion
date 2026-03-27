@@ -85,7 +85,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     }}
                   >
                     <BotIcon />
-                    <span>AI 灵感小助手</span>
+                    <span>AI 灵感助手</span>
                   </SidebarMenuButton>
                   <Popover>
                     <PopoverTrigger asChild>

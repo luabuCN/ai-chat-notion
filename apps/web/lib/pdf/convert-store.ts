@@ -1,10 +1,11 @@
 /**
- * 全局 PDF 转换任务 store。
+ * 全局 PDF 转换任务 store（Zustand 单例）。
  *
- * 用原生 EventTarget 实现发布/订阅，不依赖任何外部状态库。
- * 任务状态存在模块级 Map 里，生命周期跟随页面 JS 上下文，
- * 切换路由不会销毁——这正是「切换文档不中断」的关键。
+ * 状态在客户端 JS 上下文中常驻，切换路由不销毁——与原先 Map + EventTarget 行为一致，
+ * 便于在任意模块调用 `startConvertTask`，在 React 中用 hook 或 `subscribe` 消费。
  */
+
+import { create } from "zustand";
 
 export type ConvertStatus = "converting" | "done" | "error";
 
@@ -17,64 +18,116 @@ export type ConvertTask = {
   error?: string;
 };
 
-const tasks = new Map<string, ConvertTask>();
-const emitter = new EventTarget();
+type TasksMap = Record<string, ConvertTask>;
 
-const CHANGE_EVENT = "change";
+type ConvertStoreState = {
+  tasks: TasksMap;
+};
+
+const useConvertTaskStore = create<ConvertStoreState>(() => ({
+  tasks: {},
+}));
 
 /** 开始一个转换任务 */
 export function startConvertTask(docId: string, progress: string) {
-  tasks.set(docId, { docId, status: "converting", progress });
-  emitter.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: docId }));
+  useConvertTaskStore.setState((s) => ({
+    tasks: { ...s.tasks, [docId]: { docId, status: "converting", progress } },
+  }));
 }
 
 /** 更新进度文字 */
 export function updateConvertProgress(docId: string, progress: string) {
-  const task = tasks.get(docId);
-  if (!task) return;
-  tasks.set(docId, { ...task, progress });
-  emitter.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: docId }));
+  const task = useConvertTaskStore.getState().tasks[docId];
+  if (!task) {
+    return;
+  }
+  useConvertTaskStore.setState((s) => ({
+    tasks: { ...s.tasks, [docId]: { ...task, progress } },
+  }));
 }
 
 /** 标记完成 */
 export function finishConvertTask(docId: string, markdown: string) {
-  tasks.set(docId, {
-    docId,
-    status: "done",
-    progress: "转换完成，正在保存...",
-    markdown,
-  });
-  emitter.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: docId }));
+  useConvertTaskStore.setState((s) => ({
+    tasks: {
+      ...s.tasks,
+      [docId]: {
+        docId,
+        status: "done",
+        progress: "转换完成，正在保存...",
+        markdown,
+      },
+    },
+  }));
 }
 
 /** 标记失败 */
 export function failConvertTask(docId: string, error: string) {
-  tasks.set(docId, { docId, status: "error", progress: error, error });
-  emitter.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: docId }));
+  useConvertTaskStore.setState((s) => ({
+    tasks: {
+      ...s.tasks,
+      [docId]: { docId, status: "error", progress: error, error },
+    },
+  }));
 }
 
 /** 清除任务（保存完成后调用） */
 export function clearConvertTask(docId: string) {
-  tasks.delete(docId);
-  emitter.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: docId }));
+  useConvertTaskStore.setState((s) => {
+    const { [docId]: _, ...rest } = s.tasks;
+    return { tasks: rest };
+  });
 }
 
 /** 获取当前任务快照 */
 export function getConvertTask(docId: string): ConvertTask | undefined {
-  return tasks.get(docId);
+  return useConvertTaskStore.getState().tasks[docId];
 }
 
-/** 订阅变更，返回取消订阅函数 */
+/** 订阅变更，返回取消订阅函数（仅在该 docId 对应任务引用变化时回调） */
 export function subscribeConvertTask(
   docId: string,
   callback: (task: ConvertTask | undefined) => void
 ): () => void {
-  const handler = (e: Event) => {
-    const changedDocId = (e as CustomEvent<string>).detail;
-    if (changedDocId === docId) {
-      callback(tasks.get(docId));
+  return useConvertTaskStore.subscribe((state, prev) => {
+    const next = state.tasks[docId];
+    const previous = prev.tasks[docId];
+    if (next === previous) {
+      return;
     }
-  };
-  emitter.addEventListener(CHANGE_EVENT, handler);
-  return () => emitter.removeEventListener(CHANGE_EVENT, handler);
+    callback(next);
+  });
+}
+
+/** React 中按文档订阅当前转换任务（该 docId 的任务变化时重渲染） */
+export function useConvertTask(docId: string): ConvertTask | undefined {
+  return useConvertTaskStore((s) => s.tasks[docId]);
+}
+
+/** 是否存在正在解析/保存中的 PDF 任务（用于禁止并发上传） */
+function isPdfPipelineBusy(task: ConvertTask): boolean {
+  return task.status === "converting" || task.status === "done";
+}
+
+/** 当前文档是否处于转换流水线中（用于锁定编辑器 UI） */
+export function isConvertTaskPipelineBusy(
+  task: ConvertTask | undefined
+): boolean {
+  if (!task) {
+    return false;
+  }
+  return isPdfPipelineBusy(task);
+}
+
+export function isPdfConversionBusy(): boolean {
+  return Object.values(useConvertTaskStore.getState().tasks).some(
+    isPdfPipelineBusy
+  );
+}
+
+/** React：任一文档处于转换或保存中时返回 true */
+export function usePdfConversionBusy(): boolean {
+  return useConvertTaskStore((s) =>
+    Object.values(s.tasks).some(isPdfPipelineBusy)
+  );
 }

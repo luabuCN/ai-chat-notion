@@ -17,6 +17,10 @@ export interface DocumentPermissionParams {
   documentWorkspaceId: string | null;
   documentIsPublished: boolean;
   documentDeletedAt: Date | null;
+  /**
+   * 垃圾箱内文档默认会被判为无权限；还原/永久删除等操作需按「未删除」时的身份继续计算 owner/edit/view
+   */
+  ignoreDeletedAt?: boolean;
   currentUserId?: string;
   currentUserEmail?: string;
   workspaceOwnerId?: string;
@@ -50,6 +54,7 @@ export function checkDocumentPermission(
     documentWorkspaceId,
     documentIsPublished,
     documentDeletedAt,
+    ignoreDeletedAt,
     currentUserId,
     currentUserEmail,
     workspaceOwnerId,
@@ -59,8 +64,17 @@ export function checkDocumentPermission(
     documentCollaboratorStatus,
   } = params;
 
-  // 已删除的文档不允许访问
-  if (documentDeletedAt) {
+  // 已删除的文档：所有者仍可查看（前端会显示只读红色标识），其他人无权访问
+  // 垃圾箱还原 / 永久删除操作传入 ignoreDeletedAt=true 以跳过此判断
+  if (documentDeletedAt && !ignoreDeletedAt) {
+    // 文档所有者可以查看自己的已删除文档（只读）
+    if (currentUserId && documentUserId === currentUserId) {
+      return createPermissionResult("owner", "Document owner (deleted)", true);
+    }
+    // 工作空间所有者也可以查看
+    if (documentWorkspaceId && workspaceOwnerId && workspaceOwnerId === currentUserId) {
+      return createPermissionResult("owner", "Workspace owner (deleted)", true);
+    }
     return createPermissionResult("none", "Document is deleted");
   }
 

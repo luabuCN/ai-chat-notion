@@ -25,11 +25,13 @@ export interface DocumentAccessResult {
  * @param documentId 文档ID
  * @param userId 用户ID（从请求头获取，由中间件注入）
  * @param userEmail 用户邮箱（用于检查访客协作者）
+ * @param options.ignoreDeletedAt 为 true 时，不因 soft-delete 直接判无权限（用于从垃圾箱还原/永久删除前的校验）
  */
 export async function verifyDocumentAccess(
   documentId: string,
   userId?: string,
-  userEmail?: string
+  userEmail?: string,
+  options?: { ignoreDeletedAt?: boolean }
 ): Promise<DocumentAccessResult> {
   try {
     const document = await getEditorDocumentById({ id: documentId });
@@ -103,6 +105,7 @@ export async function verifyDocumentAccess(
       documentWorkspaceId: document.workspaceId,
       documentIsPublished: document.isPublished,
       documentDeletedAt: document.deletedAt,
+      ignoreDeletedAt: options?.ignoreDeletedAt === true,
       currentUserId: userId,
       currentUserEmail: userEmail,
       workspaceOwnerId,

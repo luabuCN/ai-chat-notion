@@ -85,6 +85,7 @@ async function updateDocument({
     coverImagePosition?: number | null;
     isPublished?: boolean;
     isFavorite?: boolean;
+    sourcePdfUrl?: string | null;
   };
 }): Promise<EditorDocument> {
   const response = await fetch(`/api/editor-documents/${documentId}`, {

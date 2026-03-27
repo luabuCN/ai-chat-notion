@@ -126,6 +126,7 @@ export async function updateEditorDocument({
   isFavorite,
   lastEditedBy,
   lastEditedByName,
+  sourcePdfUrl,
 }: {
   id: string;
   title?: string;
@@ -138,6 +139,7 @@ export async function updateEditorDocument({
   isFavorite?: boolean;
   lastEditedBy?: string;
   lastEditedByName?: string;
+  sourcePdfUrl?: string | null;
 }) {
   try {
     const data: any = {};
@@ -153,6 +155,7 @@ export async function updateEditorDocument({
     if (lastEditedBy !== undefined) data.lastEditedBy = lastEditedBy;
     if (lastEditedByName !== undefined)
       data.lastEditedByName = lastEditedByName;
+    if (sourcePdfUrl !== undefined) data.sourcePdfUrl = sourcePdfUrl;
 
     return await prisma.editorDocument.update({
       where: { id },

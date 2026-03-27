@@ -1,25 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  getConvertTask,
-  subscribeConvertTask,
-  type ConvertTask,
-} from "@/lib/pdf/convert-store";
+import { useConvertTask } from "@/lib/pdf/convert-store";
 
 interface PdfConvertingOverlayProps {
   documentId: string;
 }
 
 export function PdfConvertingOverlay({ documentId }: PdfConvertingOverlayProps) {
-  const [task, setTask] = useState<ConvertTask | undefined>(() =>
-    getConvertTask(documentId)
-  );
-
-  useEffect(() => {
-    setTask(getConvertTask(documentId));
-    return subscribeConvertTask(documentId, setTask);
-  }, [documentId]);
+  const task = useConvertTask(documentId);
 
   if (!task || task.status === "done" || task.status === "error") return null;
 

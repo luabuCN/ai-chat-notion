@@ -25,8 +25,10 @@ import {
   finishConvertTask,
   failConvertTask,
   clearConvertTask,
+  isPdfConversionBusy,
 } from "@/lib/pdf/convert-store";
 import { markdownToTiptap } from "@repo/editor";
+import { uploadFileToApi } from "@/lib/file-upload";
 
 // ─── 类型 ────────────────────────────────────────────────────
 
@@ -106,7 +108,6 @@ async function runConvertInBackground(file: File, docId: string) {
         if (json.type === "progress") {
           updateConvertProgress(docId, json.message);
         } else if (json.type === "done") {
-          console.log("json===========", json);
           finalMarkdown = json.markdown;
           finishConvertTask(docId, json.markdown);
         } else if (json.type === "error") {
@@ -146,6 +147,10 @@ export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
         toast.error("请选择 PDF 文件");
         return;
       }
+      if (isPdfConversionBusy()) {
+        toast.error("已有 PDF 正在转换或保存中，请稍后再试");
+        return;
+      }
 
       const toastId = toast.loading("正在创建文档...");
 
@@ -163,6 +168,23 @@ export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
 
         // 与 useCreateDocument 一致：刷新侧边栏「AI 文档」列表（否则仅 fetch 创建不会触发 React Query 失效）
         await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+
+        try {
+          const { url } = await uploadFileToApi(file);
+          const patchRes = await fetch(`/api/editor-documents/${doc.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sourcePdfUrl: url }),
+          });
+          if (!patchRes.ok) {
+            throw new Error("保存原文档链接失败");
+          }
+          await queryClient.invalidateQueries({
+            queryKey: documentKeys.detail(doc.id),
+          });
+        } catch {
+          // 原文上传失败时仍继续转换，仅无「下载原文档」入口
+        }
 
         toast.dismiss(toastId);
 

@@ -3,10 +3,15 @@ import DragHandle from "@tiptap/extension-drag-handle-react";
 import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon, Plus } from "lucide-react";
-import { useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ImagePreview } from "@repo/ui";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
+import {
+  TIPTAP_IMAGE_PREVIEW_EVENT,
+  type TiptapImagePreviewDetail,
+} from "./tiptap/extensions/image/image";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
@@ -15,8 +20,47 @@ import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 
+/** 监听图片预览自定义事件，用 ImagePreview 展示全屏预览 */
+function ImagePreviewPortal() {
+  const [src, setSrc] = useState<string | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<TiptapImagePreviewDetail>).detail;
+      setSrc(detail.src);
+      requestAnimationFrame(() => {
+        triggerRef.current?.click();
+      });
+    };
+    window.addEventListener(TIPTAP_IMAGE_PREVIEW_EVENT, handler);
+    return () => window.removeEventListener(TIPTAP_IMAGE_PREVIEW_EVENT, handler);
+  }, []);
+
+  if (!src) return null;
+
+  return (
+    <ImagePreview
+      src={src}
+      onVisibleChange={(visible) => {
+        if (!visible) setSrc(null);
+      }}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-hidden="true"
+        style={{ display: "none" }}
+      >
+        preview
+      </button>
+    </ImagePreview>
+  );
+}
+
 export interface TiptapEditorProps {
   content?: Content;
+  contentVersion?: number;
   placeholder?: string;
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
@@ -29,6 +73,7 @@ export interface TiptapEditorProps {
 
 export function TiptapEditor({
   content,
+  contentVersion = 0,
   placeholder,
   onCreate,
   onUpdate,
@@ -69,7 +114,7 @@ export function TiptapEditor({
   const editor = useEditor({
     editable: !readonly,
     extensions,
-    content: content,
+    content: undefined,
     immediatelyRender: false, // 禁用立即渲染,避免 flushSync 警告
     shouldRerenderOnTransaction: false,
     editorProps: {
@@ -89,6 +134,30 @@ export function TiptapEditor({
     },
   });
 
+  const appliedContentVersionRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    if (appliedContentVersionRef.current === contentVersion) {
+      return;
+    }
+
+    appliedContentVersionRef.current = contentVersion;
+
+    const timer = setTimeout(() => {
+      if (editor.isDestroyed) {
+        return;
+      }
+
+      editor.commands.setContent(content ?? "", false);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [content, contentVersion, editor]);
+
   const { handleSlashCommand } = useSlashCommandTrigger(editor);
 
   if (readonly) {
@@ -99,12 +168,14 @@ export function TiptapEditor({
           className="prose dark:prose-invert focus:outline-none max-w-full z-0"
         />
         <TableOfContents editor={editor} />
+        <ImagePreviewPortal />
       </div>
     );
   }
 
   return (
     <div className={className}>
+      <ImagePreviewPortal />
       {editor && (
         <>
           <DragHandle

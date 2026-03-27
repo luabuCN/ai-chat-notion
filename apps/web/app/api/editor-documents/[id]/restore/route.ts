@@ -17,7 +17,9 @@ export async function POST(
 
   try {
     // 验证文档访问权限 - 需要编辑权限才能恢复
-    const { access } = await verifyDocumentAccess(id, user.id);
+    const { access } = await verifyDocumentAccess(id, user.id, user.email, {
+      ignoreDeletedAt: true,
+    });
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
