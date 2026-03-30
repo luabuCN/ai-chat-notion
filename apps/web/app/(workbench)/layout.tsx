@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { DataStreamProvider } from "@/components/data-stream-provider";
 import { WorkspaceProvider } from "@/components/workspace-provider";
 import { MaterialLibraryDialog } from "@/components/editor/material-library-dialog";
+import { DocumentLinkPickerDialog } from "@/components/editor/document-link-picker-dialog";
 import { SidebarInset, SidebarProvider } from "@repo/ui";
 import { auth } from "../(auth)/auth";
 
@@ -23,6 +24,7 @@ export default async function Layout({
             <SidebarInset>
               {children}
               <MaterialLibraryDialog />
+              <DocumentLinkPickerDialog />
             </SidebarInset>
           </SidebarProvider>
         </DataStreamProvider>

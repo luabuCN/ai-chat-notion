@@ -157,8 +157,12 @@ export default function AIPanel({ editor }: AIPanelProps) {
       if (!selection.empty) return; // selection is not empty
       const node = selection.$anchor.node();
       if (node?.isTextblock && node.textContent?.trim() === "") {
-        // selected an empty line
-        event.preventDefault(); // prevent default space input
+        let hasAtom = false;
+        node.content.forEach((child) => {
+          if (child.isAtom) hasAtom = true;
+        });
+        if (hasAtom) return;
+        event.preventDefault();
         setHasSelection(false);
         setVisible(true);
       }

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePreview } from "@repo/ui";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
+import { DocumentLink } from "./tiptap/extensions/document-link";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import {
   TIPTAP_IMAGE_PREVIEW_EVENT,
@@ -69,6 +70,8 @@ export interface TiptapEditorProps {
   aiApiUrl?: string; // Will use /api/ai/completion by default in AIPanel as per user request
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
+  /** SPA 跳转回调，用于文档链接点击。不传则退化为整页跳转 */
+  navigate?: (href: string) => void;
 }
 
 export function TiptapEditor({
@@ -82,10 +85,13 @@ export function TiptapEditor({
   readonly = false,
   showAiTools = true,
   aiApiUrl,
+  navigate,
 }: TiptapEditorProps) {
-  // Use ref to store uploadFile to avoid editor recreation on every render
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
+
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
   const stableUploadFile = useRef(async (file: File) => {
     if (uploadFileRef.current) {
@@ -94,9 +100,18 @@ export function TiptapEditor({
     throw new Error("Upload function not available");
   }).current;
 
+  const stableNavigate = useRef((href: string) => {
+    if (navigateRef.current) {
+      navigateRef.current(href);
+    } else {
+      window.location.href = href;
+    }
+  }).current;
+
   const extensions = useMemo(() => {
     return [
       ...defaultExtensions,
+      DocumentLink.configure({ navigate: stableNavigate }),
       Placeholder.configure({
         placeholder: placeholder ?? "Type  /  for commands...",
         emptyEditorClass: "is-editor-empty text-gray-400",
@@ -152,7 +167,7 @@ export function TiptapEditor({
         return;
       }
 
-      editor.commands.setContent(content ?? "", false);
+      editor.commands.setContent(content ?? "", { emitUpdate: false });
     }, 0);
 
     return () => clearTimeout(timer);

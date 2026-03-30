@@ -4,6 +4,7 @@ import {
   ChartPieIcon,
   CodeIcon,
   DivideIcon,
+  FileTextIcon,
   FolderOpenIcon,
   Heading1Icon,
   Heading2Icon,
@@ -21,6 +22,10 @@ import {
   TextQuoteIcon,
 } from "lucide-react";
 import { SlashCommandNodeAttrs } from "./slash-command";
+import {
+  TIPTAP_INSERT_DOCUMENT_LINK,
+  type InsertDocumentLinkDetail,
+} from "../document-link";
 import SuggestionList, {
   CommandSuggestionItem,
   SuggestionListHandle,
@@ -278,6 +283,35 @@ const materialLibraryItem: CommandSuggestionItem = {
   },
 };
 
+const documentLinkItem: CommandSuggestionItem = {
+  id: "documentLink",
+  title: "插入文档链接",
+  description: "引用工作空间中的其他文档，点击可跳转。",
+  keywords: ["文档", "链接", "引用", "document", "link", "page"],
+  category: null,
+  icon: FileTextIcon,
+  command: ({ editor, range }) => {
+    editor.chain().focus().deleteRange(range).run();
+    window.dispatchEvent(
+      new CustomEvent<InsertDocumentLinkDetail>(TIPTAP_INSERT_DOCUMENT_LINK, {
+        detail: {
+          onSelect: (doc) => {
+            editor
+              .chain()
+              .focus()
+              .setDocumentLink({
+                documentId: doc.id,
+                documentTitle: doc.title,
+                documentIcon: doc.icon,
+              })
+              .run();
+          },
+        },
+      })
+    );
+  },
+};
+
 const uploadItems: CommandSuggestionItem[] = [
   {
     id: "image",
@@ -345,11 +379,11 @@ const getSuggestion = ({
 
       const items = ai
         ? uploadFile
-          ? [aiWriterItem, materialLibraryItem, ...formatItems, ...uploadItems, ...insertItems]
-          : [aiWriterItem, materialLibraryItem, ...formatItems, ...insertItems]
+          ? [aiWriterItem, materialLibraryItem, documentLinkItem, ...formatItems, ...uploadItems, ...insertItems]
+          : [aiWriterItem, materialLibraryItem, documentLinkItem, ...formatItems, ...insertItems]
         : uploadFile
-          ? [...formatItems, ...uploadItems, ...insertItems]
-          : [...formatItems, ...insertItems];
+          ? [documentLinkItem, ...formatItems, ...uploadItems, ...insertItems]
+          : [documentLinkItem, ...formatItems, ...insertItems];
       return items.filter(filterFun);
     },
     render: () => {

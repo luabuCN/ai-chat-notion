@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { memo, useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 import "@repo/editor/styles";
 
@@ -23,7 +24,9 @@ export const EditorClient = memo(function EditorClient({
   onChange,
   readonly,
 }: EditorClientProps) {
-  // 用 ref 存储 onChange，避免回调变化导致重渲染
+  const router = useRouter();
+  const navigate = useCallback((href: string) => router.push(href), [router]);
+
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -68,6 +71,7 @@ export const EditorClient = memo(function EditorClient({
       uploadFile={uploadFile}
       onUpdate={handleUpdate}
       readonly={readonly}
+      navigate={navigate}
     />
   );
 });

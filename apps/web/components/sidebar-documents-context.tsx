@@ -7,6 +7,8 @@ import { useDocumentPath } from "@/hooks/use-document-query";
 interface SidebarDocumentsContextType {
   expanded: Record<string, boolean>;
   onExpand: (id: string) => void;
+  /** 强制展开指定节点（不 toggle），用于创建子文档后保证父级可见 */
+  setExpanded: (id: string) => void;
 }
 
 const SidebarDocumentsContext = createContext<
@@ -28,30 +30,28 @@ export function SidebarDocumentsProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
 
-  // Extract document ID from pathname
   // 匹配 /[slug]/editor/[id] 格式的路径
   const match = pathname?.match(/\/[^\/]+\/editor\/([^\/]+)/);
   const currentDocumentId = match ? match[1] : null;
 
-  // Fetch ancestor path
   const { data: path } = useDocumentPath(currentDocumentId);
 
-  // Auto-expand when path changes
+  // 路径变化时自动展开祖先节点
   useEffect(() => {
     if (path && path.length > 0) {
-      setExpanded((prev) => {
+      setExpandedMap((prev) => {
         const next = { ...prev };
         let hasChanges = false;
 
-        path.forEach((id) => {
+        for (const id of path) {
           if (!next[id]) {
             next[id] = true;
             hasChanges = true;
           }
-        });
+        }
 
         return hasChanges ? next : prev;
       });
@@ -59,11 +59,23 @@ export function SidebarDocumentsProvider({
   }, [path]);
 
   const onExpand = (id: string) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+    setExpandedMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const setExpandedById = (id: string) => {
+    setExpandedMap((prev) =>
+      prev[id] ? prev : { ...prev, [id]: true }
+    );
   };
 
   return (
-    <SidebarDocumentsContext.Provider value={{ expanded, onExpand }}>
+    <SidebarDocumentsContext.Provider
+      value={{
+        expanded: expandedMap,
+        onExpand,
+        setExpanded: setExpandedById,
+      }}
+    >
       {children}
     </SidebarDocumentsContext.Provider>
   );

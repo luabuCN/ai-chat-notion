@@ -25,6 +25,7 @@ import { useRouter, usePathname, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useCreateDocument, useArchive } from "@/hooks/use-document-query";
 import { useState } from "react";
+import { useSidebarDocumentsContext } from "./sidebar-documents-context";
 
 interface ItemProps {
   id?: string;
@@ -37,8 +38,8 @@ interface ItemProps {
   label: string;
   onClick?: () => void;
   icon: LucideIcon;
-  canEdit?: boolean; // 是否有编辑权限，用于控制操作按钮显示
-  lastEditedByName?: string | null; // 最后编辑者名称
+  canEdit?: boolean;
+  lastEditedByName?: string | null;
 }
 
 const Item = ({
@@ -66,6 +67,7 @@ const Item = ({
       : "";
   const createDocumentMutation = useCreateDocument();
   const archiveMutation = useArchive();
+  const { setExpanded: forceExpand } = useSidebarDocumentsContext();
   const [isHovered, setIsHovered] = useState(false);
 
   const isViewingThisDocument =
@@ -105,6 +107,10 @@ const Item = ({
   const onCreate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     event.stopPropagation();
     if (!id) return;
+
+    // 创建前立即展开父级，让 DocumentsList 挂载、query 就位
+    forceExpand(id);
+
     createDocumentMutation.mutate(
       {
         title: "未命名",
@@ -112,18 +118,11 @@ const Item = ({
       },
       {
         onSuccess: (res) => {
-          // 先展开父文档，这样可以看到新创建的子文档
-          if (!expanded) {
-            onExpand?.();
-          }
-          // 延迟导航，确保列表已经更新
-          setTimeout(() => {
-            router.push(
-              workspaceSlug
-                ? `/${workspaceSlug}/editor/${res.id}`
-                : `/editor/${res.id}`
-            );
-          }, 100);
+          router.push(
+            workspaceSlug
+              ? `/${workspaceSlug}/editor/${res.id}`
+              : `/editor/${res.id}`
+          );
           toast.success("新笔记已创建！");
         },
         onError: (error) => {

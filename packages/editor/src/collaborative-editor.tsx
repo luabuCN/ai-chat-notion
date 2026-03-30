@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { defaultExtensions } from "./tiptap/default-extensions";
+import { DocumentLink } from "./tiptap/extensions/document-link";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
@@ -44,6 +45,8 @@ export interface CollaborativeEditorProps {
   aiApiUrl?: string; // Will use /api/ai/completion by default in AIPanel as per user request
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
+  /** SPA 跳转回调，用于文档链接点击。不传则退化为整页跳转 */
+  navigate?: (href: string) => void;
 }
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
@@ -69,9 +72,21 @@ export function CollaborativeEditor({
   aiApiUrl,
   uploadFile,
   readonly = false,
+  navigate,
 }: CollaborativeEditorProps) {
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
+
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
+  const stableNavigate = useRef((href: string) => {
+    if (navigateRef.current) {
+      navigateRef.current(href);
+    } else {
+      window.location.href = href;
+    }
+  }).current;
 
   // 使用 refs 稳定回调函数，防止 provider 重新创建
   const onSyncedRef = useRef(onSynced);
@@ -229,6 +244,7 @@ export function CollaborativeEditor({
   const extensions = useMemo(() => {
     return [
       ...defaultExtensions,
+      DocumentLink.configure({ navigate: stableNavigate }),
       Placeholder.configure({
         placeholder: placeholder ?? "Type / for commands...",
         emptyEditorClass: "is-editor-empty text-gray-400",

@@ -198,31 +198,31 @@ export function useCreateDocument() {
 
   return useMutation({
     mutationFn: createDocument,
-    onSuccess: async (newDoc) => {
-      // 乐观更新：直接将新文档添加到父文档的列表中
-      if (newDoc.parentDocumentId) {
-        queryClient.setQueryData<EditorDocument[]>(
-          documentKeys.list(newDoc.parentDocumentId),
-          (oldData) => {
-            if (!oldData) return [newDoc];
-            // 检查是否已存在，避免重复
-            if (oldData.some((doc) => doc.id === newDoc.id)) {
-              return oldData;
-            }
-            return [...oldData, newDoc];
+    onSuccess: (newDoc) => {
+      // 乐观更新：将新文档注入到所有匹配父级的列表缓存中
+      // （列表 key 包含 workspaceId，遍历所有已缓存 key 以命中正确条目）
+      const allListQueries = queryClient.getQueriesData<EditorDocument[]>({
+        queryKey: documentKeys.lists(),
+      });
+
+      for (const [key, data] of allListQueries) {
+        const params = key.at(-1) as
+          | { parentDocumentId?: string; workspaceId?: string }
+          | undefined;
+
+        const matchesParent =
+          (newDoc.parentDocumentId && params?.parentDocumentId === newDoc.parentDocumentId) ||
+          (!newDoc.parentDocumentId && !params?.parentDocumentId);
+
+        if (matchesParent && data) {
+          if (!data.some((doc) => doc.id === newDoc.id)) {
+            queryClient.setQueryData<EditorDocument[]>(key, [...data, newDoc]);
           }
-        );
+        }
       }
 
-      // 同时使所有列表查询失效（包括带有 workspaceId 的列表）
-      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
-
-      // 如果创建了子文档，也使父文档的列表失效（作为后备，确保数据同步）
-      if (newDoc.parentDocumentId) {
-        await queryClient.invalidateQueries({
-          queryKey: documentKeys.list(newDoc.parentDocumentId),
-        });
-      }
+      // 不 await：让 invalidation 后台进行，不阻塞组件的 onSuccess 回调
+      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },
   });
 }

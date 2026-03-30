@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { memo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 import "@repo/editor/styles";
@@ -36,6 +37,8 @@ export const CollaborativeEditorClient = memo(
     onConnectedUsersChange,
     onConnectionStatusChange,
   }: CollaborativeEditorClientProps) {
+    const router = useRouter();
+    const navigate = useCallback((href: string) => router.push(href), [router]);
     const { mutateAsync: uploadFileMutation } = useFileUploadMutation();
 
     const uploadFile = useCallback(
@@ -69,6 +72,7 @@ export const CollaborativeEditorClient = memo(
         showAiTools={true}
         uploadFile={uploadFile}
         readonly={readonly}
+        navigate={navigate}
         onSynced={handleSynced}
         onDisconnect={handleDisconnect}
         onConnectedUsersChange={onConnectedUsersChange}

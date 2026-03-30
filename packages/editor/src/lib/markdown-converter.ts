@@ -1,10 +1,11 @@
 import { Editor } from "@tiptap/core";
 import { defaultExtensions } from "../tiptap/default-extensions";
+import { DocumentLink } from "../tiptap/extensions/document-link";
 
 export function markdownToTiptap(markdown: string) {
   // Create a headless editor instance with the same extensions as the main editor
   const editor = new Editor({
-    extensions: defaultExtensions,
+    extensions: [...defaultExtensions, DocumentLink.configure({ navigate: null })],
     editable: false,
   });
 

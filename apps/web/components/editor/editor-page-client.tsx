@@ -46,7 +46,10 @@ export function EditorPageClient({
 
   return (
     <CollaborationProvider>
-      <div className="flex min-h-dvh min-w-0 w-full flex-col bg-background">
+      {/* h-dvh 而非 min-h-dvh：将滚动容器固定在视口高度内，
+          避免 body 产生滚动条。Radix overlay 打开时不会因
+          react-remove-scroll 移除 body 滚动条而引发布局抖动。 */}
+      <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
         {/* 固定头部 */}
         <div
           className="fixed top-0 right-0 z-50 bg-background transition-[left] duration-200 ease-linear left-0 md:left-[var(--sidebar-width)]"
@@ -59,7 +62,8 @@ export function EditorPageClient({
             currentUserId={userId}
           />
         </div>
-        <div className="flex-1 pt-14  overflow-y-hidden">
+        {/* overflow-y-auto：让内容在此容器内滚动，而非 body */}
+        <div className="flex-1 pt-14 overflow-y-auto">
           <EditorContent
             locale={locale}
             documentId={documentId}

@@ -1,6 +1,7 @@
 import { getAuthFromRequest } from "@/lib/api-auth";
 import {
   createEditorDocument,
+  getEditorDocumentById,
   getEditorDocumentsByUserId,
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
@@ -83,9 +84,20 @@ export async function POST(request: Request) {
       ).toResponse();
     }
 
+    // 子文档自动继承父文档的 workspaceId
+    let resolvedWorkspaceId = workspaceId ?? null;
+    if (!resolvedWorkspaceId && parentDocumentId) {
+      try {
+        const parentDoc = await getEditorDocumentById({ id: parentDocumentId });
+        resolvedWorkspaceId = parentDoc.workspaceId;
+      } catch {
+        // 父文档不存在时忽略，后续创建会失败或使用 null
+      }
+    }
+
     // 如果指定了 workspaceId，验证访问权限
-    if (workspaceId) {
-      const hasAccess = await verifyWorkspaceAccess(workspaceId);
+    if (resolvedWorkspaceId) {
+      const hasAccess = await verifyWorkspaceAccess(resolvedWorkspaceId);
       if (!hasAccess) {
         return new ChatSDKError(
           "unauthorized:document",
@@ -98,7 +110,7 @@ export async function POST(request: Request) {
       title,
       content,
       userId: user.id,
-      workspaceId: workspaceId ?? null,
+      workspaceId: resolvedWorkspaceId,
       parentDocumentId: parentDocumentId ?? null,
       coverImage: coverImage ?? null,
       coverImageType: coverImageType ?? "url",
