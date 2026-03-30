@@ -159,6 +159,10 @@ export function EditorContent({
         setTitle(newTitle);
         setIcon(newIcon);
         setContent(newContent);
+        // 文档切换时递增版本，确保 EditorClient 把真实内容快照并注入编辑器
+        // （EditorClient 以空内容挂载时已消耗一次 version=0，
+        //  此处递增才能让真实内容走通更新路径）
+        setContentVersion((v) => v + 1);
 
         // 重置 refs，避免下次比较时误判
         prevTitleRef.current = newTitle;
