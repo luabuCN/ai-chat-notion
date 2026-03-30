@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  Skeleton,
 } from "@repo/ui";
 import {
   useTrashDocuments,
@@ -218,9 +219,30 @@ export function SidebarTrash() {
                 <TooltipProvider delayDuration={300}>
                   <div className="max-h-[300px] min-h-0 w-full min-w-0 overflow-y-auto overflow-x-hidden">
                     {isLoading ? (
-                      <div className="flex h-[200px] items-center justify-center text-muted-foreground">
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        加载中...
+                      <div
+                        className="flex min-h-[200px] flex-col gap-2 p-2"
+                        role="status"
+                        aria-busy="true"
+                        aria-live="polite"
+                      >
+                        <span className="sr-only">正在加载垃圾箱</span>
+                        {Array.from({ length: 6 }, (_, i) => (
+                          <div
+                            key={i}
+                            className="grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-sm px-1 py-0.5"
+                          >
+                            <div className="flex min-w-0 items-center gap-2">
+                              <Skeleton className="size-5 shrink-0 rounded" />
+                              <Skeleton
+                                className="h-3.5 max-w-[min(100%,14rem)] flex-1 rounded-full"
+                                style={{
+                                  animationDelay: `${i * 70}ms`,
+                                }}
+                              />
+                            </div>
+                            <Skeleton className="h-7 w-7 shrink-0 rounded-md opacity-80" />
+                          </div>
+                        ))}
                       </div>
                     ) : filteredDocuments?.length === 0 ? (
                       <div className="flex h-[200px] flex-col items-center justify-center p-4 text-center text-sm text-muted-foreground">

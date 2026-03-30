@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { EditorPageHeader } from "./editor-page-header";
+import { EditorLoadingSkeleton } from "./editor-loading-skeleton";
 import { EditorClient } from "./editor-client";
 import { CollaborativeEditorClient } from "./collaborative-editor-client";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
@@ -397,11 +398,7 @@ export function SmartEditorContent({
   }, []);
 
   if (isLoading || (shouldEnableCollaboration && isTokenLoading)) {
-    return (
-      <div className="min-h-full flex items-center justify-center">
-        <div className="text-muted-foreground">加载中...</div>
-      </div>
-    );
+    return <EditorLoadingSkeleton className="min-h-full" />;
   }
 
   return (

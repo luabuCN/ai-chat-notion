@@ -5,6 +5,7 @@ import { EditorPageHeader } from "./editor-page-header";
 import { EditorClient } from "./editor-client";
 import { CollaborativeEditorClient } from "./collaborative-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
+import { EditorLoadingSkeleton } from "./editor-loading-skeleton";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
@@ -433,11 +434,7 @@ export function EditorContent({
   }, []);
 
   if (isLoading || (enableCollaboration && isTokenLoading)) {
-    return (
-      <div className="min-h-full flex items-center justify-center">
-        <div className="text-muted-foreground">加载中...</div>
-      </div>
-    );
+    return <EditorLoadingSkeleton className="min-h-full" />;
   }
 
   return (

@@ -195,7 +195,7 @@ export function TiptapEditor({
         <>
           <DragHandle
             editor={editor}
-            className="transition-all duration-300 ease-in-out z-99999"
+            className="transition-all duration-300 ease-in-out"
             computePositionConfig={{
               middleware: [offset(20)],
             }}
