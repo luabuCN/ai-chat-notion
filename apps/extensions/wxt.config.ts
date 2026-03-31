@@ -1,5 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "wxt";
+
+/** 扩展根目录（wxt.config.ts 所在目录），用于固定 React 单实例，避免与 @repo/ui 重复打包导致 useState 报错 */
+const extensionRoot = path.dirname(fileURLToPath(import.meta.url));
 
 // 与 apps/web 一致；用于 host_permissions、import.meta.env.WXT_WEB_ORIGIN
 const webOrigin = process.env.WXT_WEB_ORIGIN ?? "http://localhost:3000";
@@ -39,6 +44,21 @@ export default defineConfig({
       "import.meta.env.WXT_WEB_MATCH_PATTERN": JSON.stringify(
         webOriginToContentMatchPattern(webOrigin),
       ),
+    },
+    resolve: {
+      dedupe: ["react", "react-dom"],
+      alias: {
+        react: path.resolve(extensionRoot, "node_modules/react"),
+        "react-dom": path.resolve(extensionRoot, "node_modules/react-dom"),
+        "react/jsx-runtime": path.resolve(
+          extensionRoot,
+          "node_modules/react/jsx-runtime.js",
+        ),
+        "react/jsx-dev-runtime": path.resolve(
+          extensionRoot,
+          "node_modules/react/jsx-dev-runtime.js",
+        ),
+      },
     },
   }),
   manifest: {

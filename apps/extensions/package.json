@@ -25,6 +25,7 @@
     "wxt": "^0.20.20"
   },
   "dependencies": {
+    "@repo/ui": "workspace:*",
     "@webext-core/messaging": "^2.3.0",
     "lucide-react": "^1.7.0",
     "react": "19.0.0-rc-45804af1-20241021",

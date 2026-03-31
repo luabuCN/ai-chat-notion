@@ -99,6 +99,9 @@ importers:
 
   apps/extensions:
     dependencies:
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@webext-core/messaging':
         specifier: ^2.3.0
         version: 2.3.0
