@@ -51,7 +51,8 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/uploadthing") ||
-    pathname.startsWith("/api/models")
+    pathname.startsWith("/api/models") ||
+    pathname.startsWith("/api/extension")
   ) {
     return NextResponse.next();
   }

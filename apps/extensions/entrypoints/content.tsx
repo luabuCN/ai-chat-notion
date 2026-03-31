@@ -6,7 +6,7 @@ export default defineContentScript({
   matches: ["<all_urls>"],
   main() {
     const anchor = document.createElement("div");
-    anchor.id = "omniside-selection-toolbar-root";
+    anchor.id = "WiseWrite-selection-toolbar-root";
     document.body.append(anchor);
     createRoot(anchor).render(<SelectionToolbarHost />);
   },
