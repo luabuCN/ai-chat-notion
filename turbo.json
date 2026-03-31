@@ -3,7 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"],
+      "outputs": [".next/**", "dist/**", ".output/**"],
       "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
     },
     "dev": {

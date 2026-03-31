@@ -6,6 +6,7 @@
     "dev": "turbo dev --filter=@repo/web",
     "dev:collab": "turbo dev --filter=@repo/collab-server",
     "dev:all": "turbo dev --filter=@repo/web --filter=@repo/collab-server",
+    "dev:extension": "turbo dev --filter=@repo/extensions",
     "build": "turbo build",
     "build:collab": "turbo build --filter=@repo/collab-server",
     "lint": "turbo lint",

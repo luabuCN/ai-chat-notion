@@ -15,6 +15,11 @@
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
       "computedHash": "9fb08ab39585f6f770d0c1c735f83e619aba2089d7ad50ba2a305eff715e08b9"
+    },
+    "wxt-browser-extensions": {
+      "source": "pproenca/dot-skills",
+      "sourceType": "github",
+      "computedHash": "6c3f7488a0b0dc3805d8f2d2cd2ebb61c32e620c8b1a26eb4663b0f115a87bcc"
     }
   }
 }
