@@ -99,12 +99,27 @@ importers:
 
   apps/extensions:
     dependencies:
+      '@ai-sdk/react':
+        specifier: 3.0.39
+        version: 3.0.39(react@19.0.0-rc-45804af1-20241021)(zod@4.1.13)
+      '@fontsource-variable/geist':
+        specifier: ^5.2.6
+        version: 5.2.8
+      '@fontsource-variable/geist-mono':
+        specifier: ^5.2.6
+        version: 5.2.7
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@webext-core/messaging':
         specifier: ^2.3.0
         version: 2.3.0
+      ai:
+        specifier: 6.0.37
+        version: 6.0.37(zod@4.1.13)
+      katex:
+        specifier: ^0.16.25
+        version: 0.16.25
       lucide-react:
         specifier: ^1.7.0
         version: 1.7.0(react@19.0.0-rc-45804af1-20241021)
@@ -114,10 +129,16 @@ importers:
       react-dom:
         specifier: 19.0.0-rc-45804af1-20241021
         version: 19.0.0-rc-45804af1-20241021(react@19.0.0-rc-45804af1-20241021)
+      streamdown:
+        specifier: ^1.3.0
+        version: 1.6.10(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.0.0-rc-45804af1-20241021)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.1.13
         version: 4.1.17
+      '@tailwindcss/typography':
+        specifier: ^0.5.15
+        version: 0.5.19(tailwindcss@4.1.17)
       '@types/react':
         specifier: ^18
         version: 18.3.27
@@ -133,6 +154,9 @@ importers:
       tailwindcss:
         specifier: ^4.1.13
         version: 4.1.17
+      tailwindcss-animate:
+        specifier: ^1.0.7
+        version: 1.0.7(tailwindcss@4.1.17)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1543,6 +1567,12 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+
+  '@fontsource-variable/geist-mono@5.2.7':
+    resolution: {integrity: sha512-ZKlZ5sjtalb2TwXKs400mAGDlt/+2ENLNySPx0wTz3bP3mWARCsUW+rpxzZc7e05d2qGch70pItt3K4qttbIYA==}
+
+  '@fontsource-variable/geist@5.2.8':
+    resolution: {integrity: sha512-cJ6m9e+8MQ5dCYJsLylfZrgBh6KkG4bOLckB35Tr9J/EqdkEM6QllH5PxqP1dhTvFup+HtMRPuz9xOjxXJggxw==}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -7812,6 +7842,16 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
+  '@ai-sdk/react@3.0.39(react@19.0.0-rc-45804af1-20241021)(zod@4.1.13)':
+    dependencies:
+      '@ai-sdk/provider-utils': 4.0.7(zod@4.1.13)
+      ai: 6.0.37(zod@4.1.13)
+      react: 19.0.0-rc-45804af1-20241021
+      swr: 2.3.7(react@19.0.0-rc-45804af1-20241021)
+      throttleit: 2.1.0
+    transitivePeerDependencies:
+      - zod
+
   '@aklinker1/rollup-plugin-visualizer@5.12.0(rollup@4.53.3)':
     dependencies:
       open: 8.4.2
@@ -8351,6 +8391,10 @@ snapshots:
       react-dom: 19.2.1(react@19.2.1)
 
   '@floating-ui/utils@0.2.10': {}
+
+  '@fontsource-variable/geist-mono@5.2.7': {}
+
+  '@fontsource-variable/geist@5.2.8': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:
@@ -13539,7 +13583,7 @@ snapshots:
   micromark-extension-cjk-friendly-gfm-strikethrough@1.2.3(micromark-util-types@2.0.2)(micromark@4.0.2):
     dependencies:
       devlop: 1.1.0
-      get-east-asian-width: 1.4.0
+      get-east-asian-width: 1.5.0
       micromark: 4.0.2
       micromark-extension-cjk-friendly-util: 2.1.1(micromark-util-types@2.0.2)
       micromark-util-character: 2.1.1
@@ -13551,7 +13595,7 @@ snapshots:
 
   micromark-extension-cjk-friendly-util@2.1.1(micromark-util-types@2.0.2):
     dependencies:
-      get-east-asian-width: 1.4.0
+      get-east-asian-width: 1.5.0
       micromark-util-character: 2.1.1
       micromark-util-symbol: 2.0.1
     optionalDependencies:

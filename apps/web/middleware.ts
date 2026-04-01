@@ -96,6 +96,12 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
+    // API 路由：不要 302 到登录页 HTML（会破坏扩展侧栏 fetch + SSE 流解析）。
+    // 鉴权由各 route 的 auth() 返回 401 JSON。
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.next();
+    }
+
     // 其他路由：重定向到登录页
     const callbackUrl = encodeURIComponent(request.url);
     return NextResponse.redirect(
@@ -115,8 +121,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  // 访客用户访问非公开路由时，重定向到登录页
-  if (isGuest && !isPublicRoute) {
+  // 访客用户访问非公开路由时，重定向到登录页（API 由 route 自行处理）
+  if (isGuest && !isPublicRoute && !pathname.startsWith("/api/")) {
     const callbackUrl = encodeURIComponent(request.url);
     return NextResponse.redirect(
       new URL(`/login?callbackUrl=${callbackUrl}`, request.url)

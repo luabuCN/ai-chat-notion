@@ -9,6 +9,7 @@ import { AuthForm } from "@/components/auth-form";
 import { EmailCodeForm } from "@/components/email-code-form";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
+import { dispatchMainSiteAuthChangedEvent } from "@/lib/extension-auth-event";
 import { type LoginActionState, login } from "../actions";
 
 export default function Page() {
@@ -43,6 +44,7 @@ export default function Page() {
     } else if (state.status === "success") {
       setIsSuccessful(true);
       updateSession();
+      dispatchMainSiteAuthChangedEvent();
       router.push(callbackUrl);
       router.refresh();
     }
@@ -57,6 +59,7 @@ export default function Page() {
   const handleCodeLoginSuccess = () => {
     setIsSuccessful(true);
     updateSession();
+    dispatchMainSiteAuthChangedEvent();
     router.push(callbackUrl);
     router.refresh();
   };

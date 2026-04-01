@@ -44,6 +44,40 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
+/** 扩展侧栏（chrome-extension://）跨域预检；主站同源页面不依赖此项。 */
+export function OPTIONS(request: Request) {
+  const origin = request.headers.get("origin");
+  if (origin?.startsWith("chrome-extension://")) {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers":
+          "Content-Type, User-Agent, X-Requested-With",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+  return new Response(null, { status: 204 });
+}
+
+function withExtensionCors(request: Request, response: Response): Response {
+  const origin = request.headers.get("origin");
+  if (!origin?.startsWith("chrome-extension://")) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", origin);
+  headers.set("Access-Control-Allow-Credentials", "true");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 let globalStreamContext: ResumableStreamContext | null = null;
 
 function isMoonshotThinkingModel(modelSlug: string): boolean {
@@ -80,7 +114,10 @@ export async function POST(request: Request) {
   } catch (_) {
     console.log("error", _);
 
-    return new ChatSDKError("bad_request:api").toResponse();
+    return withExtensionCors(
+      request,
+      new ChatSDKError("bad_request:api").toResponse(),
+    );
   }
 
   try {
@@ -109,7 +146,10 @@ export async function POST(request: Request) {
     const session = await auth();
 
     if (!session?.user) {
-      return new ChatSDKError("unauthorized:chat").toResponse();
+      return withExtensionCors(
+        request,
+        new ChatSDKError("unauthorized:chat").toResponse(),
+      );
     }
 
     // 所有已登录用户为 regular 类型
@@ -125,7 +165,10 @@ export async function POST(request: Request) {
 
     if (chat) {
       if (chat.userId !== session.user.id) {
-        return new ChatSDKError("forbidden:chat").toResponse();
+        return withExtensionCors(
+          request,
+          new ChatSDKError("forbidden:chat").toResponse(),
+        );
       }
       // Only fetch messages if chat already exists
       messagesFromDb = await getMessagesByChatId({ id });
@@ -361,16 +404,22 @@ export async function POST(request: Request) {
       },
     });
 
-    return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+    return withExtensionCors(
+      request,
+      new Response(stream.pipeThrough(new JsonToSseTransformStream())),
+    );
   } catch (error) {
     const vercelId = request.headers.get("x-vercel-id");
 
     if (error instanceof ChatSDKError) {
-      return error.toResponse();
+      return withExtensionCors(request, error.toResponse());
     }
 
     console.error("Unhandled error in chat API:", error, { vercelId });
-    return new ChatSDKError("offline:chat").toResponse();
+    return withExtensionCors(
+      request,
+      new ChatSDKError("offline:chat").toResponse(),
+    );
   }
 }
 

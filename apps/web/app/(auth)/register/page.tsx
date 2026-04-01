@@ -7,6 +7,7 @@ import { useActionState, useEffect, useState, useRef } from "react";
 import { Input, Button, Label } from "@repo/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
+import { dispatchMainSiteAuthChangedEvent } from "@/lib/extension-auth-event";
 import {
   type RegisterActionState,
   type SendCodeActionState,
@@ -53,6 +54,7 @@ export default function Page() {
       toast({ type: "success", description: "注册成功！" });
       setIsSuccessful(true);
       updateSession();
+      dispatchMainSiteAuthChangedEvent();
       router.push(callbackUrl);
       router.refresh();
     }

@@ -29,6 +29,11 @@ export function useMainSiteAuth() {
     setAuth({ loading: false, data });
   }, []);
 
+  const refreshSilently = useCallback(async () => {
+    const data = await refreshAuthStatus();
+    setAuth((s) => ({ ...s, loading: false, data }));
+  }, []);
+
   useEffect(() => {
     const unwatch = mainSiteAuthStorage.watch((newVal) => {
       if (newVal !== null) {
@@ -40,6 +45,40 @@ export function useMainSiteAuth() {
       void unwatch();
     };
   }, [load]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        void refreshSilently();
+      }
+    };
+
+    const refreshOnFocus = () => {
+      void refreshSilently();
+    };
+
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [refreshSilently]);
+
+  useEffect(() => {
+    if (auth.data?.authenticated) {
+      return;
+    }
+
+    const id = window.setInterval(() => {
+      void refreshSilently();
+    }, 4000);
+
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [auth.data?.authenticated, refreshSilently]);
 
   return { auth, refresh };
 }
