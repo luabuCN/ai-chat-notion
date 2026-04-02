@@ -44,18 +44,21 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
-/** 扩展侧栏（chrome-extension://）跨域预检；主站同源页面不依赖此项。 */
+/** 扩展侧栏跨域预检（POST 流式 + DELETE 单会话）；主站同源不依赖此项。 */
 export function OPTIONS(request: Request) {
   const origin = request.headers.get("origin");
-  if (origin?.startsWith("chrome-extension://")) {
+  if (
+    origin?.startsWith("chrome-extension://") ||
+    origin?.startsWith("moz-extension://")
+  ) {
     return new Response(null, {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":
-          "Content-Type, User-Agent, X-Requested-With",
+          "Content-Type, Cookie, User-Agent, X-Requested-With",
         "Access-Control-Max-Age": "86400",
       },
     });
@@ -65,7 +68,10 @@ export function OPTIONS(request: Request) {
 
 function withExtensionCors(request: Request, response: Response): Response {
   const origin = request.headers.get("origin");
-  if (!origin?.startsWith("chrome-extension://")) {
+  if (
+    !origin?.startsWith("chrome-extension://") &&
+    !origin?.startsWith("moz-extension://")
+  ) {
     return response;
   }
   const headers = new Headers(response.headers);
@@ -428,22 +434,34 @@ export async function DELETE(request: Request) {
   const id = searchParams.get("id");
 
   if (!id) {
-    return new ChatSDKError("bad_request:api").toResponse();
+    return withExtensionCors(
+      request,
+      new ChatSDKError("bad_request:api").toResponse(),
+    );
   }
 
   const session = await auth();
 
   if (!session?.user) {
-    return new ChatSDKError("unauthorized:chat").toResponse();
+    return withExtensionCors(
+      request,
+      new ChatSDKError("unauthorized:chat").toResponse(),
+    );
   }
 
   const chat = await getChatById({ id });
 
   if (chat?.userId !== session.user.id) {
-    return new ChatSDKError("forbidden:chat").toResponse();
+    return withExtensionCors(
+      request,
+      new ChatSDKError("forbidden:chat").toResponse(),
+    );
   }
 
   const deletedChat = await deleteChatById({ id });
 
-  return Response.json(deletedChat, { status: 200 });
+  return withExtensionCors(
+    request,
+    Response.json(deletedChat, { status: 200 }),
+  );
 }

@@ -15,6 +15,7 @@ import { WEB_ORIGIN } from "@/lib/web-config";
  */
 export function createSidepanelChatTransport(
   getModelId: () => string,
+  getWorkspaceSlug: () => string,
 ): DefaultChatTransport<UIMessage> {
   return new DefaultChatTransport<UIMessage>({
     api: `${WEB_ORIGIN}/api/chat`,
@@ -103,6 +104,7 @@ export function createSidepanelChatTransport(
     prepareSendMessagesRequest: (request) => {
       const modelId = getModelId().trim();
       const isLegacyModelId = modelId.startsWith("chat-model");
+      const workspaceSlug = getWorkspaceSlug().trim();
       const lastUser = [...request.messages]
         .filter((m) => m.role === "user")
         .at(-1);
@@ -112,6 +114,7 @@ export function createSidepanelChatTransport(
           message: lastUser ?? request.messages.at(-1),
           selectedModelSlug: isLegacyModelId ? undefined : modelId || undefined,
           ...request.body,
+          workspaceSlug: workspaceSlug ? workspaceSlug : undefined,
         },
       };
     },

@@ -7,12 +7,13 @@ import { createSidepanelChatTransport } from "@/lib/sidepanel-chat-transport";
 export function useSidepanelChat(
   models: ExtensionModelInfo[],
   modelsLoading: boolean,
+  workspaceSlug: string,
 ) {
-  const chatIdRef = useRef<string>("");
-  if (chatIdRef.current === "") {
-    chatIdRef.current = crypto.randomUUID();
-  }
-  const chatId = chatIdRef.current;
+  const [chatId, setChatId] = useState<string>(() => crypto.randomUUID());
+  const pendingRestoreRef = useRef<{
+    chatId: string;
+    messages: UIMessage[];
+  } | null>(null);
 
   const [selectedModelId, setSelectedModelId] = useState("");
   const [enableReasoning, setEnableReasoning] = useState(false);
@@ -20,6 +21,9 @@ export function useSidepanelChat(
 
   const currentModelIdRef = useRef(selectedModelId);
   currentModelIdRef.current = selectedModelId;
+
+  const workspaceSlugRef = useRef(workspaceSlug);
+  workspaceSlugRef.current = workspaceSlug;
 
   useEffect(() => {
     if (modelsLoading || models.length === 0) {
@@ -32,7 +36,11 @@ export function useSidepanelChat(
   }, [models, modelsLoading, selectedModelId]);
 
   const transport = useMemo(
-    () => createSidepanelChatTransport(() => currentModelIdRef.current),
+    () =>
+      createSidepanelChatTransport(
+        () => currentModelIdRef.current,
+        () => workspaceSlugRef.current,
+      ),
     [],
   );
 
@@ -48,6 +56,7 @@ export function useSidepanelChat(
 
   const {
     messages,
+    setMessages,
     sendMessage,
     status,
     stop,
@@ -57,6 +66,15 @@ export function useSidepanelChat(
     chat,
     experimental_throttle: 100,
   });
+
+  useEffect(() => {
+    const pending = pendingRestoreRef.current;
+    if (!pending || pending.chatId !== chatId) {
+      return;
+    }
+    setMessages(pending.messages);
+    pendingRestoreRef.current = null;
+  }, [chatId, setMessages]);
 
   const selectedModel = useMemo(
     () => models.find((m) => m.full_slug === selectedModelId),
@@ -74,7 +92,13 @@ export function useSidepanelChat(
 
   const handleSend = useCallback(() => {
     const text = input.trim();
-    if (!text || busy || modelsLoading || !selectedModel) {
+    if (
+      !text ||
+      busy ||
+      modelsLoading ||
+      !selectedModel ||
+      !workspaceSlug.trim()
+    ) {
       return;
     }
     clearError();
@@ -102,9 +126,36 @@ export function useSidepanelChat(
     sendMessage,
     enableReasoning,
     supportsReasoning,
+    workspaceSlug,
   ]);
 
+  const restoreChat = useCallback(
+    (nextChatId: string, nextMessages: UIMessage[]) => {
+      if (nextChatId === chatId) {
+        setMessages(nextMessages);
+        return;
+      }
+      pendingRestoreRef.current = {
+        chatId: nextChatId,
+        messages: nextMessages,
+      };
+      setChatId(nextChatId);
+    },
+    [chatId, setMessages],
+  );
+
+  const resetToNewChat = useCallback(() => {
+    const newChatId = crypto.randomUUID();
+    pendingRestoreRef.current = {
+      chatId: newChatId,
+      messages: [],
+    };
+    setChatId(newChatId);
+    setInput("");
+  }, []);
+
   return {
+    chatId,
     messages,
     status,
     stop,
@@ -119,5 +170,7 @@ export function useSidepanelChat(
     setEnableReasoning,
     supportsReasoning,
     selectedModel,
+    restoreChat,
+    resetToNewChat,
   };
 }

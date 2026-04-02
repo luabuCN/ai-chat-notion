@@ -1,4 +1,4 @@
-import { getAuthFromRequest } from "@/lib/api-auth";
+import { auth } from "@/app/(auth)/auth";
 import {
   createWorkspace,
   getWorkspacesByUserId,
@@ -9,18 +9,28 @@ import {
   updateUserCurrentWorkspace,
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
+import {
+  extensionCorsOptionsResponse,
+  withExtensionCors,
+} from "@/lib/extension-cors";
 import { NextResponse } from "next/server";
+
+export function OPTIONS(request: Request) {
+  return extensionCorsOptionsResponse(request) ?? new Response(null, { status: 204 });
+}
 
 // GET /api/workspaces - 获取当前用户的所有空间
 export async function GET(request: Request) {
-  const { user } = getAuthFromRequest(request);
-
-  if (!user) {
-    return new ChatSDKError("unauthorized:chat").toResponse();
+  const session = await auth();
+  if (!session?.user) {
+    return withExtensionCors(
+      request,
+      new ChatSDKError("unauthorized:chat").toResponse(),
+    );
   }
 
   try {
-    let workspaces = await getWorkspacesByUserId({ userId: user.id });
+    let workspaces = await getWorkspacesByUserId({ userId: session.user.id });
 
     // 如果用户没有任何空间，自动创建一个默认空间并将其设置为当前空间
     if (workspaces.length === 0) {
@@ -28,33 +38,35 @@ export async function GET(request: Request) {
       const workspace = await createWorkspace({
         name: "我的空间",
         slug,
-        ownerId: user.id,
+        ownerId: session.user.id,
       });
 
       // 设置为当前工作空间
       await updateUserCurrentWorkspace({
-        userId: user.id,
+        userId: session.user.id,
         workspaceId: workspace.id,
       });
 
       workspaces = [workspace as any]; // 确保返回类型一致
     }
 
-    return NextResponse.json(workspaces);
+    return withExtensionCors(request, NextResponse.json(workspaces));
   } catch (error) {
     console.error("Failed to get workspaces:", error);
-    return new ChatSDKError(
-      "bad_request:api",
-      "Failed to get workspaces"
-    ).toResponse();
+    return withExtensionCors(
+      request,
+      new ChatSDKError(
+        "bad_request:api",
+        "Failed to get workspaces"
+      ).toResponse(),
+    );
   }
 }
 
 // POST /api/workspaces - 创建新空间
 export async function POST(request: Request) {
-  const { user } = getAuthFromRequest(request);
-
-  if (!user) {
+  const session = await auth();
+  if (!session?.user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -82,12 +94,12 @@ export async function POST(request: Request) {
       name: name.trim(),
       slug,
       icon,
-      ownerId: user.id,
+      ownerId: session.user.id,
     });
 
     // 设置为当前工作空间
     await updateUserCurrentWorkspace({
-      userId: user.id,
+      userId: session.user.id,
       workspaceId: workspace.id,
     });
 
@@ -103,9 +115,8 @@ export async function POST(request: Request) {
 
 // PATCH /api/workspaces - 更新空间
 export async function PATCH(request: Request) {
-  const { user } = getAuthFromRequest(request);
-
-  if (!user) {
+  const session = await auth();
+  if (!session?.user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
@@ -137,9 +148,8 @@ export async function PATCH(request: Request) {
 
 // DELETE /api/workspaces?id=xxx - 删除空间
 export async function DELETE(request: Request) {
-  const { user } = getAuthFromRequest(request);
-
-  if (!user) {
+  const session = await auth();
+  if (!session?.user) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 

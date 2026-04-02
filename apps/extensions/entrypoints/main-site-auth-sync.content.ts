@@ -4,6 +4,11 @@ import {
   type ExtensionChatProxyMessage,
   type ProxyChatPostResult,
 } from "@/lib/auth/chat-proxy-message";
+import {
+  EXTENSION_MAIN_SITE_API_PROXY_MESSAGE_TYPE,
+  type ExtensionMainSiteApiProxyMessage,
+  type MainSiteApiProxyResult,
+} from "@/lib/auth/main-site-api-proxy-message";
 import type { AuthStatusPayload } from "@/lib/messaging/protocol";
 import { mainSiteAuthStorage } from "@/lib/storage/main-site-auth";
 
@@ -57,6 +62,29 @@ async function fetchChatPostInPage(body: string): Promise<ProxyChatPostResult> {
   };
 }
 
+async function fetchMainSiteApiInPage(
+  path: string,
+  method: "GET" | "DELETE",
+): Promise<MainSiteApiProxyResult> {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(`${location.origin}${normalizedPath}`, {
+    method,
+    credentials: "same-origin",
+  });
+  let json: unknown = null;
+  try {
+    json = (await res.json()) as unknown;
+  } catch {
+    json = null;
+  }
+  return {
+    ok: res.ok,
+    status: res.status,
+    statusText: res.statusText,
+    json,
+  };
+}
+
 export default defineContentScript({
   matches: [matchPattern],
   runAt: "document_idle",
@@ -80,6 +108,28 @@ export default defineContentScript({
               statusText: "",
               body: [],
               headers: {},
+            });
+          }
+        })();
+        return true;
+      }
+      if (
+        typeof message === "object" &&
+        message !== null &&
+        (message as ExtensionMainSiteApiProxyMessage).type ===
+          EXTENSION_MAIN_SITE_API_PROXY_MESSAGE_TYPE
+      ) {
+        const { path, method } = message as ExtensionMainSiteApiProxyMessage;
+        void (async () => {
+          try {
+            const result = await fetchMainSiteApiInPage(path, method);
+            sendResponse(result);
+          } catch {
+            sendResponse({
+              ok: false,
+              status: 0,
+              statusText: "",
+              json: null,
             });
           }
         })();

@@ -1,11 +1,19 @@
 import type { NextRequest } from "next/server";
-import { getAuthFromRequest } from "@/lib/api-auth";
+import { auth } from "@/app/(auth)/auth";
 import {
   getChatsByUserId,
   deleteAllChatsByUserId,
   getWorkspaceBySlug,
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
+import {
+  extensionCorsOptionsResponse,
+  withExtensionCors,
+} from "@/lib/extension-cors";
+
+export function OPTIONS(request: Request) {
+  return extensionCorsOptionsResponse(request) ?? new Response(null, { status: 204 });
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -16,16 +24,21 @@ export async function GET(request: NextRequest) {
   const workspaceSlug = searchParams.get("workspace");
 
   if (startingAfter && endingBefore) {
-    return new ChatSDKError(
-      "bad_request:api",
-      "Only one of starting_after or ending_before can be provided."
-    ).toResponse();
+    return withExtensionCors(
+      request,
+      new ChatSDKError(
+        "bad_request:api",
+        "Only one of starting_after or ending_before can be provided."
+      ).toResponse(),
+    );
   }
 
-  const { user } = getAuthFromRequest(request);
-
-  if (!user) {
-    return new ChatSDKError("unauthorized:chat").toResponse();
+  const session = await auth();
+  if (!session?.user) {
+    return withExtensionCors(
+      request,
+      new ChatSDKError("unauthorized:chat").toResponse(),
+    );
   }
 
   // 获取 workspace ID
@@ -38,24 +51,29 @@ export async function GET(request: NextRequest) {
   }
 
   const chats = await getChatsByUserId({
-    id: user.id,
+    id: session.user.id,
     workspaceId,
     limit,
     startingAfter,
     endingBefore,
   });
 
-  return Response.json(chats);
+  return withExtensionCors(request, Response.json(chats));
 }
 
 export async function DELETE(request: Request) {
-  const { user } = getAuthFromRequest(request);
-
-  if (!user) {
-    return new ChatSDKError("unauthorized:chat").toResponse();
+  const session = await auth();
+  if (!session?.user) {
+    return withExtensionCors(
+      request,
+      new ChatSDKError("unauthorized:chat").toResponse(),
+    );
   }
 
-  const result = await deleteAllChatsByUserId({ userId: user.id });
+  const result = await deleteAllChatsByUserId({ userId: session.user.id });
 
-  return Response.json(result, { status: 200 });
+  return withExtensionCors(
+    request,
+    Response.json(result, { status: 200 }),
+  );
 }

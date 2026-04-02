@@ -43,7 +43,8 @@
     "radix-ui": "^1.0.1",
     "react-day-picker": "^9.11.2",
     "react-photo-view": "^1.2.7",
-    "tailwind-merge": "^2.5.2"
+    "tailwind-merge": "^2.5.2",
+    "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@types/react": "^18",

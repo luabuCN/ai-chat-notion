@@ -11,6 +11,11 @@ export type MainSiteAuthState = {
   data: AuthStatusPayload | null;
 };
 
+const LOGGED_OUT_PAYLOAD: AuthStatusPayload = {
+  authenticated: false,
+  user: null,
+};
+
 export function useMainSiteAuth() {
   const [auth, setAuth] = useState<MainSiteAuthState>({
     loading: true,
@@ -19,19 +24,32 @@ export function useMainSiteAuth() {
 
   const load = useCallback(async () => {
     setAuth((s) => ({ ...s, loading: true }));
-    const data = await getAuthStatus();
-    setAuth({ loading: false, data });
+    try {
+      const data = await getAuthStatus();
+      setAuth({ loading: false, data });
+    } catch {
+      // 首次获取失败时也要结束 loading，避免侧栏一直停留在“同步中”。
+      setAuth({ loading: false, data: LOGGED_OUT_PAYLOAD });
+    }
   }, []);
 
   const refresh = useCallback(async () => {
     setAuth((s) => ({ ...s, loading: true }));
-    const data = await refreshAuthStatus();
-    setAuth({ loading: false, data });
+    try {
+      const data = await refreshAuthStatus();
+      setAuth({ loading: false, data });
+    } catch {
+      setAuth((s) => ({ ...s, loading: false }));
+    }
   }, []);
 
   const refreshSilently = useCallback(async () => {
-    const data = await refreshAuthStatus();
-    setAuth((s) => ({ ...s, loading: false, data }));
+    try {
+      const data = await refreshAuthStatus();
+      setAuth((s) => ({ ...s, loading: false, data }));
+    } catch {
+      setAuth((s) => ({ ...s, loading: false }));
+    }
   }, []);
 
   useEffect(() => {

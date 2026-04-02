@@ -1,19 +1,39 @@
-import { Button, Textarea } from "@repo/ui";
-import { ArrowUp, Loader2, Square } from "lucide-react";
+import {
+  Button,
+  Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui";
+import { ArrowUp, Loader2, Plus, Square } from "lucide-react";
 import type { FormEvent, KeyboardEvent } from "react";
+import { useEffect, useRef } from "react";
 import { ExtensionMessageList } from "@/components/sidepanel/extension-message-list";
 import { SidePanelEmptyState } from "@/components/sidepanel/SidePanelEmptyState";
+import { SidePanelHistoryDrawer } from "@/components/sidepanel/SidePanelHistoryDrawer";
 import { ModelSelectorBar } from "@/components/sidepanel/model-selector-bar";
 import { ReasoningToggleBar } from "@/components/sidepanel/reasoning-toggle-bar";
 import type { MainSiteAuthState } from "@/hooks/use-main-site-auth";
 import { useExtensionModels } from "@/hooks/use-extension-models";
 import { useSidepanelChat } from "@/hooks/use-sidepanel-chat";
+import { fetchSidepanelChatMessages } from "@/lib/sidepanel-history-api";
 
-export function SidePanelChat({ auth }: { auth: MainSiteAuthState }) {
+export function SidePanelChat({
+  auth,
+  workspaceSlug,
+  workspaceLoading,
+}: {
+  auth: MainSiteAuthState;
+  workspaceSlug: string;
+  workspaceLoading: boolean;
+}) {
   const { models, loading: modelsLoading, error: modelsError } =
     useExtensionModels();
+  const authenticated = auth.data?.authenticated === true;
 
   const {
+    chatId,
     messages,
     status,
     stop,
@@ -28,10 +48,33 @@ export function SidePanelChat({ auth }: { auth: MainSiteAuthState }) {
     setEnableReasoning,
     supportsReasoning,
     selectedModel,
-  } = useSidepanelChat(models, modelsLoading);
+    restoreChat,
+    resetToNewChat,
+  } = useSidepanelChat(models, modelsLoading, workspaceSlug);
+
+  const prevWorkspaceSlugRef = useRef<string | null>(null);
+  useEffect(() => {
+    const slug = workspaceSlug.trim();
+    if (!slug) {
+      return;
+    }
+    if (
+      prevWorkspaceSlugRef.current !== null &&
+      prevWorkspaceSlugRef.current !== slug
+    ) {
+      resetToNewChat();
+    }
+    prevWorkspaceSlugRef.current = slug;
+  }, [workspaceSlug, resetToNewChat]);
+
+  const workspaceBlocksSend =
+    authenticated && (workspaceLoading || !workspaceSlug.trim());
 
   const onFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!authenticated) {
+      return;
+    }
     handleSend();
   };
 
@@ -40,6 +83,9 @@ export function SidePanelChat({ auth }: { auth: MainSiteAuthState }) {
       return;
     }
     e.preventDefault();
+    if (!authenticated) {
+      return;
+    }
     handleSend();
   };
 
@@ -62,10 +108,35 @@ export function SidePanelChat({ auth }: { auth: MainSiteAuthState }) {
         </p>
       ) : null}
 
-      <form
-        className="shrink-0 border-border border-t bg-background p-2"
-        onSubmit={onFormSubmit}
-      >
+      <form className="shrink-0 bg-background p-2" onSubmit={onFormSubmit}>
+        <div className="mb-2 flex items-center gap-1 px-0.5">
+          <SidePanelHistoryDrawer
+            auth={auth}
+            currentChatId={chatId}
+            onSelectChat={async (targetChatId) => {
+              const historyMessages =
+                await fetchSidepanelChatMessages(targetChatId);
+              restoreChat(targetChatId, historyMessages);
+            }}
+            workspaceSlug={workspaceSlug}
+          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="新建会话"
+                  className="size-8 shrink-0 rounded-lg"
+                  onClick={() => resetToNewChat()}
+                  type="button"
+                  variant="ghost"
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">新建会话</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <div className="overflow-hidden rounded-2xl border border-border/80 bg-background p-2 shadow-xs">
           <Textarea
             className="min-h-[72px] resize-none rounded-xl border-none bg-transparent p-2 text-sm shadow-none focus-visible:ring-0"
@@ -108,7 +179,13 @@ export function SidePanelChat({ auth }: { auth: MainSiteAuthState }) {
               <Button
                 aria-label="发送"
                 className="size-9 shrink-0 rounded-full"
-                disabled={!input.trim() || modelsLoading || !selectedModel}
+                disabled={
+                  !authenticated ||
+                  workspaceBlocksSend ||
+                  !input.trim() ||
+                  modelsLoading ||
+                  !selectedModel
+                }
                 type="submit"
               >
                 <ArrowUp className="size-4" />
