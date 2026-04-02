@@ -68,15 +68,24 @@ const TOOLBAR_ACTION_ITEMS: ToolbarActionItem[] = [
 
 /** 固定 px；ghost 会带 hover 背景，这里改为透明 + 仅主题色变化 */
 const iconButtonClassName =
-  "box-border h-[26px] w-[26px] shrink-0 rounded-lg p-0 text-slate-600 hover:bg-transparent hover:text-primary active:bg-transparent active:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  "box-border h-[26px] w-[26px] shrink-0 rounded-lg p-0 text-slate-600 hover:bg-transparent hover:text-primary active:bg-transparent active:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer";
 
 const tooltipSurfaceClassName =
   "border-slate-200 bg-white text-slate-900 shadow-md";
 
 const aiAvatarButtonClassName =
-  "group inline-flex size-[26px] items-center justify-center rounded-full bg-transparent outline-none hover:bg-transparent active:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  "group inline-flex size-[26px] items-center justify-center rounded-full bg-transparent outline-none hover:bg-transparent active:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer";
 
 export function SelectionToolbar({ onClose }: SelectionToolbarProps) {
+  const getSelectedText = (): string => globalThis.getSelection?.()?.toString() ?? "";
+
+  const onActionClick = (actionKey: ToolbarActionItem["key"]) => {
+    const selectedText = getSelectedText();
+    // 临时调试：点击按钮时打印当前选区文本
+    // biome-ignore lint/suspicious/noConsole: 用户要求点击时打印选中文本
+    console.log("[SelectionToolbar] selected text:", { actionKey, selectedText });
+  };
+
   return (
     <div
       aria-label="文本选区快捷操作"
@@ -92,6 +101,7 @@ export function SelectionToolbar({ onClose }: SelectionToolbarProps) {
               <button
                 aria-label={item.ariaLabel}
                 className={aiAvatarButtonClassName}
+                onClick={() => onActionClick(item.key)}
                 type="button"
               >
                 <Avatar className="size-[26px]!">
@@ -104,6 +114,7 @@ export function SelectionToolbar({ onClose }: SelectionToolbarProps) {
               <Button
                 aria-label={item.ariaLabel}
                 className={iconButtonClassName}
+                onClick={() => onActionClick(item.key)}
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -114,6 +125,7 @@ export function SelectionToolbar({ onClose }: SelectionToolbarProps) {
               <Button
                 aria-label={item.ariaLabel}
                 className={iconButtonClassName}
+                onClick={() => onActionClick(item.key)}
                 size="icon"
                 type="button"
                 variant="ghost"

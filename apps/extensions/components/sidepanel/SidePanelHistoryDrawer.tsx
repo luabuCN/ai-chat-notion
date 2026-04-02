@@ -28,6 +28,28 @@ import {
   type SidepanelChatHistoryItem,
 } from "@/lib/sidepanel-history-api";
 
+function useMediaQuery(query: string): boolean {
+  const getInitial = () => globalThis.matchMedia?.(query).matches ?? false;
+  const [matches, setMatches] = useState(getInitial);
+
+  useEffect(() => {
+    const mql = globalThis.matchMedia?.(query);
+    if (!mql) {
+      return;
+    }
+
+    const onChange = (event: MediaQueryListEvent) => {
+      setMatches(event.matches);
+    };
+
+    setMatches(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+
+  return matches;
+}
+
 function formatTimeLabel(createdAt: string): string {
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) {
@@ -63,6 +85,7 @@ export function SidePanelHistoryDrawer({
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   const authenticated = auth.data?.authenticated === true;
+  const useSideDrawer = useMediaQuery("(min-width: 540px)");
 
   const loadHistory = useCallback(async () => {
     if (!authenticated) {
@@ -158,9 +181,14 @@ export function SidePanelHistoryDrawer({
           <TooltipContent side="top">历史记录</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <Drawer onOpenChange={setOpen} open={open}>
+      <Drawer direction={useSideDrawer ? "right" : "bottom"} onOpenChange={setOpen} open={open}>
         <DrawerContent
-          className="mx-auto flex w-full max-w-[min(100vw,360px)] flex-col p-0"
+          className={cn(
+            useSideDrawer
+              ? "inset-y-0 right-0 left-auto top-0 bottom-0 mt-0 h-full max-h-none w-[min(92vw,420px)] rounded-t-none rounded-l-[14px]"
+              : "w-full max-w-none",
+            "flex flex-col p-0",
+          )}
           showHandle={false}
         >
         <div className="flex items-center justify-between border-border border-b px-3 py-2.5">

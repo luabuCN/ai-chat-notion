@@ -21,6 +21,7 @@ export const Response = memo(
             ]
           : "prose prose-neutral max-w-none dark:prose-invert",
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        "[&_p]:text-sm",
         "[&_pre]:!my-0 [&_pre]:max-w-full [&_pre]:overflow-x-auto",
         "[&_code]:whitespace-pre-wrap [&_code]:wrap-break-word",
         className,

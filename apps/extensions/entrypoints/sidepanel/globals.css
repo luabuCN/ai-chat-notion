@@ -149,6 +149,12 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+
+html, body, #root {
+  @apply bg-background font-sans text-foreground;
+  overflow-x: hidden;
+  position: relative;
+}
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
@@ -199,16 +205,6 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-
-  body {
-    @apply bg-background font-sans text-foreground;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  html {
-    overflow-x: hidden;
   }
 }
 
@@ -279,4 +275,55 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-brand: var(--brand);
   --color-highlight: var(--highlight);
+}
+
+
+/* Custom heading styles */
+[data-streamdown="heading-1"] {
+  color: #1a202c;
+  border-bottom: 2px solid #e2e8f0;
+  font-size: 1.25rem;
+}
+[data-streamdown="heading-2"] {
+  color: #2d3748;
+  margin-top: 0px;
+  font-size: 1rem;
+}
+/* 正文段落：与 Tailwind text-sm 一致（Streamdown 未提供 paragraph 的 data-streamdown） */
+.prose p {
+  font-size: 0.875rem;
+}
+/* Custom link appearance */
+[data-streamdown="link"] {
+  color: #3182ce;
+  text-decoration: none;
+  border-bottom: 1px solid #90cdf4;
+  transition: border-color 0.2s;
+  font-size: 0.875rem;
+}
+[data-streamdown="link"]:hover {
+  border-bottom-color: #3182ce;
+}
+/* Custom code block styling */
+[data-streamdown="code-block"] {
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-size: 0.875rem;
+}
+/* Custom table styling */
+[data-streamdown="table"] {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+[data-streamdown="list-item"] {
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
+  font-size: 0.875rem;
+}
+/* Custom blockquote styling */
+[data-streamdown="blockquote"] {
+  background-color: #f7fafc;
+  border-left-color: #4299e1;
+  border-radius: 0.25rem;
 }
