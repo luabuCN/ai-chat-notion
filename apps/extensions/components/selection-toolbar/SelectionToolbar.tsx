@@ -19,6 +19,8 @@ import {
 
 type SelectionToolbarProps = {
   onClose?: () => void;
+  /** 点击 AI 助手按钮时触发，参数为当前选中文本 */
+  onAiClick?: (selectedText: string) => void;
 };
 
 type ToolbarActionItem =
@@ -76,11 +78,15 @@ const tooltipSurfaceClassName =
 const aiAvatarButtonClassName =
   "group inline-flex size-[26px] items-center justify-center rounded-full bg-transparent outline-none hover:bg-transparent active:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer";
 
-export function SelectionToolbar({ onClose }: SelectionToolbarProps) {
+export function SelectionToolbar({ onClose, onAiClick }: SelectionToolbarProps) {
   const getSelectedText = (): string => globalThis.getSelection?.()?.toString() ?? "";
 
   const onActionClick = (actionKey: ToolbarActionItem["key"]) => {
     const selectedText = getSelectedText();
+    if (actionKey === "ai") {
+      onAiClick?.(selectedText);
+      return;
+    }
     // 临时调试：点击按钮时打印当前选区文本
     // biome-ignore lint/suspicious/noConsole: 用户要求点击时打印选中文本
     console.log("[SelectionToolbar] selected text:", { actionKey, selectedText });

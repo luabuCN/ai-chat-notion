@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AiChatDialog } from "./AiChatDialog";
 import { SelectionToolbar } from "./SelectionToolbar";
 
 type Position = {
@@ -8,6 +9,7 @@ type Position = {
 
 export function SelectionToolbarHost() {
   const [pos, setPos] = useState<Position | null>(null);
+  const [aiDialog, setAiDialog] = useState<{ selectedText: string } | null>(null);
 
   useEffect(() => {
     const syncFromSelection = () => {
@@ -50,22 +52,39 @@ export function SelectionToolbarHost() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (!pos) {
-    return null;
-  }
+  const handleAiClick = (selectedText: string) => {
+    // 关闭 toolbar，打开 AI 对话窗
+    setPos(null);
+    setAiDialog({ selectedText });
+  };
 
   return (
-    <div
-      className="pointer-events-auto"
-      style={{
-        position: "fixed",
-        left: pos.left,
-        top: pos.top,
-        transform: "translateX(-50%)",
-        zIndex: 2_147_483_647,
-      }}
-    >
-      <SelectionToolbar onClose={() => setPos(null)} />
-    </div>
+    <>
+      {pos && (
+        <div
+          className="pointer-events-auto"
+          style={{
+            position: "fixed",
+            left: pos.left,
+            top: pos.top,
+            transform: "translateX(-50%)",
+            zIndex: 2_147_483_647,
+          }}
+        >
+          <SelectionToolbar
+            onAiClick={handleAiClick}
+            onClose={() => setPos(null)}
+          />
+        </div>
+      )}
+
+      {aiDialog && (
+        <AiChatDialog
+          onClose={() => setAiDialog(null)}
+          selectedText={aiDialog.selectedText}
+        />
+      )}
+    </>
   );
 }
+

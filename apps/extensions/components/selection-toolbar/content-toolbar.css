@@ -15,6 +15,10 @@
   --ring: oklch(0.702 0.183 293.541);
   --primary: oklch(0.541 0.281 293.009);
   --primary-foreground: oklch(0.969 0.016 293.756);
+  --input: oklch(0.92 0.004 286.32);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
 }
 
 @theme {
@@ -31,4 +35,8 @@
   --color-ring: var(--ring);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-input: var(--input);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
 }
