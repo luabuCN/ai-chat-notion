@@ -38,7 +38,9 @@
     "react": "19.0.0-rc-45804af1-20241021",
     "react-dom": "19.0.0-rc-45804af1-20241021",
     "react-draggable": "^4.5.0",
+    "react-markdown": "^10.1.0",
     "react-textarea-autosize": "^8.5.9",
+    "remark-gfm": "^4.0.1",
     "streamdown": "^1.6.10"
   }
 }

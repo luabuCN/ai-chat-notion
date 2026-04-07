@@ -10,9 +10,15 @@ type AiChatDialogProps = {
   selectedText: string;
   /** 关闭对话窗 */
   onClose: () => void;
+  /** 发送问题后由父级切换到结果弹窗（未传入时发送无操作，避免运行时报错） */
+  onSubmitQuery?: (query: string) => void;
 };
 
-export function AiChatDialog({ selectedText, onClose }: AiChatDialogProps) {
+export function AiChatDialog({
+  selectedText,
+  onClose,
+  onSubmitQuery,
+}: AiChatDialogProps) {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -32,20 +38,23 @@ export function AiChatDialog({ selectedText, onClose }: AiChatDialogProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const submit = () => {
+    const q = input.trim();
+    if (!q) return;
+    const fn = onSubmitQuery;
+    if (typeof fn !== "function") return;
+    fn(q);
+  };
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    // TODO: 实际发送 AI 对话请求
-    // biome-ignore lint/suspicious/noConsole: 临时调试
-    console.log("[AiChatDialog] send:", { selectedText, input });
+    submit();
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
     e.preventDefault();
-    if (!input.trim()) return;
-    // biome-ignore lint/suspicious/noConsole: 临时调试
-    console.log("[AiChatDialog] send:", { selectedText, input });
+    submit();
   };
 
   return (
@@ -57,8 +66,8 @@ export function AiChatDialog({ selectedText, onClose }: AiChatDialogProps) {
       />
 
       <div className="pointer-events-none fixed inset-0 z-2147483647 flex items-center justify-center">
-        {/* 铺满视口作为拖拽 bounds 的父级；整体上移约 1/4 视口高度 */}
-        <div className="pointer-events-none flex h-full w-full min-h-0 items-center justify-center -translate-y-[25vh]">
+        {/* 铺满视口作为拖拽 bounds；与 FloatingPanel 一致：居中略偏上，不贴顶 */}
+        <div className="pointer-events-none box-border flex h-full w-full min-h-0 items-center justify-center px-4 py-8 sm:py-10 -translate-y-[min(5.5rem,18vh)]">
           <Draggable
             bounds="parent"
             defaultClassNameDragging="!cursor-grabbing"

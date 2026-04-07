@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
+@plugin "tailwindcss-animate";
+@plugin "@tailwindcss/typography";
+
 @source "../../../../packages/ui/src/**/*.{tsx,ts}";
+@source "../**/*.{tsx,ts}";
 
 /* @repo/ui 组件依赖的 token；content 入口将 :root 替换为 :host 以注入 Shadow */
 :root {

@@ -1,6 +1,5 @@
 import { sendMessage } from "@/lib/messaging/extension-messaging";
 import type { AuthStatusPayload } from "@/lib/messaging/protocol";
-import { WEB_ORIGIN } from "@/lib/web-config";
 
 export type { AuthStatusPayload } from "@/lib/messaging/protocol";
 
@@ -13,5 +12,5 @@ export async function refreshAuthStatus(): Promise<AuthStatusPayload> {
 }
 
 export async function openMainSiteLogin(): Promise<void> {
-  await browser.tabs.create({ url: `${WEB_ORIGIN}/login` });
+  await sendMessage("openMainSiteLogin");
 }

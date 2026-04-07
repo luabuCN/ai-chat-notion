@@ -1,15 +1,26 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { getAuthStatus, openMainSiteLogin } from "@/lib/auth/client";
 import { AiChatDialog } from "./AiChatDialog";
 import { SelectionToolbar } from "./SelectionToolbar";
+
+/** 与 streamdown 解耦，避免整包打进 content 主入口（曾导致 ~50MB+ 与注入失败） */
+const AiChatResultDialog = lazy(async () => {
+  const m = await import("./AiChatResultDialog");
+  return { default: m.AiChatResultDialog };
+});
 
 type Position = {
   left: number;
   top: number;
 };
 
+type AiDialogState =
+  | { step: "input"; selectedText: string }
+  | { step: "result"; selectedText: string; query: string };
+
 export function SelectionToolbarHost() {
   const [pos, setPos] = useState<Position | null>(null);
-  const [aiDialog, setAiDialog] = useState<{ selectedText: string } | null>(null);
+  const [aiDialog, setAiDialog] = useState<AiDialogState | null>(null);
 
   useEffect(() => {
     const syncFromSelection = () => {
@@ -52,10 +63,19 @@ export function SelectionToolbarHost() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const handleAiClick = (selectedText: string) => {
-    // 关闭 toolbar，打开 AI 对话窗
+  const handleAiClick = async (selectedText: string) => {
     setPos(null);
-    setAiDialog({ selectedText });
+    try {
+      const status = await getAuthStatus();
+      if (status.authenticated !== true) {
+        await openMainSiteLogin();
+        return;
+      }
+    } catch {
+      await openMainSiteLogin();
+      return;
+    }
+    setAiDialog({ step: "input", selectedText });
   };
 
   return (
@@ -78,11 +98,34 @@ export function SelectionToolbarHost() {
         </div>
       )}
 
-      {aiDialog && (
+      {aiDialog?.step === "input" && (
         <AiChatDialog
           onClose={() => setAiDialog(null)}
+          onSubmitQuery={(query) => {
+            setAiDialog((prev) => {
+              if (!prev || prev.step !== "input") return prev;
+              return {
+                step: "result",
+                query,
+                selectedText: prev.selectedText,
+              };
+            });
+          }}
           selectedText={aiDialog.selectedText}
         />
+      )}
+
+      {aiDialog?.step === "result" && (
+        <Suspense fallback={null}>
+          <AiChatResultDialog
+            onBack={() =>
+              setAiDialog({ step: "input", selectedText: aiDialog.selectedText })
+            }
+            onClose={() => setAiDialog(null)}
+            selectedText={aiDialog.selectedText}
+            userQuery={aiDialog.query}
+          />
+        </Suspense>
       )}
     </>
   );

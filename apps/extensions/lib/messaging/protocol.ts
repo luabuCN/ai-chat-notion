@@ -15,4 +15,6 @@ export interface ExtensionProtocolMap {
   getAuthStatus(): AuthStatusPayload;
   /** 强制请求 API 并更新缓存 */
   refreshAuthStatus(): AuthStatusPayload;
+  /** 在后台创建标签页（内容脚本无 `tabs` API，须由此打开主站登录等） */
+  openMainSiteLogin(): void;
 }

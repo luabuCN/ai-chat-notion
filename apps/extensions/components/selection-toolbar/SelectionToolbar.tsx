@@ -20,7 +20,7 @@ import {
 type SelectionToolbarProps = {
   onClose?: () => void;
   /** 点击 AI 助手按钮时触发，参数为当前选中文本 */
-  onAiClick?: (selectedText: string) => void;
+  onAiClick?: (selectedText: string) => void | Promise<void>;
 };
 
 type ToolbarActionItem =
