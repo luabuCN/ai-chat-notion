@@ -20,11 +20,11 @@ export type FloatingPanelProps = {
   defaultHeight?: number;
   minWidth?: number;
   minHeight?: number;
-  /** 初始是否固定（不可拖拽） */
+  /** 初始是否固定（点击遮罩不关闭；仍可拖拽标题栏移动） */
   defaultPinned?: boolean;
   /** 受控：固定状态变化 */
   onPinnedChange?: (pinned: boolean) => void;
-  /** 点击遮罩是否关闭（默认 true） */
+  /** 点击遮罩是否关闭（默认 true）；已固定时不会通过遮罩关闭 */
   closeOnBackdrop?: boolean;
   /** 根节点 className */
   className?: string;
@@ -64,14 +64,18 @@ export function FloatingPanel({
   }, [onPinnedChange]);
 
   const backdropMouseDown = useCallback(() => {
+    if (pinned) return;
     if (closeOnBackdrop) onClose();
-  }, [closeOnBackdrop, onClose]);
+  }, [closeOnBackdrop, onClose, pinned]);
 
   return (
     <>
       <div
         aria-hidden="true"
-        className="pointer-events-auto fixed inset-0 z-2147483647 bg-black/20"
+        className={cn(
+          "fixed inset-0 z-2147483647 bg-black/20",
+          pinned ? "pointer-events-none" : "pointer-events-auto",
+        )}
         onMouseDown={backdropMouseDown}
       />
 
@@ -81,7 +85,6 @@ export function FloatingPanel({
           <Draggable
             bounds="parent"
             defaultClassNameDragging="!cursor-grabbing"
-            disabled={pinned}
             enableUserSelectHack={false}
             handle=".floating-panel-drag-handle"
             nodeRef={panelRef}
