@@ -3,6 +3,8 @@ import type { UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionModelInfo } from "@/hooks/use-extension-models";
 import { createSidepanelChatTransport } from "@/lib/sidepanel-chat-transport";
+import type { SidepanelSeedFromSelectionPayload } from "@/lib/sidepanel-seed-from-selection";
+import { SIDEPANEL_SEED_FROM_SELECTION_KEY } from "@/lib/sidepanel-seed-from-selection";
 
 export function useSidepanelChat(
   models: ExtensionModelInfo[],
@@ -25,6 +27,9 @@ export function useSidepanelChat(
   const workspaceSlugRef = useRef(workspaceSlug);
   workspaceSlugRef.current = workspaceSlug;
 
+  /** 为 true 时，下一次 POST 会附带 seedMessages，把划词首轮对话写入主站库 */
+  const seedSyncPendingRef = useRef(false);
+
   useEffect(() => {
     if (modelsLoading || models.length === 0) {
       return;
@@ -40,6 +45,7 @@ export function useSidepanelChat(
       createSidepanelChatTransport(
         () => currentModelIdRef.current,
         () => workspaceSlugRef.current,
+        () => seedSyncPendingRef.current,
       ),
     [],
   );
@@ -48,6 +54,11 @@ export function useSidepanelChat(
     () =>
       new Chat<UIMessage>({
         id: chatId,
+        onFinish: ({ isError }) => {
+          if (!isError) {
+            seedSyncPendingRef.current = false;
+          }
+        },
         transport,
         generateId: () => crypto.randomUUID(),
       }),
@@ -131,6 +142,7 @@ export function useSidepanelChat(
 
   const restoreChat = useCallback(
     (nextChatId: string, nextMessages: UIMessage[]) => {
+      seedSyncPendingRef.current = false;
       if (nextChatId === chatId) {
         setMessages(nextMessages);
         return;
@@ -144,7 +156,72 @@ export function useSidepanelChat(
     [chatId, setMessages],
   );
 
+  useEffect(() => {
+    const applySeed = (payload: SidepanelSeedFromSelectionPayload) => {
+      restoreChat(payload.chatId, payload.messages);
+      seedSyncPendingRef.current = true;
+    };
+
+    const readInitial = async () => {
+      try {
+        const raw = await browser.storage.session.get(
+          SIDEPANEL_SEED_FROM_SELECTION_KEY,
+        );
+        const v = raw[SIDEPANEL_SEED_FROM_SELECTION_KEY];
+        if (
+          v &&
+          typeof v === "object" &&
+          "chatId" in v &&
+          "messages" in v &&
+          typeof (v as SidepanelSeedFromSelectionPayload).chatId ===
+            "string" &&
+          Array.isArray((v as SidepanelSeedFromSelectionPayload).messages)
+        ) {
+          await browser.storage.session.remove(SIDEPANEL_SEED_FROM_SELECTION_KEY);
+          applySeed(v as SidepanelSeedFromSelectionPayload);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    void readInitial();
+
+    const onStorageChanged: Parameters<
+      typeof browser.storage.onChanged.addListener
+    >[0] = (changes, areaName) => {
+      if (areaName !== "session") {
+        return;
+      }
+      const change = changes[SIDEPANEL_SEED_FROM_SELECTION_KEY];
+      const nv = change?.newValue;
+      if (
+        nv &&
+        typeof nv === "object" &&
+        "chatId" in nv &&
+        "messages" in nv &&
+        typeof (nv as SidepanelSeedFromSelectionPayload).chatId === "string" &&
+        Array.isArray((nv as SidepanelSeedFromSelectionPayload).messages)
+      ) {
+        void (async () => {
+          try {
+            await browser.storage.session.remove(
+              SIDEPANEL_SEED_FROM_SELECTION_KEY,
+            );
+            applySeed(nv as SidepanelSeedFromSelectionPayload);
+          } catch {
+            // ignore
+          }
+        })();
+      }
+    };
+    browser.storage.onChanged.addListener(onStorageChanged);
+    return () => {
+      browser.storage.onChanged.removeListener(onStorageChanged);
+    };
+  }, [restoreChat]);
+
   const resetToNewChat = useCallback(() => {
+    seedSyncPendingRef.current = false;
     const newChatId = crypto.randomUUID();
     pendingRestoreRef.current = {
       chatId: newChatId,

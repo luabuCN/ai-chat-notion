@@ -21,7 +21,7 @@ export async function getMessagesByChatId({ id }: { id: string }) {
   try {
     return await prisma.message.findMany({
       where: { chatId: id },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   } catch (_error) {
     throw new ChatSDKError(

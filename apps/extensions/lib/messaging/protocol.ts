@@ -24,4 +24,12 @@ export interface ExtensionProtocolMap {
    * 供 content script 等无 `tabs` API 的上下文使用。
    */
   postMainSiteJson(data: { path: string; body: string }): MainSitePostJsonProxyResult;
+  /**
+   * 划词浮层「继续聊天」：打开侧栏并写入首轮问答（经 session storage 由侧栏消费）。
+   */
+  openSidePanelWithSeedChat(data: {
+    selectedText: string;
+    userQuery: string;
+    assistantAnswer: string;
+  }): { ok: true } | { ok: false; error: string };
 }

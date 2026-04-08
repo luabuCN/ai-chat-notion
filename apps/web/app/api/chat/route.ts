@@ -135,6 +135,7 @@ export async function POST(request: Request) {
       modelCapabilities,
       workspaceSlug,
       documentIds,
+      seedMessages,
     }: {
       id: string;
       message: ChatMessage;
@@ -147,6 +148,11 @@ export async function POST(request: Request) {
       };
       workspaceSlug?: string;
       documentIds?: string[];
+      seedMessages?: Array<{
+        id: string;
+        role: "user" | "assistant";
+        parts: Array<{ type: "text"; text: string }>;
+      }>;
     } = requestBody;
 
     const session = await auth();
@@ -168,6 +174,8 @@ export async function POST(request: Request) {
 
     const chat = await getChatById({ id });
     let messagesFromDb: DBMessage[] = [];
+    /** 扩展侧栏 seed 与本轮用户消息写入同一毫秒时，按时间排序不稳定；用于顺序时间戳 */
+    let seedBatchBaseMs: number | undefined;
 
     if (chat) {
       if (chat.userId !== session.user.id) {
@@ -181,8 +189,17 @@ export async function POST(request: Request) {
     } else {
       // Use custom model if provided, otherwise use first available model
       const titleModelSlug = selectedModelSlug || (await getFirstModelSlug());
+      const seedUserForTitle = seedMessages?.find((m) => m.role === "user");
+      const messageForTitleGeneration: ChatMessage =
+        seedUserForTitle !== undefined
+          ? {
+              id: seedUserForTitle.id,
+              parts: seedUserForTitle.parts,
+              role: "user",
+            }
+          : message;
       const title = await generateTitleFromUserMessage({
-        message,
+        message: messageForTitleGeneration,
         modelSlug: titleModelSlug,
       });
 
@@ -204,6 +221,22 @@ export async function POST(request: Request) {
       // New chat - no need to fetch messages, it's empty
     }
 
+    if (messagesFromDb.length === 0 && seedMessages?.length) {
+      const seedT0 = Date.now();
+      seedBatchBaseMs = seedT0;
+      await saveMessages({
+        messages: seedMessages.map((m, i) => ({
+          attachments: [],
+          chatId: id,
+          createdAt: new Date(seedT0 + i * 1000),
+          id: m.id,
+          parts: m.parts,
+          role: m.role,
+        })),
+      });
+      messagesFromDb = await getMessagesByChatId({ id });
+    }
+
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
     // 确保每个 assistant 消息至少有一个非空的文本部分
@@ -211,7 +244,6 @@ export async function POST(request: Request) {
     const sanitizedMessages = uiMessages.map((msg) => {
       if (msg.role === "assistant") {
         const parts = msg.parts || [];
-        console.log(JSON.stringify(parts), "parts");
 
         const hasTextPart = parts.some(
           (part) => part.type === "text" && part.text?.trim()
@@ -291,6 +323,11 @@ export async function POST(request: Request) {
       }
     }
 
+    const incomingUserCreatedAt =
+      seedBatchBaseMs !== undefined && seedMessages?.length
+        ? new Date(seedBatchBaseMs + seedMessages.length * 1000 + 1000)
+        : new Date();
+
     await saveMessages({
       messages: [
         {
@@ -299,7 +336,7 @@ export async function POST(request: Request) {
           role: "user",
           parts: message.parts,
           attachments: documentAttachments,
-          createdAt: new Date(),
+          createdAt: incomingUserCreatedAt,
         },
       ],
     });

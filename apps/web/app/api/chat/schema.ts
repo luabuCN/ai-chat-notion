@@ -40,6 +40,27 @@ export const postRequestBodySchema = z.object({
     .optional(),
   workspaceSlug: z.string().optional(),
   documentIds: z.array(z.string().uuid()).optional(),
+  /**
+   * 扩展侧栏：划词「继续聊天」时首轮对话仅在客户端，需随第一次 POST 一并入库，
+   * 否则服务端 `getMessagesByChatId` 为空，后续轮次无上下文。
+   */
+  seedMessages: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        role: z.enum(["user", "assistant"]),
+        parts: z
+          .array(
+            z.object({
+              type: z.literal("text"),
+              text: z.string().min(1).max(100_000),
+            }),
+          )
+          .min(1),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

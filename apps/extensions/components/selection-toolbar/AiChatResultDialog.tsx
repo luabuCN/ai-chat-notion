@@ -14,6 +14,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FloatingPanel } from "@/components/floating-panel";
 import { streamMainSitePost } from "@/lib/auth/stream-main-site";
+import { sendMessage } from "@/lib/messaging/extension-messaging";
 
 const OPENAI_COMPAT_PATH = "/api/ai/openai";
 
@@ -103,6 +104,9 @@ export function AiChatResultDialog({
   const [answer, setAnswer] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [continueChatError, setContinueChatError] = useState<string | null>(
+    null,
+  );
   const fetchGenRef = useRef(0);
   const streamDisconnectRef = useRef<(() => void) | null>(null);
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -240,7 +244,26 @@ export function AiChatResultDialog({
         <Button
           className="h-9 gap-2 rounded-full px-3.5 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
           onMouseDown={(e) => e.stopPropagation()}
-          onClick={onBack}
+          onClick={() => {
+            void (async () => {
+              setContinueChatError(null);
+              try {
+                const r = await sendMessage("openSidePanelWithSeedChat", {
+                  assistantAnswer: answer.trim(),
+                  selectedText: selectedText.trim(),
+                  userQuery: userQuery.trim(),
+                });
+                if (!r.ok) {
+                  throw new Error(r.error);
+                }
+                onClose();
+              } catch (e) {
+                const msg =
+                  e instanceof Error ? e.message : "无法打开侧栏，请稍后重试";
+                setContinueChatError(msg);
+              }
+            })();
+          }}
           type="button"
           variant="ghost"
         >
@@ -307,6 +330,11 @@ export function AiChatResultDialog({
           </div>
         </div>
         <div className="min-h-[120px] px-1 pt-3">
+          {continueChatError !== null ? (
+            <p className="mb-2 text-sm text-red-600 wrap-anywhere">
+              {continueChatError}
+            </p>
+          ) : null}
           {error !== null ? (
             <p className="text-sm text-red-600 wrap-anywhere">{error}</p>
           ) : (
