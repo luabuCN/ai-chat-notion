@@ -13,7 +13,7 @@ import {
   createResumableStreamContext,
   type ResumableStreamContext,
 } from "resumable-stream";
-import { auth, type UserType } from "@/app/(auth)/auth";
+import { auth } from "@/app/(auth)/auth";
 import { type RequestHints, systemPrompt } from "@repo/ai";
 import { getProviderWithModel, getFirstModelSlug } from "@repo/ai";
 import { createDocument } from "@/lib/ai/tools/create-document";
@@ -112,13 +112,6 @@ export async function POST(request: Request) {
       return new ChatSDKError("unauthorized:chat").toResponse();
     }
 
-    // 所有已登录用户为 regular 类型
-    const userType: UserType = "regular";
-
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 24,
-    });
 
     const chat = await getChatById({ id });
     let messagesFromDb: DBMessage[] = [];
@@ -208,6 +201,8 @@ export async function POST(request: Request) {
       icon: string | null;
     }> = [];
 
+    const MAX_DOCUMENT_CONTEXT_CHARS = 12_000;
+
     if (documentIds && documentIds.length > 0) {
       const docs = await Promise.all(
         documentIds.map(async (docId) => {
@@ -221,17 +216,24 @@ export async function POST(request: Request) {
 
       const validDocs = docs.filter(Boolean);
       if (validDocs.length > 0) {
-        documentContext = validDocs
-          .map(
-            (doc) =>
-              `<reference_document title="${doc!.title}">\n${
-                doc!.content || "(空文档)"
-              }\n</reference_document>`
-          )
-          .join("\n\n");
+        let totalChars = 0;
+        const truncatedParts: string[] = [];
 
-        // 收集文档元信息
         for (const doc of validDocs) {
+          const content = doc!.content || "(空文档)";
+          const available = MAX_DOCUMENT_CONTEXT_CHARS - totalChars;
+          if (available <= 0) break;
+
+          const truncated =
+            content.length > available
+              ? `${content.slice(0, available)}\n...(内容已截断，原文过长)`
+              : content;
+
+          truncatedParts.push(
+            `<reference_document id="${doc!.id}" title="${doc!.title}">\n${truncated}\n</reference_document>`
+          );
+          totalChars += truncated.length;
+
           documentAttachments.push({
             type: "document-reference",
             id: doc!.id,
@@ -239,6 +241,8 @@ export async function POST(request: Request) {
             icon: doc!.icon,
           });
         }
+
+        documentContext = truncatedParts.join("\n\n");
       }
     }
 
@@ -356,8 +360,16 @@ export async function POST(request: Request) {
         }
       },
       onError: (error) => {
-        console.log("error", error);
-        return "Oops, an error occurred!";
+        console.error("stream error:", error);
+
+        if (error instanceof Error) {
+          if (error.message.includes("token limit")) {
+            return "引用的文档内容过长，超出了模型的上下文长度限制，请尝试缩短文档内容或换用支持更长上下文的模型。";
+          }
+          return error.message;
+        }
+
+        return "发生错误，请稍后重试";
       },
     });
 
