@@ -2,6 +2,7 @@ import { auth } from "@/app/(auth)/auth";
 import {
   DEFAULT_MODELSCOPE_MODEL,
   runModelScopeChat,
+  streamModelScopeChat,
   type ModelScopeChatParams,
 } from "@/lib/ai/modelscope-chat";
 import { NextResponse } from "next/server";
@@ -15,6 +16,7 @@ import type { ModelMessage } from "ai";
  * - `{ "messages": CoreMessage[], "temperature"?: number, "model"?: string }`
  *
  * 成功：`{ "text": string }`；未配置密钥：`503`；未登录：`401`。
+ * `stream: true` 时返回 `text/plain` UTF-8 流（正文增量），不再返回 JSON。
  */
 export async function POST(request: Request) {
   const session = await auth();
@@ -62,7 +64,55 @@ export async function POST(request: Request) {
     );
   }
 
-  const text = await runModelScopeChat(params);
+  const wantsStream = o.stream === true;
+
+  if (wantsStream) {
+    const streamResult = streamModelScopeChat(params);
+    if (streamResult === null) {
+      return NextResponse.json(
+        {
+          error: "MODELSCOPE_API_KEY is not configured",
+          model: o.model ?? DEFAULT_MODELSCOPE_MODEL,
+        },
+        { status: 503 }
+      );
+    }
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const delta of streamResult.textStream) {
+            controller.enqueue(encoder.encode(delta));
+          }
+          controller.close();
+        } catch (error) {
+          const message =
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : "stream failed";
+          controller.enqueue(encoder.encode(`\n\n[错误] ${message}`));
+          controller.close();
+        }
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  let text: string | null;
+  try {
+    text = await runModelScopeChat(params);
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : "上游模型请求失败";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 
   if (text === null) {
     return NextResponse.json(

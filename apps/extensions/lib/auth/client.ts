@@ -1,3 +1,4 @@
+import type { MainSitePostJsonProxyResult } from "@/lib/auth/main-site-post-json-proxy-message";
 import { sendMessage } from "@/lib/messaging/extension-messaging";
 import type { AuthStatusPayload } from "@/lib/messaging/protocol";
 
@@ -13,4 +14,11 @@ export async function refreshAuthStatus(): Promise<AuthStatusPayload> {
 
 export async function openMainSiteLogin(): Promise<void> {
   await sendMessage("openMainSiteLogin");
+}
+
+export async function postMainSiteJson(
+  path: string,
+  body: string,
+): Promise<MainSitePostJsonProxyResult> {
+  return sendMessage("postMainSiteJson", { path, body });
 }

@@ -1,5 +1,7 @@
 /** 扩展进程间消息协议（与 background 中 onMessage 一一对应） */
 
+import type { MainSitePostJsonProxyResult } from "@/lib/auth/main-site-post-json-proxy-message";
+
 export type AuthStatusPayload = {
   authenticated: boolean;
   user: {
@@ -17,4 +19,9 @@ export interface ExtensionProtocolMap {
   refreshAuthStatus(): AuthStatusPayload;
   /** 在后台创建标签页（内容脚本无 `tabs` API，须由此打开主站登录等） */
   openMainSiteLogin(): void;
+  /**
+   * 由 background 发起主站 POST JSON（直连 Cookie + 可选标签页回退）。
+   * 供 content script 等无 `tabs` API 的上下文使用。
+   */
+  postMainSiteJson(data: { path: string; body: string }): MainSitePostJsonProxyResult;
 }

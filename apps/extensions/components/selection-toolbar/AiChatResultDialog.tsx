@@ -3,15 +3,34 @@ import {
   cn,
 } from "@repo/ui";
 import {
+  Check,
   Copy,
   MinusCircle,
   MessageCircle,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FloatingPanel } from "@/components/floating-panel";
+import { streamMainSitePost } from "@/lib/auth/stream-main-site";
+
+const OPENAI_COMPAT_PATH = "/api/ai/openai";
+
+function buildSystemPrompt(selectedText: string): string {
+  return [
+    "用户选中了以下网页文字，请结合其含义回答后续问题。",
+    "",
+    "【选中文本】",
+    selectedText.trim(),
+    "",
+    "【Markdown 格式要求】",
+    "- 使用段落、有序/无序列表、加粗、行内代码与代码块即可。",
+    "- 不要使用一级(#)、二级(##)、三级(###)标题。",
+    "- 不要使用水平分隔线（---、***、___ 等）。",
+    "- 需要强调时用 **加粗** 或短句，不要用大标题层级。",
+  ].join("\n");
+}
 
 function AiChatMarkdown({ markdown }: { markdown: string }) {
   return (
@@ -20,15 +39,34 @@ function AiChatMarkdown({ markdown }: { markdown: string }) {
         "prose prose-sm prose-neutral max-w-none text-slate-800",
         "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         "[&_p]:text-sm [&_li]:text-sm",
-        "[&_code]:rounded-md [&_code]:bg-slate-100 [&_code]:px-1.5 [&_code]:py-px [&_code]:text-[13px] [&_code]:before:content-none [&_code]:after:content-none",
-        "[&_pre]:rounded-lg [&_pre]:bg-slate-100 [&_pre]:p-3 [&_pre]:text-[13px]",
+        "[&_hr]:hidden",
+        "[&_code]:rounded-md [&_code]:bg-slate-100 [&_code]:px-1.5 [&_code]:py-px [&_code]:text-[13px] [&_code]:text-slate-800 [&_code]:before:content-none [&_code]:after:content-none",
+        "[&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-slate-100 [&_pre]:p-3 [&_pre]:text-[13px] [&_pre]:text-slate-900",
+        "[&_pre_code]:block [&_pre_code]:w-full [&_pre_code]:whitespace-pre-wrap [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:font-mono [&_pre_code]:text-[13px] [&_pre_code]:leading-relaxed [&_pre_code]:text-slate-900 [&_pre_code]:shadow-none",
         "[&_ul]:my-2 [&_ol]:my-2",
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+      <ReactMarkdown
+        components={{
+          hr: () => null,
+          h1: ({ children }) => (
+            <p className="my-2 text-sm font-semibold text-slate-800">{children}</p>
+          ),
+          h2: ({ children }) => (
+            <p className="my-2 text-sm font-semibold text-slate-800">{children}</p>
+          ),
+          h3: ({ children }) => (
+            <p className="my-2 text-sm font-semibold text-slate-800">{children}</p>
+          ),
+        }}
+        remarkPlugins={[remarkGfm]}
+      >
+        {markdown}
+      </ReactMarkdown>
     </div>
   );
 }
+
 type AiChatResultDialogProps = {
   selectedText: string;
   userQuery: string;
@@ -53,16 +91,6 @@ function LoadingDots() {
   );
 }
 
-/** 演示用占位回答（图二：含加粗、行内代码、列表），接入接口后替换为真实流式文本 */
-const DEMO_ANSWER = `根据你描述的接口逻辑，可以这样理解 **报名状态展示规则**：
-
-1. 前端在选中批次后调用接口拉取 **批次设置**。
-2. 读取字段 \`zccxxssfzdbm\` 的值：
-   - **1**：自动报名 → 隐藏「报名状态」相关选择。
-   - **0**：手动报名 → 展示「报名状态」选择。
-
-若需要更细的交互说明，可补充接口返回示例。`;
-
 export function AiChatResultDialog({
   selectedText,
   userQuery,
@@ -71,14 +99,86 @@ export function AiChatResultDialog({
 }: AiChatResultDialogProps) {
   const titleText = userQuery.trim().replace(/\s+/g, " ");
   const [loading, setLoading] = useState(true);
+  const [receiving, setReceiving] = useState(false);
   const [answer, setAnswer] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const fetchGenRef = useRef(0);
+  const streamDisconnectRef = useRef<(() => void) | null>(null);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  const runFetch = useCallback(async () => {
+    const myGen = ++fetchGenRef.current;
+    setLoading(true);
+    setReceiving(true);
+    setError(null);
+    setCopied(false);
+    setAnswer("");
+    streamDisconnectRef.current?.();
+    streamDisconnectRef.current = null;
+
+    const body = JSON.stringify({
+      stream: true,
+      system: buildSystemPrompt(selectedText),
+      prompt: userQuery.trim(),
+    });
+
+    const { done, disconnect } = streamMainSitePost(
+      OPENAI_COMPAT_PATH,
+      body,
+      (delta) => {
+        if (myGen !== fetchGenRef.current) {
+          return;
+        }
+        setAnswer((prev) => prev + delta);
+        setLoading(false);
+      },
+    );
+    streamDisconnectRef.current = disconnect;
+
+    let result: Awaited<ReturnType<typeof streamMainSitePost>["done"]>;
+    try {
+      result = await done;
+    } catch (e) {
+      if (myGen !== fetchGenRef.current) {
+        return;
+      }
+      let msg = "请求失败";
+      if (e instanceof Error) {
+        msg = e.message;
+      }
+      setError(msg);
+      setLoading(false);
+      setReceiving(false);
+      return;
+    }
+
+    streamDisconnectRef.current = null;
+
+    if (myGen !== fetchGenRef.current) {
+      return;
+    }
+
+    setReceiving(false);
+    setLoading(false);
+
+    if (!result.ok) {
+      setError(result.error ?? "请求失败");
+    }
+  }, [selectedText, userQuery]);
 
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setAnswer(DEMO_ANSWER);
-      setLoading(false);
-    }, 1800);
-    return () => window.clearTimeout(t);
+    void runFetch();
+  }, [runFetch]);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current !== undefined) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -89,11 +189,42 @@ export function AiChatResultDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const handleStop = () => {
+    fetchGenRef.current += 1;
+    streamDisconnectRef.current?.();
+    streamDisconnectRef.current = null;
+    setReceiving(false);
+    setLoading(false);
+  };
+
+  const handleRetry = () => {
+    setCopied(false);
+    void runFetch();
+  };
+
+  const handleCopy = async () => {
+    if (!answer.trim()) return;
+    try {
+      await navigator.clipboard.writeText(answer);
+      if (copyResetTimerRef.current !== undefined) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+      setCopied(true);
+      copyResetTimerRef.current = setTimeout(() => {
+        setCopied(false);
+        copyResetTimerRef.current = undefined;
+      }, 2000);
+    } catch {
+      setError("复制失败，请手动选择文本复制。");
+    }
+  };
+
   const footerLoading = (
     <div className="flex items-center justify-between gap-2 px-3 py-2.5">
       <Button
         className="h-9 gap-1.5 rounded-full text-slate-600"
         onMouseDown={(e) => e.stopPropagation()}
+        onClick={handleStop}
         type="button"
         variant="ghost"
       >
@@ -109,6 +240,7 @@ export function AiChatResultDialog({
         <Button
           className="h-9 gap-2 rounded-full px-3.5 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
           onMouseDown={(e) => e.stopPropagation()}
+          onClick={onBack}
           type="button"
           variant="ghost"
         >
@@ -119,17 +251,29 @@ export function AiChatResultDialog({
         </Button>
         <div className="flex shrink-0 items-center gap-1 text-slate-600">
           <button
-            aria-label="复制"
-            className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-slate-100 active:bg-slate-200/60"
+            aria-label={copied ? "已复制" : "复制回答"}
+            className={cn(
+              "flex size-9 items-center justify-center rounded-full transition-colors",
+              answer.trim().length > 0
+                ? "hover:bg-slate-100 active:bg-slate-200/60"
+                : "cursor-not-allowed opacity-40",
+            )}
+            disabled={answer.trim().length === 0}
             onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => void handleCopy()}
             type="button"
           >
-            <Copy className="size-4" />
+            {copied ? (
+              <Check className="size-4 text-emerald-600" strokeWidth={2.5} />
+            ) : (
+              <Copy className="size-4" />
+            )}
           </button>
           <button
             aria-label="重新回答"
             className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-slate-100 active:bg-slate-200/60"
             onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleRetry}
             type="button"
           >
             <RefreshCw className="size-4" />
@@ -144,7 +288,7 @@ export function AiChatResultDialog({
       bodyClassName="px-0 py-0"
       defaultHeight={560}
       defaultWidth={520}
-      footer={loading ? footerLoading : footerDone}
+      footer={receiving ? footerLoading : footerDone}
       onBack={onBack}
       onClose={onClose}
       title={titleText || "AI 助手"}
@@ -163,10 +307,16 @@ export function AiChatResultDialog({
           </div>
         </div>
         <div className="min-h-[120px] px-1 pt-3">
-          {loading ? (
-            <LoadingDots />
+          {error !== null ? (
+            <p className="text-sm text-red-600 wrap-anywhere">{error}</p>
           ) : (
-            <AiChatMarkdown markdown={answer} />
+            <>
+              {loading && answer.length === 0 ? (
+                <LoadingDots />
+              ) : (
+                <AiChatMarkdown markdown={answer} />
+              )}
+            </>
           )}
         </div>
       </div>
