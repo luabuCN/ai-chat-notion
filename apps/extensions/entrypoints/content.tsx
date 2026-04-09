@@ -1,5 +1,6 @@
 import selectionToolbarCss from "@/components/selection-toolbar/content-toolbar.css?inline";
 import { SelectionToolbarHost } from "@/components/selection-toolbar/SelectionToolbarHost";
+import { ExtensionPortalProvider } from "@/lib/extension-portal-context";
 import { TooltipProvider } from "@repo/ui";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
@@ -17,12 +18,20 @@ export default defineContentScript({
       zIndex: 2_147_483_647,
       css: selectionToolbarCss.replaceAll(":root", ":host"),
       onMount: (uiContainer) => {
+        const portalHost = document.createElement("div");
+        portalHost.setAttribute("data-extension-portal-host", "");
+        /** 后插入 DOM，与面板同 z-index 时后绘制，避免菜单被盖住 */
+        portalHost.style.position = "relative";
+        portalHost.style.zIndex = "2147483647";
         const mount = document.createElement("div");
         uiContainer.append(mount);
+        uiContainer.append(portalHost);
         const root = createRoot(mount);
         root.render(
           <TooltipProvider>
-            <SelectionToolbarHost />
+            <ExtensionPortalProvider container={portalHost}>
+              <SelectionToolbarHost />
+            </ExtensionPortalProvider>
           </TooltipProvider>
         );
         return root;

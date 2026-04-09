@@ -6,6 +6,8 @@ import Draggable from "react-draggable";
 export type FloatingPanelProps = {
   /** 标题（展示在头部左侧） */
   title: string;
+  /** 标题右侧附加控件（如语言选择器） */
+  titleAddon?: ReactNode;
   /** 关闭 */
   onClose: () => void;
   /** 可选：显示返回箭头 */
@@ -38,6 +40,7 @@ export type FloatingPanelProps = {
  */
 export function FloatingPanel({
   title,
+  titleAddon,
   onClose,
   onBack,
   children,
@@ -104,7 +107,7 @@ export function FloatingPanel({
                 width: defaultWidth,
               }}
             >
-              <header className="floating-panel-drag-handle flex shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-200/80 px-3 py-2.5 active:cursor-grabbing">
+              <header className="flex shrink-0 select-none items-center gap-2 border-b border-slate-200/80 px-3 py-2.5">
                 {onBack ? (
                   <button
                     aria-label="返回"
@@ -119,9 +122,19 @@ export function FloatingPanel({
                     <ChevronLeft className="size-5" strokeWidth={2} />
                   </button>
                 ) : null}
-                <h2 className="min-w-0 flex-1 truncate text-[15px] font-medium text-slate-900">
-                  {title}
-                </h2>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {/*
+                    仅标题条可拖拽；titleAddon（如下拉）若在 drag-handle 内会与 react-draggable 抢 mousedown，导致菜单无法打开。
+                  */}
+                  <div className="floating-panel-drag-handle flex min-h-0 min-w-0 flex-1 cursor-grab items-center active:cursor-grabbing">
+                    <h2 className="min-w-0 truncate text-[15px] font-medium text-slate-900">
+                      {title}
+                    </h2>
+                  </div>
+                  {titleAddon ? (
+                    <div className="min-w-0 shrink-0">{titleAddon}</div>
+                  ) : null}
+                </div>
                 <div className="flex shrink-0 items-center gap-0.5">
                   <button
                     aria-label={pinned ? "取消固定" : "固定窗口"}

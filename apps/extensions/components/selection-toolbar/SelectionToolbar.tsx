@@ -2,6 +2,10 @@ import {
   Avatar,
   AvatarFallback,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Separator,
   Tooltip,
   TooltipContent,
@@ -19,11 +23,23 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { useExtensionPortalContainer } from "@/lib/extension-portal-context";
+import {
+  DEFAULT_TRANSLATION_LANGUAGE_ID,
+  TRANSLATION_LANGUAGES,
+} from "@/lib/translation-languages";
 
 type SelectionToolbarProps = {
   onClose?: () => void;
   /** 点击 AI 助手按钮时触发，参数为当前选中文本 */
   onAiClick?: (selectedText: string) => void | Promise<void>;
+  /** 点击解释时触发（与 AI 相同鉴权，但直接进入回答流，问题固定为「解释」） */
+  onExplainClick?: (selectedText: string) => void | Promise<void>;
+  /** 从翻译菜单选择目标语言后触发 */
+  onTranslateLanguage?: (
+    selectedText: string,
+    languageId: string,
+  ) => void | Promise<void>;
   /** 点击高亮按钮时触发 */
   onHighlight?: () => void;
 };
@@ -41,12 +57,6 @@ type ToolbarActionItem =
       tooltip: string;
       variant: "icon";
       Icon: LucideIcon;
-    }
-  | {
-      key: "translate";
-      ariaLabel: string;
-      tooltip: string;
-      variant: "translate";
     };
 
 const TOOLBAR_ACTION_ITEMS: ToolbarActionItem[] = [
@@ -72,12 +82,6 @@ const TOOLBAR_ACTION_ITEMS: ToolbarActionItem[] = [
     variant: "icon",
     Icon: FileText,
   },
-  {
-    key: "translate",
-    ariaLabel: "翻译",
-    tooltip: "翻译",
-    variant: "translate",
-  },
 ];
 
 /** 固定 px；ghost 会带 hover 背景，这里改为透明 + 仅主题色变化 */
@@ -92,9 +96,16 @@ const aiAvatarButtonClassName =
 
 const COPY_FEEDBACK_MS = 1500;
 
-export function SelectionToolbar({ onClose, onAiClick, onHighlight }: SelectionToolbarProps) {
+export function SelectionToolbar({
+  onClose,
+  onAiClick,
+  onExplainClick,
+  onTranslateLanguage,
+  onHighlight,
+}: SelectionToolbarProps) {
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extensionMenuPortalHost = useExtensionPortalContainer();
 
   const getSelectedText = (): string => globalThis.getSelection?.()?.toString() ?? "";
 
@@ -123,8 +134,10 @@ export function SelectionToolbar({ onClose, onAiClick, onHighlight }: SelectionT
       onHighlight?.();
       return;
     }
-    // biome-ignore lint/suspicious/noConsole: 临时调试
-    console.log("[SelectionToolbar] selected text:", { actionKey, selectedText });
+    if (actionKey === "explain") {
+      void onExplainClick?.(selectedText);
+      return;
+    }
   };
 
   return (
@@ -151,7 +164,7 @@ export function SelectionToolbar({ onClose, onAiClick, onHighlight }: SelectionT
                   </AvatarFallback>
                 </Avatar>
               </button>
-            ) : item.variant === "icon" ? (
+            ) : (
               <Button
                 aria-label={copied && item.key === "copy" ? "已复制" : item.ariaLabel}
                 className={iconButtonClassName}
@@ -166,23 +179,6 @@ export function SelectionToolbar({ onClose, onAiClick, onHighlight }: SelectionT
                   <item.Icon className="size-[16px]!" strokeWidth={2} />
                 )}
               </Button>
-            ) : (
-              <Button
-                aria-label={item.ariaLabel}
-                className={iconButtonClassName}
-                onClick={() => onActionClick(item.key)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <span className="flex items-center gap-[2px]">
-                  <Languages className="size-[16px]!" strokeWidth={2} />
-                  <ChevronDown
-                    className="size-[12px]! opacity-80"
-                    strokeWidth={2}
-                  />
-                </span>
-              </Button>
             )}
           </TooltipTrigger>
           <TooltipContent className={tooltipSurfaceClassName} side="top">
@@ -190,6 +186,73 @@ export function SelectionToolbar({ onClose, onAiClick, onHighlight }: SelectionT
           </TooltipContent>
         </Tooltip>
       ))}
+
+      <div className="inline-flex h-[26px] items-stretch overflow-hidden rounded-lg border border-slate-200/60 bg-white">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              aria-label="翻译为英语"
+              className="box-border flex h-full w-[26px] shrink-0 items-center justify-center rounded-none border-r border-slate-200/60 bg-white p-0 text-slate-600 outline-none hover:bg-slate-50 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onClick={() => {
+                const selectedText = getSelectedText();
+                void onTranslateLanguage?.(
+                  selectedText,
+                  DEFAULT_TRANSLATION_LANGUAGE_ID,
+                );
+              }}
+              type="button"
+            >
+              <Languages className="size-[16px]!" strokeWidth={2} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className={tooltipSurfaceClassName} side="top">
+            翻译为英语（默认）
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenu modal={false}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-haspopup="menu"
+                  aria-label="选择翻译语言"
+                  className="box-border flex h-full w-[22px] shrink-0 items-center justify-center rounded-none bg-white p-0 text-slate-600 outline-none hover:bg-slate-50 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  type="button"
+                >
+                  <ChevronDown className="size-[12px]! opacity-80" strokeWidth={2} />
+                </button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent className={tooltipSurfaceClassName} side="top">
+              选择语言
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent
+            align="center"
+            className="z-[2147483647] max-h-[min(320px,calc(100vh-96px))] w-[min(100vw-24px,280px)] overflow-y-auto border-slate-200 bg-white p-1 text-slate-900 shadow-md"
+            container={extensionMenuPortalHost}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+            side="top"
+            sideOffset={8}
+          >
+            {TRANSLATION_LANGUAGES.map((lang) => (
+              <DropdownMenuItem
+                className="cursor-pointer flex-col items-start gap-0.5 py-2"
+                key={lang.id}
+                onSelect={() => {
+                  const selectedText = getSelectedText();
+                  void onTranslateLanguage?.(selectedText, lang.id);
+                }}
+              >
+                <span className="w-full font-medium leading-tight">{lang.labelZh}</span>
+                <span className="w-full text-[12px] leading-tight text-slate-500">
+                  {lang.nativeName}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       <Separator className="h-[14px]! w-px bg-gray-200" orientation="vertical" />
 
