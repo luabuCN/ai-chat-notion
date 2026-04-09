@@ -1,6 +1,12 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { getAuthStatus, openMainSiteLogin } from "@/lib/auth/client";
+import {
+  type HighlightColor,
+  getHighlightInfo,
+  highlightSelection,
+} from "@/lib/highlight-manager";
 import { AiChatDialog } from "./AiChatDialog";
+import { HighlightPopover } from "./HighlightPopover";
 import { SelectionToolbar } from "./SelectionToolbar";
 
 /** 与 streamdown 解耦，避免整包打进 content 主入口（曾导致 ~50MB+ 与注入失败） */
@@ -18,9 +24,16 @@ type AiDialogState =
   | { step: "input"; selectedText: string }
   | { step: "result"; selectedText: string; query: string };
 
+type HighlightPopoverState = {
+  id: string;
+  color: HighlightColor;
+  position: Position;
+};
+
 export function SelectionToolbarHost() {
   const [pos, setPos] = useState<Position | null>(null);
   const [aiDialog, setAiDialog] = useState<AiDialogState | null>(null);
+  const [hlPopover, setHlPopover] = useState<HighlightPopoverState | null>(null);
 
   useEffect(() => {
     const syncFromSelection = () => {
@@ -42,7 +55,10 @@ export function SelectionToolbarHost() {
       });
     };
 
-    const hide = () => setPos(null);
+    const hide = () => {
+      setPos(null);
+      setHlPopover(null);
+    };
 
     document.addEventListener("mouseup", syncFromSelection);
     document.addEventListener("scroll", hide, true);
@@ -54,13 +70,38 @@ export function SelectionToolbarHost() {
   }, []);
 
   useEffect(() => {
+    const handleDocClick = (e: MouseEvent) => {
+      const info = getHighlightInfo(e.target);
+      if (info) {
+        const rect = info.element.getBoundingClientRect();
+        setHlPopover({
+          id: info.id,
+          color: info.color,
+          position: { left: rect.left + rect.width / 2, top: rect.bottom + 8 },
+        });
+        return;
+      }
+      const inShadow = e.composedPath().some((el) => el instanceof ShadowRoot);
+      if (!inShadow) setHlPopover(null);
+    };
+    document.addEventListener("click", handleDocClick);
+    return () => document.removeEventListener("click", handleDocClick);
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setPos(null);
+        setHlPopover(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const handleHighlight = useCallback(() => {
+    highlightSelection("yellow");
+    setPos(null);
   }, []);
 
   const handleAiClick = async (selectedText: string) => {
@@ -94,8 +135,18 @@ export function SelectionToolbarHost() {
           <SelectionToolbar
             onAiClick={handleAiClick}
             onClose={() => setPos(null)}
+            onHighlight={handleHighlight}
           />
         </div>
+      )}
+
+      {hlPopover && (
+        <HighlightPopover
+          currentColor={hlPopover.color}
+          highlightId={hlPopover.id}
+          onClose={() => setHlPopover(null)}
+          position={hlPopover.position}
+        />
       )}
 
       {aiDialog?.step === "input" && (

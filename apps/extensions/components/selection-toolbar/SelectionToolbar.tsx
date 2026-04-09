@@ -9,18 +9,23 @@ import {
 } from "@repo/ui";
 import {
   Brain,
+  Check,
   ChevronDown,
   Copy,
   FileText,
+  Highlighter,
   Languages,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 
 type SelectionToolbarProps = {
   onClose?: () => void;
   /** 点击 AI 助手按钮时触发，参数为当前选中文本 */
   onAiClick?: (selectedText: string) => void | Promise<void>;
+  /** 点击高亮按钮时触发 */
+  onHighlight?: () => void;
 };
 
 type ToolbarActionItem =
@@ -31,7 +36,7 @@ type ToolbarActionItem =
       variant: "avatar";
     }
   | {
-      key: "copy" | "explain";
+      key: "copy" | "highlight" | "explain";
       ariaLabel: string;
       tooltip: string;
       variant: "icon";
@@ -52,6 +57,13 @@ const TOOLBAR_ACTION_ITEMS: ToolbarActionItem[] = [
     tooltip: "复制",
     variant: "icon",
     Icon: Copy,
+  },
+  {
+    key: "highlight",
+    ariaLabel: "高亮",
+    tooltip: "高亮",
+    variant: "icon",
+    Icon: Highlighter,
   },
   {
     key: "explain",
@@ -78,8 +90,24 @@ const tooltipSurfaceClassName =
 const aiAvatarButtonClassName =
   "group inline-flex size-[26px] items-center justify-center rounded-full bg-transparent outline-none hover:bg-transparent active:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer";
 
-export function SelectionToolbar({ onClose, onAiClick }: SelectionToolbarProps) {
+const COPY_FEEDBACK_MS = 1500;
+
+export function SelectionToolbar({ onClose, onAiClick, onHighlight }: SelectionToolbarProps) {
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const getSelectedText = (): string => globalThis.getSelection?.()?.toString() ?? "";
+
+  const handleCopy = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* clipboard API 不可用时静默失败 */
+    }
+    setCopied(true);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
+  }, []);
 
   const onActionClick = (actionKey: ToolbarActionItem["key"]) => {
     const selectedText = getSelectedText();
@@ -87,8 +115,15 @@ export function SelectionToolbar({ onClose, onAiClick }: SelectionToolbarProps) 
       onAiClick?.(selectedText);
       return;
     }
-    // 临时调试：点击按钮时打印当前选区文本
-    // biome-ignore lint/suspicious/noConsole: 用户要求点击时打印选中文本
+    if (actionKey === "copy") {
+      void handleCopy(selectedText);
+      return;
+    }
+    if (actionKey === "highlight") {
+      onHighlight?.();
+      return;
+    }
+    // biome-ignore lint/suspicious/noConsole: 临时调试
     console.log("[SelectionToolbar] selected text:", { actionKey, selectedText });
   };
 
@@ -118,14 +153,18 @@ export function SelectionToolbar({ onClose, onAiClick }: SelectionToolbarProps) 
               </button>
             ) : item.variant === "icon" ? (
               <Button
-                aria-label={item.ariaLabel}
+                aria-label={copied && item.key === "copy" ? "已复制" : item.ariaLabel}
                 className={iconButtonClassName}
                 onClick={() => onActionClick(item.key)}
                 size="icon"
                 type="button"
                 variant="ghost"
               >
-                <item.Icon className="size-[16px]!" strokeWidth={2} />
+                {copied && item.key === "copy" ? (
+                  <Check className="size-[16px]! text-green-500" strokeWidth={2} />
+                ) : (
+                  <item.Icon className="size-[16px]!" strokeWidth={2} />
+                )}
               </Button>
             ) : (
               <Button
@@ -147,7 +186,7 @@ export function SelectionToolbar({ onClose, onAiClick }: SelectionToolbarProps) 
             )}
           </TooltipTrigger>
           <TooltipContent className={tooltipSurfaceClassName} side="top">
-            {item.tooltip}
+            {copied && item.key === "copy" ? "已复制" : item.tooltip}
           </TooltipContent>
         </Tooltip>
       ))}
