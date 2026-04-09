@@ -5,6 +5,7 @@ import {
   getHighlightInfo,
   highlightSelection,
 } from "@/lib/highlight-manager";
+import { restoreAllHighlightsForCurrentPage, saveHighlightFromDom } from "@/lib/highlight-persistence";
 import { AiChatDialog } from "./AiChatDialog";
 import { HighlightPopover } from "./HighlightPopover";
 import { SelectionToolbar } from "./SelectionToolbar";
@@ -34,6 +35,11 @@ export function SelectionToolbarHost() {
   const [pos, setPos] = useState<Position | null>(null);
   const [aiDialog, setAiDialog] = useState<AiDialogState | null>(null);
   const [hlPopover, setHlPopover] = useState<HighlightPopoverState | null>(null);
+
+  /** 页面加载后从 IndexedDB 恢复当前页已保存的高亮 */
+  useEffect(() => {
+    void restoreAllHighlightsForCurrentPage();
+  }, []);
 
   useEffect(() => {
     const syncFromSelection = () => {
@@ -100,7 +106,8 @@ export function SelectionToolbarHost() {
   }, []);
 
   const handleHighlight = useCallback(() => {
-    highlightSelection("yellow");
+    const id = highlightSelection("yellow");
+    if (id) void saveHighlightFromDom(id);
     setPos(null);
   }, []);
 

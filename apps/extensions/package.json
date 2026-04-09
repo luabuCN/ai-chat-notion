@@ -33,6 +33,7 @@
     "@repo/ui": "workspace:*",
     "@webext-core/messaging": "^2.3.0",
     "ai": "6.0.37",
+    "dexie": "^4.4.2",
     "katex": "^0.16.25",
     "lucide-react": "^1.7.0",
     "react": "19.0.0-rc-45804af1-20241021",

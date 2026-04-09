@@ -5,6 +5,10 @@ import {
   changeHighlightColor,
   removeHighlight,
 } from "@/lib/highlight-manager";
+import {
+  deleteHighlightFromDb,
+  updateHighlightColorInDb,
+} from "@/lib/highlight-persistence";
 
 type HighlightPopoverProps = {
   highlightId: string;
@@ -46,6 +50,7 @@ export function HighlightPopover({
             className="size-[20px] shrink-0 rounded-full cursor-pointer border-2 transition-transform hover:scale-110"
             onClick={() => {
               changeHighlightColor(highlightId, key);
+              void updateHighlightColorInDb(highlightId, key);
               onClose();
             }}
             style={{
@@ -63,6 +68,7 @@ export function HighlightPopover({
           className="flex size-[22px] items-center justify-center rounded-md text-slate-500 hover:text-red-500 cursor-pointer transition-colors"
           onClick={() => {
             removeHighlight(highlightId);
+            void deleteHighlightFromDb(highlightId);
             onClose();
           }}
           type="button"
