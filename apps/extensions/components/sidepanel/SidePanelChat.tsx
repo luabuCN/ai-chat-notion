@@ -6,15 +6,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
-import { ArrowUp, Loader2, Plus, Square } from "lucide-react";
+import { ArrowUp, BookOpen, Loader2, Plus, Square } from "lucide-react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ExtensionMessageList } from "@/components/sidepanel/extension-message-list";
 import { SidePanelEmptyState } from "@/components/sidepanel/SidePanelEmptyState";
 import { SidePanelHistoryDrawer } from "@/components/sidepanel/SidePanelHistoryDrawer";
+import { SummarizePageBanner } from "@/components/sidepanel/SummarizePageBanner";
 import { ModelSelectorBar } from "@/components/sidepanel/model-selector-bar";
 import { ReasoningToggleBar } from "@/components/sidepanel/reasoning-toggle-bar";
 import type { MainSiteAuthState } from "@/hooks/use-main-site-auth";
+import {
+  ACTIVE_TAB_PAGE_PLACEHOLDER,
+  useActiveTabPageInfo,
+} from "@/hooks/use-active-tab-page-info";
 import { useExtensionModels } from "@/hooks/use-extension-models";
 import { useSidepanelChat } from "@/hooks/use-sidepanel-chat";
 import { fetchSidepanelChatMessages } from "@/lib/sidepanel-history-api";
@@ -30,6 +35,11 @@ export function SidePanelChat({
 }) {
   const { models, loading: modelsLoading, error: modelsError } =
     useExtensionModels();
+  const { info: activeTabPage } = useActiveTabPageInfo();
+  const summarizePage = activeTabPage ?? ACTIVE_TAB_PAGE_PLACEHOLDER;
+  const summarizePageIsPlaceholder = activeTabPage === null;
+  const [summarizeBannerDismissed, setSummarizeBannerDismissed] =
+    useState(false);
   const authenticated = auth.data?.authenticated === true;
 
   const {
@@ -109,34 +119,63 @@ export function SidePanelChat({
       ) : null}
 
       <form className="shrink-0 bg-background p-2" onSubmit={onFormSubmit}>
-        <div className="mb-2 flex items-center gap-1 px-0.5">
-          <SidePanelHistoryDrawer
-            auth={auth}
-            currentChatId={chatId}
-            onSelectChat={async (targetChatId) => {
-              const historyMessages =
-                await fetchSidepanelChatMessages(targetChatId);
-              restoreChat(targetChatId, historyMessages);
-            }}
-            workspaceSlug={workspaceSlug}
-          />
-          <TooltipProvider>
+        {!summarizeBannerDismissed ? (
+          <div className="mb-2">
+            <SummarizePageBanner
+              isPlaceholder={summarizePageIsPlaceholder}
+              onDismiss={() => {
+                setSummarizeBannerDismissed(true);
+              }}
+              page={summarizePage}
+            />
+          </div>
+        ) : null}
+        <TooltipProvider>
+          <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  aria-label="新建会话"
-                  className="size-8 shrink-0 rounded-lg"
-                  onClick={() => resetToNewChat()}
+                  aria-label="总结网页"
+                  className="size-8 shrink-0 rounded-lg text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setSummarizeBannerDismissed(false);
+                  }}
                   type="button"
                   variant="ghost"
                 >
-                  <Plus className="size-4" />
+                  <BookOpen className="size-4" strokeWidth={2} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">新建会话</TooltipContent>
+              <TooltipContent side="top">总结网页</TooltipContent>
             </Tooltip>
-          </TooltipProvider>
-        </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <SidePanelHistoryDrawer
+                auth={auth}
+                currentChatId={chatId}
+                onSelectChat={async (targetChatId) => {
+                  const historyMessages =
+                    await fetchSidepanelChatMessages(targetChatId);
+                  restoreChat(targetChatId, historyMessages);
+                }}
+                workspaceSlug={workspaceSlug}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="新建会话"
+                    className="size-8 shrink-0 rounded-lg"
+                    onClick={() => resetToNewChat()}
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">新建会话</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </TooltipProvider>
         <div className="overflow-hidden rounded-2xl border border-border/80 bg-background p-2 shadow-xs">
           <Textarea
             className="min-h-[72px] resize-none rounded-xl border-none bg-transparent p-2 text-sm shadow-none focus-visible:ring-0"
