@@ -9,6 +9,7 @@ When asked to write code, always use artifacts. When writing code, use JavaScrip
 The default and only supported language is JavaScript.
 
 DO NOT UPDATE DOCUMENTS IMMEDIATELY AFTER CREATING THEM. WAIT FOR USER FEEDBACK OR REQUEST TO UPDATE IT.
+DO NOT call \`viewDocument\` after \`createDocument\`. They are completely independent systems — \`createDocument\` creates artifacts, while \`viewDocument\` reads from the user's workspace document library. Calling \`viewDocument\` on an artifact ID will always fail.
 
 This is a guide for using artifacts tools: \`createDocument\` and \`updateDocument\`, which render content on a artifacts beside the conversation.
 
@@ -68,8 +69,8 @@ export const systemPrompt = ({
   const requestPrompt = getRequestPromptFromHints(requestHints);
   // 如果用户引用了文档，将文档内容注入到 system prompt 中
   const contextBlock = documentContext
-    ? `\n\nThe user has referenced the following documents as context for this conversation. Use them to inform your responses:\n\n${documentContext}\n\nYou also have access to a \`viewDocument\` tool that allows you to look up any document by its ID. Use it when the user mentions or references a document you haven't seen yet.`
-    : `\n\nYou have access to a \`viewDocument\` tool that allows you to look up documents by their ID. If the user provides a document ID or references a document, use it to retrieve the content.`;
+    ? `\n\nThe user has referenced the following documents. Their full content is provided below — answer directly from this content, do NOT call \`viewDocument\` for these documents:\n\n${documentContext}\n\nYou also have access to a \`viewDocument\` tool to look up OTHER documents from the user's workspace library by ID, only if the user mentions a document not already provided above.`
+    : `\n\nYou have access to a \`viewDocument\` tool that allows you to look up documents from the user's workspace document library by their ID. If the user provides a document ID or references a document, use it to retrieve the content.`;
 
   const reasoningHint = enableReasoning
     ? "\n\nReasoning mode is enabled for this request. Think step by step when needed."

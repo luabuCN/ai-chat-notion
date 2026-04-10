@@ -70,8 +70,9 @@ const Item = ({
   const { setExpanded: forceExpand } = useSidebarDocumentsContext();
   const [isHovered, setIsHovered] = useState(false);
 
-  const isViewingThisDocument =
-    Boolean(id) && isPathnameEditorDocument(pathname, id);
+  const isViewingThisDocument = id
+    ? isPathnameEditorDocument(pathname, id)
+    : false;
 
   const onArchive = async (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>

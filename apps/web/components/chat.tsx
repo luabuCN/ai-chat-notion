@@ -114,10 +114,9 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
-      console.log("error", error);
+      console.error("chat error:", error);
 
       if (error instanceof ChatSDKError) {
-        // Check if it's a credit card error
         if (
           error.message?.includes("AI Gateway requires a valid credit card")
         ) {
@@ -128,6 +127,12 @@ export function Chat({
             description: error.message,
           });
         }
+      } else {
+        toast({
+          type: "error",
+          description:
+            error.message || "发生错误，请稍后重试",
+        });
       }
     },
   });

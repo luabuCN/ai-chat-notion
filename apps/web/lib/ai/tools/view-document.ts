@@ -2,10 +2,9 @@ import { tool } from "ai";
 import { z } from "zod";
 import { getEditorDocumentById } from "@repo/database";
 
-// viewDocument tool：让 AI 能够主动查看 workspace 中的文档内容
 export const viewDocument = tool({
   description:
-    "查看一个文档的完整内容。当用户在消息中通过 @ 提到了某个文档，或者你需要查看某个文档的内容时使用此工具。输入文档 ID 即可获取文档的标题和内容。",
+    "查看用户文档库中的文档内容。当用户在消息中提到某个文档，或者你需要查看用户文档库中的文档时使用此工具。注意：不要用此工具查看你刚通过 createDocument 创建的 artifact 文档，两者是不同的系统。",
   inputSchema: z.object({
     documentId: z.string().uuid().describe("要查看的文档 ID"),
   }),
