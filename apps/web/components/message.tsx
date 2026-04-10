@@ -8,6 +8,7 @@ import { useParams } from "next/navigation";
 import type { Vote } from "@repo/database";
 import type { ChatMessage } from "@/lib/types";
 import type { MessageMetadata } from "@/lib/types";
+import { parseSummarizePageMeta } from "@/lib/summarize-page-message";
 import { cn, sanitizeText } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
@@ -26,6 +27,7 @@ import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
+import { SummarizePageUserCard } from "./summarize-page-user-card";
 import { Weather } from "./weather";
 import { FileText } from "lucide-react";
 
@@ -96,6 +98,8 @@ const PurePreviewMessage = ({
             "w-full": message.role === "assistant" || mode === "edit",
             "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]":
               message.role === "user" && mode !== "edit",
+            "items-end":
+              message.role === "user" && mode !== "edit",
           })}
         >
           {attachmentsFromMessage.length > 0 && (
@@ -145,6 +149,21 @@ const PurePreviewMessage = ({
 
             if (type === "text") {
               if (mode === "view") {
+                if (message.role === "user") {
+                  const summarizeMeta = parseSummarizePageMeta(part.text ?? "");
+                  if (summarizeMeta) {
+                    return (
+                      <div
+                        className="max-w-[min(100%,20rem)]"
+                        data-testid="message-content"
+                        key={key}
+                      >
+                        <SummarizePageUserCard meta={summarizeMeta} />
+                      </div>
+                    );
+                  }
+                }
+
                 return (
                   <div key={key}>
                     <MessageContent

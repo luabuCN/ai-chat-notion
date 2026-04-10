@@ -5,6 +5,8 @@ import type { ExtensionModelInfo } from "@/hooks/use-extension-models";
 import { createSidepanelChatTransport } from "@/lib/sidepanel-chat-transport";
 import type { SidepanelSeedFromSelectionPayload } from "@/lib/sidepanel-seed-from-selection";
 import { SIDEPANEL_SEED_FROM_SELECTION_KEY } from "@/lib/sidepanel-seed-from-selection";
+import type { SummarizePageMeta } from "@/lib/summarize-page-message";
+import { encodeSummarizePageMessage } from "@/lib/summarize-page-message";
 
 export function useSidepanelChat(
   models: ExtensionModelInfo[],
@@ -140,6 +142,40 @@ export function useSidepanelChat(
     workspaceSlug,
   ]);
 
+  const handleSummarizePage = useCallback(
+    (meta: SummarizePageMeta, articleText: string) => {
+      if (busy || modelsLoading || !selectedModel || !workspaceSlug.trim()) {
+        return;
+      }
+      const text = encodeSummarizePageMessage(meta, articleText);
+      clearError();
+      void sendMessage(
+        { text },
+        {
+          body: {
+            enableReasoning: enableReasoning && supportsReasoning,
+            modelCapabilities: {
+              supports_image_in: selectedModel.supports_image_in,
+              supports_video_in: selectedModel.supports_video_in,
+              supports_reasoning: selectedModel.supports_reasoning,
+            },
+            selectedModelSlug: selectedModel.full_slug,
+          },
+        },
+      );
+    },
+    [
+      busy,
+      modelsLoading,
+      selectedModel,
+      workspaceSlug,
+      clearError,
+      sendMessage,
+      enableReasoning,
+      supportsReasoning,
+    ],
+  );
+
   const restoreChat = useCallback(
     (nextChatId: string, nextMessages: UIMessage[]) => {
       seedSyncPendingRef.current = false;
@@ -240,6 +276,7 @@ export function useSidepanelChat(
     input,
     setInput,
     handleSend,
+    handleSummarizePage,
     busy,
     selectedModelId,
     setSelectedModelId,

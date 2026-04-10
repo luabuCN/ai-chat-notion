@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+/** 与 seedMessages 中单条 text 上限一致；扩展「总结网页」等需在单条 user 消息中附带长正文 */
+const MAX_CHAT_TEXT_PART_LENGTH = 100_000;
+
 const textPartSchema = z.object({
   type: z.enum(["text"]),
-  text: z.string().min(1).max(2000),
+  text: z.string().min(1).max(MAX_CHAT_TEXT_PART_LENGTH),
 });
 
 const filePartSchema = z.object({
@@ -53,7 +56,7 @@ export const postRequestBodySchema = z.object({
           .array(
             z.object({
               type: z.literal("text"),
-              text: z.string().min(1).max(100_000),
+              text: z.string().min(1).max(MAX_CHAT_TEXT_PART_LENGTH),
             }),
           )
           .min(1),

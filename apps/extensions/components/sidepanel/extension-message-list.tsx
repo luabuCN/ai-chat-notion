@@ -1,9 +1,76 @@
 import { cn } from "@repo/ui";
 import type { UIMessage } from "ai";
-import { Sparkles } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Globe, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Response } from "@/components/sidepanel/response";
 import { sanitizeText } from "@/lib/sanitize-text";
+import {
+  parseSummarizePageMeta,
+  type SummarizePageMeta,
+} from "@/lib/summarize-page-message";
+
+function SummarizePageCard({ meta }: { meta: SummarizePageMeta }) {
+  const [faviconFailed, setFaviconFailed] = useState(false);
+  const url = meta.url?.trim() ?? "";
+
+  const cardClassName = cn(
+    "flex items-center gap-2 rounded-xl border border-border/70 bg-background px-2.5 py-2 shadow-xs",
+    url.length > 0 &&
+      "w-full cursor-pointer text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+  );
+
+  const cardInner = (
+    <>
+      <span className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded">
+        {meta.favIconUrl && !faviconFailed ? (
+          <img
+            alt=""
+            className="size-5 object-contain"
+            decoding="async"
+            onError={() => {
+              setFaviconFailed(true);
+            }}
+            src={meta.favIconUrl}
+          />
+        ) : (
+          <Globe aria-hidden className="size-4 text-muted-foreground" />
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-foreground">
+          {meta.title}
+        </p>
+        {url.length > 0 ? (
+          <p className="truncate text-[11px] leading-tight text-muted-foreground">
+            {url}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-1.5 text-left">
+      {url.length > 0 ? (
+        <button
+          aria-label={`打开网页：${meta.title}`}
+          className={cardClassName}
+          onClick={() => {
+            void browser.tabs.create({ url });
+          }}
+          type="button"
+        >
+          {cardInner}
+        </button>
+      ) : (
+        <div className={cardClassName}>{cardInner}</div>
+      )}
+      <span className="inline-block rounded-lg bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+        总结网页
+      </span>
+    </div>
+  );
+}
 
 function ExtensionMessagePart({
   part,
@@ -17,6 +84,14 @@ function ExtensionMessagePart({
     if (!text) {
       return null;
     }
+
+    if (messageRole === "user") {
+      const meta = parseSummarizePageMeta(text);
+      if (meta) {
+        return <SummarizePageCard meta={meta} />;
+      }
+    }
+
     return (
       <div
         className={cn(
@@ -70,8 +145,10 @@ export function ExtensionMessageList({ messages }: { messages: UIMessage[] }) {
       {messages.map((message) => (
         <div
           className={cn(
-            "flex w-full gap-2",
-            message.role === "user" ? "justify-end" : "justify-start",
+            "flex w-full",
+            message.role === "user"
+              ? "justify-end gap-2"
+              : "flex-col items-start gap-2",
           )}
           data-role={message.role}
           key={message.id}
@@ -79,7 +156,7 @@ export function ExtensionMessageList({ messages }: { messages: UIMessage[] }) {
           {message.role === "assistant" ? (
             <div
               aria-hidden
-              className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted ring-1 ring-border"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted ring-1 ring-border"
             >
               <Sparkles aria-hidden className="size-3.5 text-primary" />
             </div>
@@ -89,7 +166,7 @@ export function ExtensionMessageList({ messages }: { messages: UIMessage[] }) {
               "space-y-2 text-sm",
               message.role === "user"
                 ? "max-w-[min(100%,90%)] shrink-0 text-right"
-                : "min-w-0 flex-1 text-left",
+                : "w-full min-w-0 text-left",
             )}
           >
             {message.parts?.map((part, index) => (

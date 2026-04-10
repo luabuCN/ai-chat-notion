@@ -51,6 +51,7 @@ export function SidePanelChat({
     input,
     setInput,
     handleSend,
+    handleSummarizePage,
     busy,
     selectedModelId,
     setSelectedModelId,
@@ -126,6 +127,7 @@ export function SidePanelChat({
               onDismiss={() => {
                 setSummarizeBannerDismissed(true);
               }}
+              onSummarize={handleSummarizePage}
               page={summarizePage}
             />
           </div>

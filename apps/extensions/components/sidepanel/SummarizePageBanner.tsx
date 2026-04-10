@@ -12,11 +12,13 @@ import type { ActiveTabPageInfo } from "@/hooks/use-active-tab-page-info";
 import {
   extractReadabilityFromTab,
 } from "@/lib/extract-readability-from-tab";
+import type { SummarizePageMeta } from "@/lib/summarize-page-message";
 
 type SummarizePageBannerProps = {
   /** 是否为占位数据（弱化标题样式，仅用于布局预览） */
   isPlaceholder?: boolean;
   onDismiss: () => void;
+  onSummarize?: (meta: SummarizePageMeta, articleText: string) => void;
   page: ActiveTabPageInfo;
   className?: string;
 };
@@ -27,6 +29,7 @@ type SummarizePageBannerProps = {
 export function SummarizePageBanner({
   isPlaceholder = false,
   onDismiss,
+  onSummarize,
   page,
   className,
 }: SummarizePageBannerProps) {
@@ -42,6 +45,10 @@ export function SummarizePageBanner({
     !page.canExtractReadableContent ||
     page.tabId === undefined ||
     readabilityBusy;
+
+  const pageUrl = page.url?.trim() ?? "";
+  const canOpenPageUrl =
+    !isPlaceholder && pageUrl.length > 0 && page.canExtractReadableContent;
 
   return (
     <TooltipProvider>
@@ -75,32 +82,72 @@ export function SummarizePageBanner({
             <X className="size-3" strokeWidth={2.5} />
           </Button>
 
-          <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted/30">
-            {page.favIconUrl && !faviconFailed ? (
-              <img
-                alt=""
-                className="size-6 object-contain"
-                decoding="async"
-                height={24}
-                onError={() => {
-                  setFaviconFailed(true);
-                }}
-                src={page.favIconUrl}
-                width={24}
-              />
-            ) : (
-              <Globe aria-hidden className="size-4 text-muted-foreground" />
-            )}
-          </span>
-          <p
-            className={cn(
-              "min-w-0 flex-1 truncate pr-1 text-[13px] leading-snug tracking-tight",
-              isPlaceholder ? "text-muted-foreground" : "text-foreground",
-            )}
-            title={page.title}
-          >
-            {page.title}
-          </p>
+          {canOpenPageUrl ? (
+            <button
+              aria-label={`打开网页：${page.title}`}
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg pr-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onClick={() => {
+                void browser.tabs.create({ url: pageUrl });
+              }}
+              type="button"
+            >
+              <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted/30">
+                {page.favIconUrl && !faviconFailed ? (
+                  <img
+                    alt=""
+                    className="size-6 object-contain"
+                    decoding="async"
+                    height={24}
+                    onError={() => {
+                      setFaviconFailed(true);
+                    }}
+                    src={page.favIconUrl}
+                    width={24}
+                  />
+                ) : (
+                  <Globe aria-hidden className="size-4 text-muted-foreground" />
+                )}
+              </span>
+              <p
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] leading-snug tracking-tight",
+                  isPlaceholder ? "text-muted-foreground" : "text-foreground",
+                )}
+                title={page.title}
+              >
+                {page.title}
+              </p>
+            </button>
+          ) : (
+            <>
+              <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted/30">
+                {page.favIconUrl && !faviconFailed ? (
+                  <img
+                    alt=""
+                    className="size-6 object-contain"
+                    decoding="async"
+                    height={24}
+                    onError={() => {
+                      setFaviconFailed(true);
+                    }}
+                    src={page.favIconUrl}
+                    width={24}
+                  />
+                ) : (
+                  <Globe aria-hidden className="size-4 text-muted-foreground" />
+                )}
+              </span>
+              <p
+                className={cn(
+                  "min-w-0 flex-1 truncate pr-1 text-[13px] leading-snug tracking-tight",
+                  isPlaceholder ? "text-muted-foreground" : "text-foreground",
+                )}
+                title={page.title}
+              >
+                {page.title}
+              </p>
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -117,8 +164,15 @@ export function SummarizePageBanner({
                     setReadabilityBusy(true);
                     try {
                       const result = await extractReadabilityFromTab(tabId);
-                      if (result.ok) {
-                        console.log(result.article?.textContent);
+                      if (result.ok && result.article?.textContent) {
+                        onSummarize?.(
+                          {
+                            title: page.title,
+                            url: page.url ?? "",
+                            favIconUrl: page.favIconUrl,
+                          },
+                          result.article.textContent,
+                        );
                       }
                     } finally {
                       setReadabilityBusy(false);
@@ -142,7 +196,7 @@ export function SummarizePageBanner({
             <TooltipContent side="top">
               {isPlaceholder || !page.canExtractReadableContent
                 ? "请在普通网页标签页使用"
-                : "总结此页面（Readability 解析并输出到控制台）"}
+                : "总结此页面"}
             </TooltipContent>
           </Tooltip>
         </div>
