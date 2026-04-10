@@ -3,11 +3,25 @@ import { registerMainSiteStreamPort } from "@/lib/auth/main-site-stream-backgrou
 import type { MainSitePostJsonProxyResult } from "@/lib/auth/main-site-post-json-proxy-message";
 import { postMainSiteJsonWithFallback } from "@/lib/auth/post-main-site-json";
 import { onMessage } from "@/lib/messaging/extension-messaging";
+import { pageCaptureOverlayFn } from "@/lib/page-capture-overlay-fn";
 import {
   buildSidepanelSeedFromSelectionMessages,
   SIDEPANEL_SEED_FROM_SELECTION_KEY,
 } from "@/lib/sidepanel-seed-from-selection";
 import { WEB_ORIGIN } from "@/lib/web-config";
+
+type PageCapturePendingResult =
+  | { ok: true; dataUrl: string }
+  | { ok: false; cancelled: true }
+  | { ok: false; error: string };
+
+const pendingPageCaptures = new Map<
+  string,
+  {
+    finish: (v: PageCapturePendingResult) => void;
+    timeoutId: ReturnType<typeof setTimeout>;
+  }
+>();
 
 function postMainSiteJsonNetworkError(): MainSitePostJsonProxyResult {
   return {
@@ -24,6 +38,99 @@ export default defineBackground(() => {
   }
 
   registerMainSiteStreamPort();
+
+  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (typeof message !== "object" || message === null) {
+      return;
+    }
+    if (!("type" in message)) {
+      return;
+    }
+    if (message.type === "pageCaptureCropResult") {
+      const m = message as { requestId?: unknown; dataUrl?: unknown };
+      if (typeof m.requestId !== "string" || typeof m.dataUrl !== "string") {
+        return;
+      }
+      const p = pendingPageCaptures.get(m.requestId);
+      if (p) {
+        clearTimeout(p.timeoutId);
+        pendingPageCaptures.delete(m.requestId);
+        p.finish({ ok: true, dataUrl: m.dataUrl });
+      }
+      sendResponse({});
+      return true;
+    }
+    if (message.type === "pageCaptureCropCancel") {
+      const m = message as { requestId?: unknown };
+      if (typeof m.requestId !== "string") {
+        return;
+      }
+      const p = pendingPageCaptures.get(m.requestId);
+      if (p) {
+        clearTimeout(p.timeoutId);
+        pendingPageCaptures.delete(m.requestId);
+        p.finish({ ok: false, cancelled: true });
+      }
+      sendResponse({});
+      return true;
+    }
+    return undefined;
+  });
+
+  onMessage("pageCapture", async () => {
+    const requestId = crypto.randomUUID();
+    return await new Promise<PageCapturePendingResult>((resolve) => {
+      const timeoutId = setTimeout(() => {
+        const p = pendingPageCaptures.get(requestId);
+        if (p) {
+          p.finish({ ok: false, error: "截取超时，请重试" });
+        }
+      }, 5 * 60 * 1000);
+
+      pendingPageCaptures.set(requestId, {
+        finish: (v) => {
+          clearTimeout(timeoutId);
+          pendingPageCaptures.delete(requestId);
+          resolve(v);
+        },
+        timeoutId,
+      });
+
+      void (async () => {
+        try {
+          const win = await browser.windows.getCurrent();
+          if (win.id === undefined) {
+            throw new Error("无法获取当前窗口");
+          }
+          const tabs = await browser.tabs.query({
+            active: true,
+            windowId: win.id,
+          });
+          const tab = tabs[0];
+          if (tab?.id === undefined) {
+            throw new Error("无法获取当前标签页");
+          }
+          const tabId = tab.id;
+          const dataUrl = await browser.tabs.captureVisibleTab(win.id, {
+            format: "png",
+          });
+          await browser.scripting.executeScript({
+            target: { tabId },
+            func: pageCaptureOverlayFn,
+            args: [dataUrl, requestId],
+          });
+        } catch (e) {
+          const p = pendingPageCaptures.get(requestId);
+          if (p) {
+            p.finish({
+              ok: false,
+              error: e instanceof Error ? e.message : "无法截取当前页面",
+            });
+          }
+        }
+      })();
+    });
+  });
 
   onMessage("getAuthStatus", () => fetchAuthStatus());
   onMessage("refreshAuthStatus", () => refreshAuthStatus());

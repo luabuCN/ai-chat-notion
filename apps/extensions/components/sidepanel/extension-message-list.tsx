@@ -1,4 +1,4 @@
-import { cn } from "@repo/ui";
+import { cn, ImagePreview } from "@repo/ui";
 import type { UIMessage } from "ai";
 import { Globe, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -79,6 +79,70 @@ function ExtensionMessagePart({
   part: NonNullable<UIMessage["parts"]>[number];
   messageRole: UIMessage["role"];
 }) {
+  if (part.type === "file") {
+    const url = "url" in part && typeof part.url === "string" ? part.url : "";
+    if (!url) {
+      return null;
+    }
+    const mediaType =
+      "mediaType" in part && typeof part.mediaType === "string"
+        ? part.mediaType
+        : "";
+    const fileName =
+      "name" in part && typeof part.name === "string"
+        ? part.name
+        : "filename" in part && typeof part.filename === "string"
+          ? part.filename
+          : "附件";
+
+    const alignClass =
+      messageRole === "user" ? "flex flex-row justify-end" : "flex flex-row justify-start";
+
+    if (mediaType.startsWith("image/")) {
+      return (
+        <div className={cn("gap-2", alignClass)}>
+          <ImagePreview src={url}>
+            <button
+              aria-label="查看图片"
+              className="relative flex size-16 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-border/50 bg-muted/50 p-0 aspect-square"
+              type="button"
+            >
+              <img alt="" className="size-full object-cover" src={url} />
+            </button>
+          </ImagePreview>
+        </div>
+      );
+    }
+
+    if (mediaType.startsWith("video/")) {
+      return (
+        <div className={alignClass}>
+          <a
+            className="max-w-full truncate rounded-lg border border-border/50 bg-muted/40 px-2 py-1.5 text-foreground text-xs"
+            href={url}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            视频：{fileName}
+          </a>
+        </div>
+      );
+    }
+
+    return (
+      <div className={alignClass}>
+        <a
+          className="max-w-full truncate rounded-lg border border-border/50 bg-muted/40 px-2 py-1.5 text-left text-foreground text-xs"
+          href={url}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {fileName}
+        </a>
+      </div>
+    );
+  }
+
   if (part.type === "text") {
     const text = part.text?.trim();
     if (!text) {

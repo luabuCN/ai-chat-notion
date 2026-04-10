@@ -1,8 +1,10 @@
+"use client";
+
 import Image from "next/image";
+import { Button, ImagePreview } from "@repo/ui";
 import type { Attachment } from "@/lib/types";
 import { Loader } from "./elements/loader";
 import { CrossSmallIcon } from "./icons";
-import { Button } from "@repo/ui";
 
 export const PreviewAttachment = ({
   attachment,
@@ -15,19 +17,38 @@ export const PreviewAttachment = ({
 }) => {
   const { name, url, contentType } = attachment;
 
+  const isImage = contentType?.startsWith("image") === true;
+  const canPreviewImage = isImage && url.length > 0;
+  const useUnoptimized =
+    url.startsWith("blob:") ||
+    url.startsWith("data:");
+
   return (
     <div
       className="group relative size-16 overflow-hidden rounded-lg border bg-muted"
       data-testid="input-attachment-preview"
     >
-      {contentType?.startsWith("image") ? (
-        <Image
-          alt={name ?? "An image attachment"}
-          className="size-full object-cover"
-          height={64}
-          src={url}
-          width={64}
-        />
+      {canPreviewImage ? (
+        <ImagePreview src={url}>
+          <button
+            aria-label={`全屏查看：${name || "附件"}`}
+            className="relative block size-full cursor-zoom-in overflow-hidden p-0"
+            type="button"
+          >
+            <Image
+              alt=""
+              className="size-full object-cover"
+              height={64}
+              src={url}
+              unoptimized={useUnoptimized}
+              width={64}
+            />
+          </button>
+        </ImagePreview>
+      ) : isImage && !url ? (
+        <div className="flex size-full items-center justify-center text-muted-foreground text-[10px]">
+          <span className="sr-only">等待图片</span>
+        </div>
       ) : (
         <div className="flex size-full items-center justify-center text-muted-foreground text-xs">
           File
@@ -45,7 +66,7 @@ export const PreviewAttachment = ({
 
       {onRemove && !isUploading && (
         <Button
-          className="absolute top-0.5 right-0.5 size-4 rounded-full p-0 opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute top-0.5 right-0.5 z-10 size-4 rounded-full p-0 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={onRemove}
           size="sm"
           variant="destructive"

@@ -32,4 +32,12 @@ export interface ExtensionProtocolMap {
     userQuery: string;
     assistantAnswer: string;
   }): { ok: true } | { ok: false; error: string };
+  /**
+   * 截取当前窗口可见区域，在页面内自由裁剪后返回 PNG data URL。
+   */
+  pageCapture(): Promise<
+    | { ok: true; dataUrl: string }
+    | { ok: false; cancelled: true }
+    | { ok: false; error: string }
+  >;
 }

@@ -7,6 +7,13 @@ import type { SidepanelSeedFromSelectionPayload } from "@/lib/sidepanel-seed-fro
 import { SIDEPANEL_SEED_FROM_SELECTION_KEY } from "@/lib/sidepanel-seed-from-selection";
 import type { SummarizePageMeta } from "@/lib/summarize-page-message";
 import { encodeSummarizePageMessage } from "@/lib/summarize-page-message";
+import { toast } from "sonner";
+
+export type SidepanelPendingImageAttachment = {
+  url: string;
+  name: string;
+  mediaType: "image/jpeg" | "image/png";
+};
 
 export function useSidepanelChat(
   models: ExtensionModelInfo[],
@@ -22,6 +29,8 @@ export function useSidepanelChat(
   const [selectedModelId, setSelectedModelId] = useState("");
   const [enableReasoning, setEnableReasoning] = useState(false);
   const [input, setInput] = useState("");
+  const [pendingAttachment, setPendingAttachment] =
+    useState<SidepanelPendingImageAttachment | null>(null);
 
   const currentModelIdRef = useRef(selectedModelId);
   currentModelIdRef.current = selectedModelId;
@@ -105,8 +114,9 @@ export function useSidepanelChat(
 
   const handleSend = useCallback(() => {
     const text = input.trim();
+    const hasAttachment = pendingAttachment !== null;
     if (
-      !text ||
+      (!text && !hasAttachment) ||
       busy ||
       modelsLoading ||
       !selectedModel ||
@@ -114,9 +124,35 @@ export function useSidepanelChat(
     ) {
       return;
     }
+    if (hasAttachment && !selectedModel.supports_image_in) {
+      toast.error(
+        "当前模型不支持图片输入，请切换到支持视觉的模型后再发送。",
+      );
+      return;
+    }
     clearError();
+    const parts: Array<
+      | {
+          type: "file";
+          url: string;
+          name: string;
+          mediaType: "image/jpeg" | "image/png";
+        }
+      | { type: "text"; text: string }
+    > = [];
+    if (pendingAttachment) {
+      parts.push({
+        type: "file",
+        url: pendingAttachment.url,
+        name: pendingAttachment.name,
+        mediaType: pendingAttachment.mediaType,
+      });
+    }
+    if (text.length > 0) {
+      parts.push({ type: "text", text });
+    }
     void sendMessage(
-      { text },
+      { role: "user", parts },
       {
         body: {
           enableReasoning: enableReasoning && supportsReasoning,
@@ -130,8 +166,10 @@ export function useSidepanelChat(
       },
     );
     setInput("");
+    setPendingAttachment(null);
   }, [
     input,
+    pendingAttachment,
     busy,
     modelsLoading,
     selectedModel,
@@ -179,6 +217,7 @@ export function useSidepanelChat(
   const restoreChat = useCallback(
     (nextChatId: string, nextMessages: UIMessage[]) => {
       seedSyncPendingRef.current = false;
+      setPendingAttachment(null);
       if (nextChatId === chatId) {
         setMessages(nextMessages);
         return;
@@ -265,6 +304,7 @@ export function useSidepanelChat(
     };
     setChatId(newChatId);
     setInput("");
+    setPendingAttachment(null);
   }, []);
 
   return {
@@ -275,6 +315,8 @@ export function useSidepanelChat(
     error,
     input,
     setInput,
+    pendingAttachment,
+    setPendingAttachment,
     handleSend,
     handleSummarizePage,
     busy,

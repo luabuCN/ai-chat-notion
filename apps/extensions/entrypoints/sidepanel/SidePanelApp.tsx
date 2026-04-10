@@ -2,6 +2,7 @@ import { SidePanelChat } from "@/components/sidepanel/SidePanelChat";
 import { SidePanelHeaderAvatar } from "@/components/sidepanel/SidePanelHeaderAvatar";
 import { useExtensionWorkspace } from "@/hooks/use-extension-workspace";
 import { useMainSiteAuth } from "@/hooks/use-main-site-auth";
+import { Toaster } from "sonner";
 
 /**
  * 侧栏 UI：字体（Geist）在入口 main.tsx 已加载并随扩展打包；主站登录后
@@ -14,6 +15,7 @@ export function SidePanelApp() {
 
   return (
     <div className="relative flex h-screen min-w-[min(100vw,360px)] flex-col bg-background text-foreground">
+      <Toaster position="top-center" richColors />
       <header className="flex shrink-0 items-center justify-between gap-2 border-border border-b px-3 py-2.5">
         <span className="min-w-0 truncate font-medium text-foreground text-sm">
           知作 · AI 对话

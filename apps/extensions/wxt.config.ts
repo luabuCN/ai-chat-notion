@@ -66,7 +66,14 @@ export default defineConfig({
     action: {
       default_title: "打开 AI 侧边栏",
     },
-    permissions: ["cookies", "sidePanel", "storage", "tabs"],
+    permissions: [
+      "activeTab",
+      "cookies",
+      "scripting",
+      "sidePanel",
+      "storage",
+      "tabs",
+    ],
     host_permissions: [webOriginToHostPermission(webOrigin)],
   },
   webExt: {
