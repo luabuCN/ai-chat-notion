@@ -1,4 +1,5 @@
 import selectionToolbarCss from "@/components/selection-toolbar/content-toolbar.css?inline";
+import { ImageHoverToolbarHost } from "@/components/image-toolbar/ImageHoverToolbarHost";
 import { SelectionToolbarHost } from "@/components/selection-toolbar/SelectionToolbarHost";
 import { ExtensionPortalProvider } from "@/lib/extension-portal-context";
 import {
@@ -91,6 +92,7 @@ export default defineContentScript({
           <TooltipProvider>
             <ExtensionPortalProvider container={portalHost}>
               <SelectionToolbarHost />
+              <ImageHoverToolbarHost />
             </ExtensionPortalProvider>
           </TooltipProvider>
         );

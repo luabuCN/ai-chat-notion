@@ -2,12 +2,18 @@ import { fetchAuthStatus, refreshAuthStatus } from "@/lib/auth/fetch-auth-status
 import { registerMainSiteStreamPort } from "@/lib/auth/main-site-stream-background";
 import type { MainSitePostJsonProxyResult } from "@/lib/auth/main-site-post-json-proxy-message";
 import { postMainSiteJsonWithFallback } from "@/lib/auth/post-main-site-json";
+import { blobToDataUrl } from "@/lib/blob-to-data-url";
 import { onMessage } from "@/lib/messaging/extension-messaging";
 import { pageCaptureOverlayFn } from "@/lib/page-capture-overlay-fn";
+import { dataUrlToFile } from "@/lib/data-url-to-file";
+import {
+  SIDEPANEL_PENDING_IMAGE_KEY,
+} from "@/lib/sidepanel-pending-image";
 import {
   buildSidepanelSeedFromSelectionMessages,
   SIDEPANEL_SEED_FROM_SELECTION_KEY,
 } from "@/lib/sidepanel-seed-from-selection";
+import { uploadFileToMainSite } from "@/lib/upload-main-site-file";
 import { WEB_ORIGIN } from "@/lib/web-config";
 
 type PageCapturePendingResult =
@@ -132,6 +138,54 @@ export default defineBackground(() => {
     });
   });
 
+  onMessage("fetchImageUrlAsDataUrl", async (message) => {
+    const payload = message.data;
+    if (
+      payload === undefined ||
+      typeof payload !== "object" ||
+      typeof payload.url !== "string"
+    ) {
+      return { error: "参数无效" };
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(payload.url);
+    } catch {
+      return { error: "无效的地址" };
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { error: "仅支持 http(s) 地址" };
+    }
+    const referrer =
+      typeof payload.referrer === "string" ? payload.referrer : undefined;
+    const headers = new Headers();
+    if (referrer !== undefined && referrer.length > 0) {
+      headers.set("Referer", referrer);
+    }
+    try {
+      const res = await fetch(payload.url, {
+        credentials: "omit",
+        headers,
+      });
+      if (!res.ok) {
+        return { error: "无法加载图片" };
+      }
+      const blob = await res.blob();
+      const type = blob.type;
+      const looksLikeImage =
+        type.startsWith("image/") ||
+        type === "" ||
+        type === "application/octet-stream";
+      if (!looksLikeImage) {
+        return { error: "不是有效的图片内容" };
+      }
+      const dataUrl = await blobToDataUrl(blob);
+      return { dataUrl };
+    } catch {
+      return { error: "无法读取图片（网络错误）" };
+    }
+  });
+
   onMessage("getAuthStatus", () => fetchAuthStatus());
   onMessage("refreshAuthStatus", () => refreshAuthStatus());
   onMessage("openMainSiteLogin", () => {
@@ -202,6 +256,64 @@ export default defineBackground(() => {
       });
     } catch {
       return { ok: false, error: "无法写入会话数据" };
+    }
+    return { ok: true };
+  });
+
+  onMessage("openSidePanelWithImageDataUrl", async (message) => {
+    const data = message.data;
+    if (
+      data === undefined ||
+      typeof data.dataUrl !== "string" ||
+      (data.mode !== "chat" && data.mode !== "extract")
+    ) {
+      return { ok: false, error: "参数无效" };
+    }
+    const tabId = message.sender.tab?.id;
+    const windowId = message.sender.tab?.windowId;
+    if (tabId === undefined && windowId === undefined) {
+      return { ok: false, error: "无法确定标签页或窗口" };
+    }
+    if (!browser.sidePanel?.open) {
+      return { ok: false, error: "当前浏览器不支持侧栏 API" };
+    }
+    try {
+      await browser.sidePanel.open(
+        tabId !== undefined ? { tabId } : { windowId: windowId as number },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "无法打开侧栏";
+      return { ok: false, error: msg };
+    }
+    try {
+      const file = await dataUrlToFile(
+        data.dataUrl,
+        `page-image-${Date.now()}.png`,
+      );
+      const uploaded = await uploadFileToMainSite(file);
+      const mediaType =
+        uploaded.contentType === "image/jpeg"
+          ? ("image/jpeg" as const)
+          : ("image/png" as const);
+      await browser.storage.session.set({
+        [SIDEPANEL_PENDING_IMAGE_KEY]: {
+          attachment: {
+            url: uploaded.url,
+            name: uploaded.pathname,
+            mediaType,
+          },
+          mode: data.mode,
+        },
+      });
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "上传失败";
+      try {
+        await browser.storage.session.set({
+          [SIDEPANEL_PENDING_IMAGE_KEY]: { error: errMsg },
+        });
+      } catch {
+        // ignore
+      }
     }
     return { ok: true };
   });

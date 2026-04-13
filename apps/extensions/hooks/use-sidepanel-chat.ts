@@ -3,17 +3,18 @@ import type { UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionModelInfo } from "@/hooks/use-extension-models";
 import { createSidepanelChatTransport } from "@/lib/sidepanel-chat-transport";
+import {
+  SIDEPANEL_PENDING_IMAGE_KEY,
+  type SidepanelPendingImageAttachment,
+  type SidepanelPendingImagePayload,
+} from "@/lib/sidepanel-pending-image";
 import type { SidepanelSeedFromSelectionPayload } from "@/lib/sidepanel-seed-from-selection";
 import { SIDEPANEL_SEED_FROM_SELECTION_KEY } from "@/lib/sidepanel-seed-from-selection";
 import type { SummarizePageMeta } from "@/lib/summarize-page-message";
 import { encodeSummarizePageMessage } from "@/lib/summarize-page-message";
 import { toast } from "sonner";
 
-export type SidepanelPendingImageAttachment = {
-  url: string;
-  name: string;
-  mediaType: "image/jpeg" | "image/png";
-};
+export type { SidepanelPendingImageAttachment };
 
 export function useSidepanelChat(
   models: ExtensionModelInfo[],
@@ -294,6 +295,74 @@ export function useSidepanelChat(
       browser.storage.onChanged.removeListener(onStorageChanged);
     };
   }, [restoreChat]);
+
+  useEffect(() => {
+    const applyPendingImage = (v: unknown) => {
+      if (!v || typeof v !== "object") {
+        return;
+      }
+      const payload = v as SidepanelPendingImagePayload;
+      if ("error" in payload && typeof payload.error === "string") {
+        toast.error(payload.error);
+        return;
+      }
+      if (
+        "attachment" in payload &&
+        payload.attachment &&
+        typeof payload.attachment === "object" &&
+        typeof payload.attachment.url === "string" &&
+        typeof payload.attachment.name === "string" &&
+        (payload.attachment.mediaType === "image/jpeg" ||
+          payload.attachment.mediaType === "image/png") &&
+        (payload.mode === "chat" || payload.mode === "extract")
+      ) {
+        setPendingAttachment(payload.attachment);
+        if (payload.mode === "extract") {
+          setInput("请识别并提取这张图片中的全部文字内容。");
+        }
+      }
+    };
+
+    const readInitial = async () => {
+      try {
+        const raw = await browser.storage.session.get(
+          SIDEPANEL_PENDING_IMAGE_KEY,
+        );
+        const v = raw[SIDEPANEL_PENDING_IMAGE_KEY];
+        if (v !== undefined && v !== null) {
+          applyPendingImage(v);
+          await browser.storage.session.remove(SIDEPANEL_PENDING_IMAGE_KEY);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    void readInitial();
+
+    const onStorageChanged: Parameters<
+      typeof browser.storage.onChanged.addListener
+    >[0] = (changes, areaName) => {
+      if (areaName !== "session") {
+        return;
+      }
+      const change = changes[SIDEPANEL_PENDING_IMAGE_KEY];
+      const nv = change?.newValue;
+      if (nv !== undefined) {
+        void (async () => {
+          try {
+            applyPendingImage(nv);
+            await browser.storage.session.remove(SIDEPANEL_PENDING_IMAGE_KEY);
+          } catch {
+            // ignore
+          }
+        })();
+      }
+    };
+    browser.storage.onChanged.addListener(onStorageChanged);
+    return () => {
+      browser.storage.onChanged.removeListener(onStorageChanged);
+    };
+  }, []);
 
   const resetToNewChat = useCallback(() => {
     seedSyncPendingRef.current = false;

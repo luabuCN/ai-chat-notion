@@ -74,7 +74,14 @@ export default defineConfig({
       "storage",
       "tabs",
     ],
-    host_permissions: [webOriginToHostPermission(webOrigin)],
+    /**
+     * 含全网 http(s)：供 background 拉取页面跨域图片（不受页面 fetch CORS 限制）。
+     */
+    host_permissions: [
+      webOriginToHostPermission(webOrigin),
+      "http://*/*",
+      "https://*/*",
+    ],
   },
   webExt: {
     binaries: {

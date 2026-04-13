@@ -40,4 +40,19 @@ export interface ExtensionProtocolMap {
     | { ok: false; cancelled: true }
     | { ok: false; error: string }
   >;
+  /**
+   * 页面图片工具栏：先打开侧栏，再上传图片并写入 session，供侧栏挂载为待发送附件。
+   */
+  openSidePanelWithImageDataUrl(data: {
+    dataUrl: string;
+    mode: "chat" | "extract";
+  }): Promise<{ ok: true } | { ok: false; error: string }>;
+  /**
+   * 由 background 拉取图片并转为 data URL（扩展 host 权限，不受页面 CORS 限制）。
+   * 仅允许 http(s)；可选 Referer 以兼容部分 CDN 防盗链。
+   */
+  fetchImageUrlAsDataUrl(data: {
+    url: string;
+    referrer?: string;
+  }): Promise<{ dataUrl: string } | { error: string }>;
 }

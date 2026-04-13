@@ -1,5 +1,6 @@
 import { cn } from "@repo/ui";
 import { ChevronLeft, Pin, X } from "lucide-react";
+import type { HTMLAttributes } from "react";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 import Draggable from "react-draggable";
 
@@ -32,6 +33,10 @@ export type FloatingPanelProps = {
   className?: string;
   /** 内容区 className */
   bodyClassName?: string;
+  /** 是否显示标题栏图钉（默认真） */
+  showPin?: boolean;
+  /** 最外层包裹（fixed 全屏）上的额外属性，如 data-* 供外部识别 */
+  rootProps?: HTMLAttributes<HTMLDivElement>;
 };
 
 /**
@@ -54,7 +59,10 @@ export function FloatingPanel({
   closeOnBackdrop = true,
   className,
   bodyClassName,
+  showPin = true,
+  rootProps,
 }: FloatingPanelProps) {
+  const { className: rootClassName, ...rootRest } = rootProps ?? {};
   const [pinned, setPinned] = useState(defaultPinned);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -72,17 +80,20 @@ export function FloatingPanel({
   }, [closeOnBackdrop, onClose, pinned]);
 
   return (
-    <>
+    <div
+      className={cn("fixed inset-0 z-2147483647", rootClassName)}
+      {...rootRest}
+    >
       <div
         aria-hidden="true"
         className={cn(
-          "fixed inset-0 z-2147483647 bg-black/20",
+          "fixed inset-0 bg-black/20",
           pinned ? "pointer-events-none" : "pointer-events-auto",
         )}
         onMouseDown={backdropMouseDown}
       />
 
-      <div className="pointer-events-none fixed inset-0 z-2147483647 flex items-center justify-center">
+      <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
         {/* 水平居中；上下留白避免贴边；轻微上移 ≈ 常见 AI 对话窗（勿用过大 translate，否则会顶到视口上沿） */}
         <div className="pointer-events-none box-border flex h-full w-full min-h-0 items-center justify-center px-4 py-8 sm:py-10 -translate-y-[min(2.5rem,5vh)]">
           <Draggable
@@ -136,22 +147,24 @@ export function FloatingPanel({
                   ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    aria-label={pinned ? "取消固定" : "固定窗口"}
-                    aria-pressed={pinned}
-                    className={cn(
-                      "flex size-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900",
-                      pinned && "bg-primary/10 text-primary",
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePinned();
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    type="button"
-                  >
-                    <Pin className="size-4" strokeWidth={2} />
-                  </button>
+                  {showPin ? (
+                    <button
+                      aria-label={pinned ? "取消固定" : "固定窗口"}
+                      aria-pressed={pinned}
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900",
+                        pinned && "bg-primary/10 text-primary",
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePinned();
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      type="button"
+                    >
+                      <Pin className="size-4" strokeWidth={2} />
+                    </button>
+                  ) : null}
                   <button
                     aria-label="关闭"
                     className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
@@ -183,6 +196,6 @@ export function FloatingPanel({
           </Draggable>
         </div>
       </div>
-    </>
+    </div>
   );
 }
