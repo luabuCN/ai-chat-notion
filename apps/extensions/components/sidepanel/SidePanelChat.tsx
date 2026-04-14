@@ -12,10 +12,12 @@ import {
   BookOpen,
   Crop,
   Loader2,
+  Paperclip,
   Plus,
   Square,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ExtensionMessageList } from "@/components/sidepanel/extension-message-list";
@@ -82,6 +84,8 @@ export function SidePanelChat({
 
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const prevWorkspaceSlugRef = useRef<string | null>(null);
   useEffect(() => {
@@ -242,6 +246,60 @@ export function SidePanelChat({
                   截图
                 </TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="上传附件"
+                    className="size-8 shrink-0 rounded-lg text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    disabled={!authenticated || busy || uploadBusy || modelsLoading}
+                    onClick={() => fileInputRef.current?.click()}
+                    type="button"
+                    variant="ghost"
+                  >
+                    {uploadBusy ? (
+                      <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+                    ) : (
+                      <Paperclip className="size-4" strokeWidth={2} />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  上传附件
+                </TooltipContent>
+              </Tooltip>
+              <input
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/png,image/jpeg,image/jpg,text/plain,text/markdown,.pdf,.doc,.docx"
+                multiple
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length === 0) return;
+                  setUploadBusy(true);
+                  try {
+                    for (const file of files) {
+                      const uploaded = await uploadFileToMainSite(file);
+                      const mediaType =
+                        uploaded.contentType === "image/jpeg"
+                          ? ("image/jpeg" as const)
+                          : uploaded.contentType === "image/png"
+                            ? ("image/png" as const)
+                            : ("image/png" as const);
+                      setPendingAttachment({
+                        url: uploaded.url,
+                        name: uploaded.pathname,
+                        mediaType,
+                      });
+                    }
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "上传失败");
+                  } finally {
+                    setUploadBusy(false);
+                    e.target.value = "";
+                  }
+                }}
+                type="file"
+              />
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <SidePanelHistoryDrawer

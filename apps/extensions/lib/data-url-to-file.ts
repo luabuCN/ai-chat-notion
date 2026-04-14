@@ -4,5 +4,10 @@ export async function dataUrlToFile(
 ): Promise<File> {
   const res = await fetch(dataUrl);
   const blob = await res.blob();
-  return new File([blob], name, { type: blob.type || "image/png" });
+
+  // 确保文件扩展名是 PNG
+  const pngName = name.replace(/\.[^.]+$/, ".png");
+
+  // 确保 MIME 类型是 image/png
+  return new File([blob], pngName, { type: "image/png" });
 }
