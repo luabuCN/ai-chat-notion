@@ -10,6 +10,7 @@ import {
 import {
   ArrowUp,
   BookOpen,
+  BookmarkPlus,
   Crop,
   Loader2,
   Paperclip,
@@ -34,9 +35,15 @@ import {
 import { useExtensionModels } from "@/hooks/use-extension-models";
 import { useSidepanelChat } from "@/hooks/use-sidepanel-chat";
 import { dataUrlToFile } from "@/lib/data-url-to-file";
+import {
+  extractReadabilityFromTab,
+} from "@/lib/extract-readability-from-tab";
 import { sendMessage } from "@/lib/messaging/extension-messaging";
 import { fetchSidepanelChatMessages } from "@/lib/sidepanel-history-api";
+import { streamMainSitePost } from "@/lib/auth/stream-main-site";
 import { uploadFileToMainSite } from "@/lib/upload-main-site-file";
+import { WEB_ORIGIN } from "@/lib/web-config";
+import { webFetchWithMainSiteCookies } from "@/lib/web-fetch";
 
 export function SidePanelChat({
   auth,
@@ -85,6 +92,7 @@ export function SidePanelChat({
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const prevWorkspaceSlugRef = useRef<string | null>(null);
@@ -267,6 +275,56 @@ export function SidePanelChat({
                   上传附件
                 </TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="保存到知识库"
+                    className="size-8 shrink-0 rounded-lg text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    disabled={!authenticated || saveBusy || modelsLoading || !activeTabPage?.tabId}
+                    onClick={() => {
+                      const tabId = activeTabPage?.tabId;
+                      if (!tabId) return;
+                      void (async () => {
+                        setSaveBusy(true);
+                        try {
+                          const result = await extractReadabilityFromTab(tabId);
+                          if (!result.ok) {
+                            toast.error(result.error ?? "提取页面内容失败");
+                          } else if (result.article?.textContent) {
+                            // 调用 AI 将内容转为 markdown
+                            const markdown = await convertToMarkdown(
+                              result.article.content ?? "",
+                            );
+                            // 保存到知识库
+                            await saveToKnowledgeBase(
+                              markdown,
+                              activeTabPage.title ?? "未命名页面",
+                              activeTabPage.url ?? "",
+                              workspaceSlug,
+                            );
+                            toast.success("已保存到知识库");
+                          }
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "保存失败");
+                        } finally {
+                          setSaveBusy(false);
+                        }
+                      })();
+                    }}
+                    type="button"
+                    variant="ghost"
+                  >
+                    {saveBusy ? (
+                      <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+                    ) : (
+                      <BookmarkPlus className="size-4" strokeWidth={2} />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  保存到知识库
+                </TooltipContent>
+              </Tooltip>
               <input
                 ref={fileInputRef}
                 className="hidden"
@@ -419,4 +477,93 @@ export function SidePanelChat({
       </form>
     </div>
   );
+}
+
+/**
+ * 调用 AI 将网页文本内容转换为 Markdown 格式
+ */
+async function convertToMarkdown(
+  textContent: string,
+): Promise<string> {
+  const prompt = `你是一个网页 HTML 转 Markdown 的转换器，必须严格遵守以下规则：
+
+**标题规则：**
+- 禁止使用一级标题（#），输出中绝对不能出现 "# " 开头的标题
+- 只能使用 ## 和 ### 作为标题标记
+- 根据原始 HTML 的 h2、h3 标签转换，如果没有明确标题层级，使用 ## 作为最外层
+
+**图片规则（最重要）：**
+- 原文中出现的所有 <img> 标签，无论出现在哪里（文章开头、正文文字之前、段落中间、div 内部），都必须无一例外地转换为 ![描述](src) 输出
+- 特别注意：如果原文第一行就是图片，你的输出第一行也必须是这个图片的 Markdown，不能从文字开始
+- 图片是内容的一部分，绝对不能省略、跳过或删除任何图片
+- 即使图片没有 alt 属性，也要输出 ![图片](src)
+
+**内容还原规则：**
+- 严格一比一还原原文结构，按原文顺序逐段转换，不要重新组织或省略任何段落
+- 保留列表、代码块、表格等结构
+- 只删除明显的广告、导航栏、页脚等与正文无关的部分，其余内容必须保留
+
+把下方 HTML 内容逐段转换为 Markdown，严格按原文顺序输出，不要遗漏任何段落或图片。
+内容：${textContent}`;
+
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      stream: true,
+      prompt,
+    });
+
+    let result = "";
+
+    const { done } = streamMainSitePost(
+      "/api/ai/openai",
+      body,
+      (delta) => {
+        result += delta;
+      },
+    );
+
+    done
+      .then((res) => {
+        if (!res.ok) {
+          reject(new Error(res.error ?? "AI 转换失败"));
+        } else {
+          resolve(result.trim());
+        }
+      })
+      .catch((e) => {
+        reject(e instanceof Error ? e : new Error("AI 转换失败"));
+      });
+  });
+}
+
+/**
+ * 保存 Markdown 内容到知识库
+ */
+async function saveToKnowledgeBase(
+  content: string,
+  title: string,
+  workspaceSlug: string,
+  pageUrl: string,
+): Promise<void> {
+  console.log(content,'content');
+  
+  // const response = await webFetchWithMainSiteCookies(
+  //   `${WEB_ORIGIN}/api/editor-documents`,
+  //   {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({
+  //       title,
+  //       content,
+  //       workspaceId: workspaceSlug,
+  //     }),
+  //   },
+  // );
+
+  // if (!response.ok) {
+  //   const errorData = (await response.json().catch(() => ({}))) as {
+  //     error?: string;
+  //   };
+  //   throw new Error(errorData.error ?? "保存失败");
+  // }
 }
