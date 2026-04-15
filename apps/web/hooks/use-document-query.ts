@@ -86,6 +86,7 @@ async function updateDocument({
     isPublished?: boolean;
     isFavorite?: boolean;
     sourcePdfUrl?: string | null;
+    sourcePageUrl?: string | null;
   };
 }): Promise<EditorDocument> {
   const response = await fetch(`/api/editor-documents/${documentId}`, {

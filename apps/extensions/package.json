@@ -31,6 +31,7 @@
     "@fontsource-variable/geist": "^5.2.6",
     "@fontsource-variable/geist-mono": "^5.2.6",
     "@mozilla/readability": "^0.6.0",
+    "@repo/editor": "workspace:*",
     "@repo/ui": "workspace:*",
     "@webext-core/messaging": "^2.3.0",
     "ai": "6.0.37",

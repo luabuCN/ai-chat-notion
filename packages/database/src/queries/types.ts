@@ -74,6 +74,7 @@ export type EditorDocument = {
   createdAt: Date;
   updatedAt: Date;
   sourcePdfUrl: string | null;
+  sourcePageUrl: string | null;
 };
 
 export type Workspace = {

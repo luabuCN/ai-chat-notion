@@ -75,6 +75,7 @@ export async function PATCH(
       isPublished,
       isFavorite,
       sourcePdfUrl,
+      sourcePageUrl,
     }: {
       title?: string;
       content?: string;
@@ -85,6 +86,7 @@ export async function PATCH(
       isPublished?: boolean;
       isFavorite?: boolean;
       sourcePdfUrl?: string | null;
+      sourcePageUrl?: string | null;
     } = body;
 
     const updatedDocument = await updateEditorDocument({
@@ -98,6 +100,7 @@ export async function PATCH(
       isPublished,
       isFavorite,
       sourcePdfUrl,
+      sourcePageUrl,
       lastEditedBy: user.id,
       lastEditedByName: user.email?.split("@")[0] || "Unknown", // 用邮箱前缀作为名称
     });

@@ -10,6 +10,7 @@ import {
   FolderInput,
   Trash2,
   FileDown,
+  Globe,
 } from "lucide-react";
 import {
   Button,
@@ -36,6 +37,8 @@ interface DocumentActionsMenuProps {
   isOwner?: boolean; // 是否是文档所有者
   /** PDF 导入时保存的原文 URL，存在则显示「下载原文档」 */
   sourcePdfUrl?: string | null;
+  /** 网页剪藏时保存的原站 URL，存在则显示「打开原网页」 */
+  sourcePageUrl?: string | null;
 }
 
 export function DocumentActionsMenu({
@@ -43,6 +46,7 @@ export function DocumentActionsMenu({
   title,
   isOwner = false,
   sourcePdfUrl = null,
+  sourcePageUrl = null,
 }: DocumentActionsMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -182,6 +186,19 @@ export function DocumentActionsMenu({
               >
                 <FileDown className="mr-2 h-4 w-4" />
                 下载原文档（PDF）
+              </a>
+            </DropdownMenuItem>
+          ) : null}
+          {sourcePageUrl ? (
+            <DropdownMenuItem asChild>
+              <a
+                className="flex cursor-pointer items-center"
+                href={sourcePageUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <Globe className="mr-2 h-4 w-4" />
+                打开原网页
               </a>
             </DropdownMenuItem>
           ) : null}

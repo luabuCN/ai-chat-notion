@@ -97,6 +97,7 @@ export function EditorHeaderWrapper({
       isOwner={isOwner}
       conversionLocked={conversionLocked}
       sourcePdfUrl={document?.sourcePdfUrl ?? null}
+      sourcePageUrl={document?.sourcePageUrl ?? null}
       currentUserId={currentUserId}
       documentOwnerId={document?.userId}
       hasCollaborators={(document as any)?.hasCollaborators ?? false}

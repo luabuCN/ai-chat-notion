@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./converter": "./src/lib/markdown-converter.ts",
     "./styles": "./src/styles/tiptap-editor.css"
   },
   "scripts": {

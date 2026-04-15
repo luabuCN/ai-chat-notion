@@ -14,6 +14,7 @@ export async function createEditorDocument({
   icon,
   coverImage,
   coverImageType,
+  sourcePageUrl,
 }: {
   title: string;
   content?: string;
@@ -23,6 +24,7 @@ export async function createEditorDocument({
   icon?: string | null;
   coverImage?: string | null;
   coverImageType?: "color" | "url" | null;
+  sourcePageUrl?: string | null;
 }) {
   try {
     return await prisma.editorDocument.create({
@@ -35,6 +37,7 @@ export async function createEditorDocument({
         icon: icon ?? null,
         coverImage: coverImage ?? null,
         coverImageType: coverImageType ?? "url",
+        sourcePageUrl: sourcePageUrl ?? null,
       },
     });
   } catch (_error) {
@@ -127,6 +130,7 @@ export async function updateEditorDocument({
   lastEditedBy,
   lastEditedByName,
   sourcePdfUrl,
+  sourcePageUrl,
 }: {
   id: string;
   title?: string;
@@ -140,6 +144,7 @@ export async function updateEditorDocument({
   lastEditedBy?: string;
   lastEditedByName?: string;
   sourcePdfUrl?: string | null;
+  sourcePageUrl?: string | null;
 }) {
   try {
     const data: any = {};
@@ -156,6 +161,7 @@ export async function updateEditorDocument({
     if (lastEditedByName !== undefined)
       data.lastEditedByName = lastEditedByName;
     if (sourcePdfUrl !== undefined) data.sourcePdfUrl = sourcePdfUrl;
+    if (sourcePageUrl !== undefined) data.sourcePageUrl = sourcePageUrl;
 
     return await prisma.editorDocument.update({
       where: { id },
@@ -294,6 +300,8 @@ export async function duplicateEditorDocument({
         coverImage: original.coverImage,
         coverImageType: original.coverImageType,
         coverImagePosition: original.coverImagePosition,
+        sourcePdfUrl: original.sourcePdfUrl,
+        sourcePageUrl: original.sourcePageUrl,
       },
     });
   } catch (error) {

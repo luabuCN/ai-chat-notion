@@ -26,6 +26,7 @@ import {
   Wifi,
   WifiOff,
   FileText,
+  Globe,
 } from "lucide-react";
 import { LanguageSwitcher } from "../language-switcher";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,8 @@ interface EditorHeaderProps {
   conversionLocked?: boolean;
   /** 从 PDF 导入时保存的原文链接，用于菜单内下载 */
   sourcePdfUrl?: string | null;
+  /** 扩展侧栏等从网页剪藏时保存的原站 URL，用于标题旁标识与跳转 */
+  sourcePageUrl?: string | null;
 }
 
 export function EditorHeader({
@@ -76,6 +79,7 @@ export function EditorHeader({
   publicShareToken,
   conversionLocked = false,
   sourcePdfUrl = null,
+  sourcePageUrl = null,
 }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
@@ -130,6 +134,24 @@ export function EditorHeader({
               </TooltipTrigger>
               <TooltipContent className="max-w-xs" side="bottom">
                 本文档由 PDF 导入并转换生成；可在右上角「⋯」菜单中下载原始 PDF。
+              </TooltipContent>
+            </Tooltip>
+          ) : sourcePageUrl ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  className="inline-flex shrink-0 items-center rounded border border-sky-200/90 bg-sky-50 px-1 py-0.5 text-sky-800 transition-colors hover:bg-sky-100/80 dark:border-sky-900/60 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-950/80"
+                  href={sourcePageUrl}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  aria-label="由网页保存的文档，在新标签页打开原页面"
+                >
+                  <Globe className="size-3.5 shrink-0" aria-hidden />
+                  <span className="sr-only">网页</span>
+                </a>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs" side="bottom">
+                本文档由浏览器扩展从网页保存；点击在新标签页打开原页面。
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -263,6 +285,7 @@ export function EditorHeader({
               title={documentTitle || "Untitled"}
               isOwner={isOwner}
               sourcePdfUrl={sourcePdfUrl}
+              sourcePageUrl={sourcePageUrl}
             />
           </>
         )}

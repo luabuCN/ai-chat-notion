@@ -44,6 +44,7 @@ import { streamMainSitePost } from "@/lib/auth/stream-main-site";
 import { uploadFileToMainSite } from "@/lib/upload-main-site-file";
 import { WEB_ORIGIN } from "@/lib/web-config";
 import { webFetchWithMainSiteCookies } from "@/lib/web-fetch";
+import { markdownToTiptap } from "@repo/editor/converter";
 
 export function SidePanelChat({
   auth,
@@ -295,14 +296,25 @@ export function SidePanelChat({
                             const markdown = await convertToMarkdown(
                               result.article.content ?? "",
                             );
-                            // 保存到知识库
-                            await saveToKnowledgeBase(
+                            const { id: savedDocId } = await saveToKnowledgeBase(
                               markdown,
                               activeTabPage.title ?? "未命名页面",
-                              activeTabPage.url ?? "",
                               workspaceSlug,
+                              activeTabPage.url ?? "",
                             );
-                            toast.success("已保存到知识库");
+                            const docUrl = editorDocumentUrl(
+                              workspaceSlug,
+                              savedDocId,
+                            );
+                            toast.success("已保存到知识库", {
+                              action: {
+                                label: "打开文档",
+                                onClick: () => {
+                                  void browser.tabs.create({ url: docUrl });
+                                },
+                              },
+                              duration: 8000,
+                            });
                           }
                         } catch (err) {
                           toast.error(err instanceof Error ? err.message : "保存失败");
@@ -536,34 +548,58 @@ async function convertToMarkdown(
   });
 }
 
+/** 与主站 `pdf-actions` 编辑器路径一致：有空间 slug 则 `/{slug}/editor/{id}`，否则 `/editor/{id}` */
+function editorDocumentUrl(workspaceSlug: string, documentId: string): string {
+  const base = WEB_ORIGIN.replace(/\/$/, "");
+  const slug = workspaceSlug.trim();
+  if (slug) {
+    return `${base}/${slug}/editor/${documentId}`;
+  }
+  return `${base}/editor/${documentId}`;
+}
+
 /**
- * 保存 Markdown 内容到知识库
+ * 保存 Markdown 内容到知识库。
+ * 客户端通过 @repo/editor/converter 将 markdown 转为 Tiptap JSON，
+ * 参考 /api/chat 的兼容改造：传 workspaceSlug 由服务端解析为 workspaceId。
  */
 async function saveToKnowledgeBase(
-  content: string,
+  markdown: string,
   title: string,
   workspaceSlug: string,
   pageUrl: string,
-): Promise<void> {
-  console.log(content,'content');
-  
-  // const response = await webFetchWithMainSiteCookies(
-  //   `${WEB_ORIGIN}/api/editor-documents`,
-  //   {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({
-  //       title,
-  //       content,
-  //       workspaceId: workspaceSlug,
-  //     }),
-  //   },
-  // );
+): Promise<{ id: string }> {
+  const doc = markdownToTiptap(markdown);
+  const content = JSON.stringify(doc);
+  const trimmedPageUrl = pageUrl.trim();
 
-  // if (!response.ok) {
-  //   const errorData = (await response.json().catch(() => ({}))) as {
-  //     error?: string;
-  //   };
-  //   throw new Error(errorData.error ?? "保存失败");
-  // }
+  const response = await webFetchWithMainSiteCookies(
+    `${WEB_ORIGIN}/api/editor-documents`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        content,
+        workspaceSlug,
+        ...(trimmedPageUrl.length > 0
+          ? { sourcePageUrl: trimmedPageUrl }
+          : {}),
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      cause?: string;
+    };
+    throw new Error(errorData.message ?? errorData.cause ?? "保存失败");
+  }
+
+  const created = (await response.json()) as { id?: string };
+  if (!created.id) {
+    throw new Error("保存成功但未返回文档 ID");
+  }
+  return { id: created.id };
 }

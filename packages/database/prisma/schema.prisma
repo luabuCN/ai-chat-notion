@@ -279,6 +279,8 @@ model EditorDocument {
   lastEditedByName   String?   @db.VarChar(100)
   /** 从 PDF 导入时保存的原始文件 URL（UploadThing 等），用于「下载原文档」 */
   sourcePdfUrl       String?
+  /** 浏览器扩展等从网页剪藏时保存的原文 URL，用于标题栏标识与跳转原站 */
+  sourcePageUrl      String?
 
   user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace      Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

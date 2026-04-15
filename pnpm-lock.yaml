@@ -111,6 +111,9 @@ importers:
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
+      '@repo/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui

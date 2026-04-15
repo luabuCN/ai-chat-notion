@@ -3,6 +3,7 @@ import {
   createEditorDocument,
   getEditorDocumentById,
   getEditorDocumentsByUserId,
+  getWorkspaceBySlug,
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 import { verifyWorkspaceAccess } from "@/lib/workspace-access";
@@ -65,16 +66,21 @@ export async function POST(request: Request) {
       title,
       content,
       workspaceId,
+      workspaceSlug,
       parentDocumentId,
       coverImage,
       coverImageType,
+      sourcePageUrl,
     }: {
       title: string;
       content?: string;
       workspaceId?: string | null;
+      workspaceSlug?: string;
       parentDocumentId?: string | null;
       coverImage?: string | null;
       coverImageType?: "color" | "url" | null;
+      /** 扩展侧栏等从网页剪藏时传入的原文 URL */
+      sourcePageUrl?: string | null;
     } = body;
 
     if (!title) {
@@ -84,18 +90,24 @@ export async function POST(request: Request) {
       ).toResponse();
     }
 
-    // 子文档自动继承父文档的 workspaceId
     let resolvedWorkspaceId = workspaceId ?? null;
+
+    if (!resolvedWorkspaceId && workspaceSlug) {
+      const workspace = await getWorkspaceBySlug({ slug: workspaceSlug });
+      if (workspace) {
+        resolvedWorkspaceId = workspace.id;
+      }
+    }
+
     if (!resolvedWorkspaceId && parentDocumentId) {
       try {
         const parentDoc = await getEditorDocumentById({ id: parentDocumentId });
         resolvedWorkspaceId = parentDoc.workspaceId;
       } catch {
-        // 父文档不存在时忽略，后续创建会失败或使用 null
+        // 父文档不存在时忽略
       }
     }
 
-    // 如果指定了 workspaceId，验证访问权限
     if (resolvedWorkspaceId) {
       const hasAccess = await verifyWorkspaceAccess(resolvedWorkspaceId);
       if (!hasAccess) {
@@ -114,6 +126,7 @@ export async function POST(request: Request) {
       parentDocumentId: parentDocumentId ?? null,
       coverImage: coverImage ?? null,
       coverImageType: coverImageType ?? "url",
+      sourcePageUrl,
     });
 
     return Response.json(document, { status: 201 });
