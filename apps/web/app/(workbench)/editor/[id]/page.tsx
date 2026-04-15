@@ -1,7 +1,7 @@
 import { EditorPageClient } from "@/components/editor/editor-page-client";
 import { getUserLocale } from "@/i18n/service";
 import { auth } from "@/app/(auth)/auth";
-import { getDocumentById } from "@repo/database";
+import { prisma } from "@repo/database";
 import { Metadata } from "next";
 
 export async function generateMetadata({
@@ -10,14 +10,21 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const document = await getDocumentById({ id });
+  const document = await prisma.editorDocument.findUnique({
+    where: { id },
+    select: { title: true, icon: true },
+  });
 
-  const doc = document as any;
+  const titleText = document?.title?.trim() || "未命名";
 
   return {
-    title: `${doc.title || "未命名"} - 知作`,
-    icons: doc.icon 
-      ? [{ url: `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${doc.icon}</text></svg>` }] 
+    title: `${titleText} - 知作`,
+    icons: document?.icon
+      ? [
+          {
+            url: `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${document.icon}</text></svg>`,
+          },
+        ]
       : [{ url: "/favicon.ico" }],
   };
 }

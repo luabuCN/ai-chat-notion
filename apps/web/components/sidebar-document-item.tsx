@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { useCreateDocument, useArchive } from "@/hooks/use-document-query";
 import { useState } from "react";
 import { useSidebarDocumentsContext } from "./sidebar-documents-context";
+import { useWorkspace } from "./workspace-provider";
 
 interface ItemProps {
   id?: string;
@@ -65,6 +66,9 @@ const Item = ({
       : Array.isArray(params.slug)
       ? params.slug[0]
       : "";
+  const { currentWorkspace } = useWorkspace();
+  const effectiveWorkspaceSlug =
+    workspaceSlug || currentWorkspace?.slug || "";
   const createDocumentMutation = useCreateDocument();
   const archiveMutation = useArchive();
   const { setExpanded: forceExpand } = useSidebarDocumentsContext();
@@ -86,7 +90,7 @@ const Item = ({
         typeof window !== "undefined" ? window.location.pathname : pathname;
       if (isPathnameEditorDocument(pathNow, id)) {
         router.replace(
-          getEditorListPathAfterLeavingDocument(pathNow, workspaceSlug)
+          getEditorListPathAfterLeavingDocument(pathNow, effectiveWorkspaceSlug)
         );
       } else {
         router.refresh();
@@ -120,8 +124,8 @@ const Item = ({
       {
         onSuccess: (res) => {
           router.push(
-            workspaceSlug
-              ? `/${workspaceSlug}/editor/${res.id}`
+            effectiveWorkspaceSlug
+              ? `/${effectiveWorkspaceSlug}/editor/${res.id}`
               : `/editor/${res.id}`
           );
           toast.success("新笔记已创建！");
@@ -236,7 +240,6 @@ const Item = ({
               className=" w-60"
               align="start"
               side="right"
-              forceMount
             >
               <DropdownMenuItem onClick={onArchive}>
                 <Trash className="h-4 w-4 mr-2" />

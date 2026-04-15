@@ -31,6 +31,9 @@ const DocumentsList = ({
       : "";
   const { expanded, onExpand } = useSidebarDocumentsContext();
   const { currentWorkspace, isLoading: isWorkspaceLoading } = useWorkspace();
+  /** 从他人文档 /editor/[id] 进入时 URL 无 slug，用当前工作区 slug */
+  const effectiveWorkspaceSlug =
+    workspaceSlug || currentWorkspace?.slug || "";
   const { canEdit } = useWorkspacePermission();
 
   const {
@@ -43,10 +46,8 @@ const DocumentsList = ({
   const isLoading = isWorkspaceLoading || isDocumentsLoading;
 
   const onRedirect = (documentId: string) => {
-    // 如果有工作空间 slug，使用 /[slug]/editor/[id] 格式
-    // 否则使用 /editor/[id] 格式
-    const path = workspaceSlug
-      ? `/${workspaceSlug}/editor/${documentId}`
+    const path = effectiveWorkspaceSlug
+      ? `/${effectiveWorkspaceSlug}/editor/${documentId}`
       : `/editor/${documentId}`;
     router.push(path);
   };
@@ -108,8 +109,8 @@ const DocumentsList = ({
       {displayDocuments.map((document) => {
         // 解码 pathname 以正确匹配含中文的 URL
         const decodedPathname = decodeURIComponent(pathname);
-        const expectedPath = workspaceSlug
-          ? `/${workspaceSlug}/editor/${document.id}`
+        const expectedPath = effectiveWorkspaceSlug
+          ? `/${effectiveWorkspaceSlug}/editor/${document.id}`
           : `/editor/${document.id}`;
         const isActive =
           decodedPathname === expectedPath ||

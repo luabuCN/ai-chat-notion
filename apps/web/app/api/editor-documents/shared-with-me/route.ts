@@ -19,6 +19,8 @@ export async function GET(request: Request) {
       where: {
         email: user.email,
         status: "accepted",
+        // 创建者已删除（软删）的文档不再出现在「他人文档」中
+        document: { deletedAt: null },
       },
       include: {
         document: {
@@ -55,6 +57,7 @@ export async function GET(request: Request) {
         userId: user.id,
         document: {
           isPublished: true,
+          deletedAt: null,
           userId: { not: user.id },
           id: { notIn: invitedDocumentIds },
         },

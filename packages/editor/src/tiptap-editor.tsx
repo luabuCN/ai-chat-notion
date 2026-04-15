@@ -4,7 +4,7 @@ import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
 import { GripVerticalIcon, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePreview } from "@repo/ui";
+import { ImagePreviewControlled } from "@repo/ui";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { DocumentLink } from "./tiptap/extensions/document-link";
@@ -21,41 +21,29 @@ import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 
-/** 监听图片预览自定义事件，用 ImagePreview 展示全屏预览 */
+/** 监听图片预览自定义事件，用 PhotoSlider 受控模式展示全屏预览（避免 React 19 element.ref 报错） */
 function ImagePreviewPortal() {
-  const [src, setSrc] = useState<string | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [state, setState] = useState<{ src: string; visible: boolean } | null>(
+    null
+  );
 
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<TiptapImagePreviewDetail>).detail;
-      setSrc(detail.src);
-      requestAnimationFrame(() => {
-        triggerRef.current?.click();
-      });
+      setState({ src: detail.src, visible: true });
     };
     window.addEventListener(TIPTAP_IMAGE_PREVIEW_EVENT, handler);
     return () => window.removeEventListener(TIPTAP_IMAGE_PREVIEW_EVENT, handler);
   }, []);
 
-  if (!src) return null;
+  if (!state) return null;
 
   return (
-    <ImagePreview
-      src={src}
-      onVisibleChange={(visible) => {
-        if (!visible) setSrc(null);
-      }}
-    >
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-hidden="true"
-        style={{ display: "none" }}
-      >
-        preview
-      </button>
-    </ImagePreview>
+    <ImagePreviewControlled
+      src={state.src}
+      visible={state.visible}
+      onClose={() => setState(null)}
+    />
   );
 }
 

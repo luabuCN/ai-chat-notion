@@ -1,7 +1,7 @@
 "use client";
 
 import { ZoomIn, ZoomOut, RotateCw } from "lucide-react";
-import { PhotoProvider, PhotoView } from "react-photo-view";
+import { PhotoProvider, PhotoView, PhotoSlider } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
 
 export { PhotoView } from "react-photo-view";
@@ -71,5 +71,43 @@ export function ImagePreview({
         children
       )}
     </PhotoProvider>
+  );
+}
+
+type ImagePreviewControlledProps = Omit<
+  React.ComponentProps<typeof PhotoSlider>,
+  "images" | "onClose"
+> & {
+  /** 图片地址 */
+  src: string;
+  /** 关闭回调 */
+  onClose: () => void;
+  /** 追加工具栏渲染 */
+  toolbarRender?: (props: ToolbarProps) => React.ReactNode;
+};
+
+/**
+ * 受控图片预览（直接使用 PhotoSlider），不依赖 PhotoView children，
+ * 避免 React 19 中 element.ref 访问报错。
+ * 适合命令式打开（如编辑器图片预览按钮）。
+ */
+export function ImagePreviewControlled({
+  src,
+  onClose,
+  toolbarRender,
+  ...rest
+}: ImagePreviewControlledProps) {
+  return (
+    <PhotoSlider
+      images={[{ src, key: src }]}
+      onClose={onClose}
+      toolbarRender={(props) => (
+        <>
+          {defaultToolbarRender(props)}
+          {toolbarRender?.(props)}
+        </>
+      )}
+      {...rest}
+    />
   );
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ChevronDown, ChevronRight, Users, FileIcon } from "lucide-react";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@repo/ui";
 import { cn } from "@/lib/utils";
+import { SidebarDocumentsProvider } from "./sidebar-documents-context";
 import Item from "./sidebar-document-item";
 
 interface SharedDocument {
@@ -34,27 +35,51 @@ export function SidebarSharedDocuments() {
     {}
   );
 
-  useEffect(() => {
-    const fetchSharedDocuments = async () => {
-      try {
-        const response = await fetch("/api/editor-documents/shared-with-me");
-        if (response.ok) {
-          const data = await response.json();
-          setSharedGroups(data);
-          // 默认展开第一个分组
-          if (data.length > 0) {
-            setExpandedGroups({ [data[0].ownerId]: true });
+  const isFirstPathFetch = useRef(true);
+
+  const fetchSharedDocuments = useCallback(async (silent: boolean) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    try {
+      const response = await fetch("/api/editor-documents/shared-with-me");
+      if (response.ok) {
+        const data = (await response.json()) as SharedDocumentsGroup[];
+        setSharedGroups(data);
+        setExpandedGroups((prev) => {
+          if (data.length === 0) {
+            return prev;
           }
-        }
-      } catch (error) {
-        console.error("Failed to fetch shared documents:", error);
-      } finally {
+          if (Object.keys(prev).length > 0) {
+            return prev;
+          }
+          return { [data[0].ownerId]: true };
+        });
+      }
+    } catch {
+      // 忽略网络错误，保留当前列表
+    } finally {
+      if (!silent) {
         setLoading(false);
       }
-    };
-
-    fetchSharedDocuments();
+    }
   }, []);
+
+  useEffect(() => {
+    const silent = !isFirstPathFetch.current;
+    isFirstPathFetch.current = false;
+    void fetchSharedDocuments(silent);
+  }, [pathname, fetchSharedDocuments]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void fetchSharedDocuments(true);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [fetchSharedDocuments]);
 
   const toggleGroup = (ownerId: string) => {
     setExpandedGroups((prev) => ({
@@ -95,60 +120,62 @@ export function SidebarSharedDocuments() {
         <Users className="size-4" />
         他人文档
       </SidebarGroupLabel>
-      <SidebarMenu>
-        {sharedGroups.map((group) => {
-          const isExpanded = expandedGroups[group.ownerId];
-          return (
-            <div key={group.ownerId}>
-              {/* 分组标题 */}
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.ownerId)}
-                className={cn(
-                  "flex items-center gap-1.5 w-full px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
-                )}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="size-4" />
-                ) : (
-                  <ChevronRight className="size-4" />
-                )}
-                <span className="truncate">{group.ownerName}</span>
-                <span className="text-xs text-muted-foreground/70">
-                  ({group.documents.length})
-                </span>
-              </button>
+      <SidebarDocumentsProvider>
+        <SidebarMenu>
+          {sharedGroups.map((group) => {
+            const isExpanded = expandedGroups[group.ownerId];
+            return (
+              <div key={group.ownerId}>
+                {/* 分组标题 */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.ownerId)}
+                  className={cn(
+                    "flex items-center gap-1.5 w-full px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
+                  )}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="size-4" />
+                  ) : (
+                    <ChevronRight className="size-4" />
+                  )}
+                  <span className="truncate">{group.ownerName}</span>
+                  <span className="text-xs text-muted-foreground/70">
+                    ({group.documents.length})
+                  </span>
+                </button>
 
-              {/* 文档列表 */}
-              {isExpanded && (
-                <div className="pl-6">
-                  {group.documents.map((document) => (
-                    <div key={document.id} className="py-0.5">
-                      <Item
-                        id={document.id}
-                        onClick={() => onRedirect(document.id)}
-                        label={document.title}
-                        icon={FileIcon}
-                        active={
-                          decodeURIComponent(pathname) ===
-                            `/editor/${document.id}` ||
-                          pathname === `/editor/${document.id}`
-                        }
-                        level={1}
-                        onExpand={() => {}}
-                        expanded={false}
-                        documentIcon={document.icon}
-                        canEdit={document.permission === "edit"}
-                        lastEditedByName={document.lastEditedByName}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </SidebarMenu>
+                {/* 文档列表 */}
+                {isExpanded && (
+                  <div className="pl-6">
+                    {group.documents.map((document) => (
+                      <div key={document.id} className="py-0.5">
+                        <Item
+                          id={document.id}
+                          onClick={() => onRedirect(document.id)}
+                          label={document.title}
+                          icon={FileIcon}
+                          active={
+                            decodeURIComponent(pathname) ===
+                              `/editor/${document.id}` ||
+                            pathname === `/editor/${document.id}`
+                          }
+                          level={1}
+                          onExpand={() => {}}
+                          expanded={false}
+                          documentIcon={document.icon}
+                          canEdit={document.permission === "edit"}
+                          lastEditedByName={document.lastEditedByName}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarDocumentsProvider>
     </SidebarGroup>
   );
 }

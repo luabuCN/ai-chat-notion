@@ -31,6 +31,8 @@ export function SidebarDocuments() {
       ? params.slug[0]
       : "";
   const { currentWorkspace } = useWorkspace();
+  const effectiveWorkspaceSlug =
+    workspaceSlug || currentWorkspace?.slug || "";
   const { canCreate } = useWorkspacePermission();
   const createDocumentMutation = useCreateDocument();
   const [isLabelHovered, setIsLabelHovered] = useState(false);
@@ -43,7 +45,10 @@ export function SidebarDocuments() {
       },
       {
         onSuccess: (res) => {
-          router.push(`/${workspaceSlug}/editor/${res.id}`);
+          const path = effectiveWorkspaceSlug
+            ? `/${effectiveWorkspaceSlug}/editor/${res.id}`
+            : `/editor/${res.id}`;
+          router.push(path);
           toast.success("新笔记已创建！");
         },
         onError: (error: Error) => {

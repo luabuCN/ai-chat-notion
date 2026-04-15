@@ -61,6 +61,8 @@ export function SidebarTrash() {
       ? params.slug[0]
       : "";
   const { currentWorkspace } = useWorkspace();
+  const effectiveWorkspaceSlug =
+    workspaceSlug || currentWorkspace?.slug || "";
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -112,8 +114,8 @@ export function SidebarTrash() {
       setTouchOpenRowId(null);
       setIsOpen(false);
       router.push(
-        workspaceSlug
-          ? `/${workspaceSlug}/editor/${doc.id}`
+        effectiveWorkspaceSlug
+          ? `/${effectiveWorkspaceSlug}/editor/${doc.id}`
           : `/editor/${doc.id}`
       );
     } catch (error) {
@@ -134,7 +136,7 @@ export function SidebarTrash() {
         typeof window !== "undefined" ? window.location.pathname : pathname;
       if (isPathnameEditorDocument(pathNow, doc.id)) {
         router.replace(
-          getEditorListPathAfterLeavingDocument(pathNow, workspaceSlug)
+          getEditorListPathAfterLeavingDocument(pathNow, effectiveWorkspaceSlug)
         );
       }
     } catch {
@@ -164,7 +166,7 @@ export function SidebarTrash() {
       );
       if (wasViewingDeleted) {
         router.replace(
-          getEditorListPathAfterLeavingDocument(pathNow, workspaceSlug)
+          getEditorListPathAfterLeavingDocument(pathNow, effectiveWorkspaceSlug)
         );
       }
     } catch {
@@ -265,8 +267,8 @@ export function SidebarTrash() {
                               onClick={() => {
                                 setIsOpen(false);
                                 router.push(
-                                  workspaceSlug
-                                    ? `/${workspaceSlug}/editor/${doc.id}`
+                                  effectiveWorkspaceSlug
+                                    ? `/${effectiveWorkspaceSlug}/editor/${doc.id}`
                                     : `/editor/${doc.id}`
                                 );
                               }}

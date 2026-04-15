@@ -2,12 +2,12 @@ import nodemailer from "nodemailer";
 
 // 创建 QQ 邮箱 SMTP 传输器
 const transporter = nodemailer.createTransport({
-  host: "smtp.qq.com",
+  host: "smtp.163.com",
   port: 465,
   secure: true,
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS, // QQ 邮箱授权码
+    pass: process.env.SMTP_PASS, // 163 邮箱授权码
   },
 });
 

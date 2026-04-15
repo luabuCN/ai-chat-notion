@@ -337,6 +337,10 @@ export function useArchive() {
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       // 刷新垃圾箱列表
       await queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
+      // 刷新该文档的详情缓存，确保 deletedAt 字段立即更新
+      await queryClient.invalidateQueries({
+        queryKey: documentKeys.detail(documentId),
+      });
     },
   });
 }
