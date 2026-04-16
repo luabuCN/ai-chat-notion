@@ -24,7 +24,7 @@ import {
 import { useRouter, usePathname, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useCreateDocument, useArchive } from "@/hooks/use-document-query";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSidebarDocumentsContext } from "./sidebar-documents-context";
 import { useWorkspace } from "./workspace-provider";
 
@@ -54,7 +54,7 @@ const Item = ({
   level = 0,
   expanded,
   onExpand,
-  canEdit = true, // 默认有编辑权限
+  canEdit = true,
   lastEditedByName,
 }: ItemProps) => {
   const router = useRouter();
@@ -78,29 +78,35 @@ const Item = ({
     ? isPathnameEditorDocument(pathname, id)
     : false;
 
-  const onArchive = async (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>
-  ) => {
-    if (!id) return;
-    event.stopPropagation();
-    try {
-      await archiveMutation.mutateAsync(id);
-      toast.success("笔记已移至回收站！");
-      const pathNow =
-        typeof window !== "undefined" ? window.location.pathname : pathname;
-      if (isPathnameEditorDocument(pathNow, id)) {
-        router.replace(
-          getEditorListPathAfterLeavingDocument(pathNow, effectiveWorkspaceSlug)
-        );
-      } else {
-        router.refresh();
-      }
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "移动到回收站失败"
-      );
-    }
-  };
+  const onArchive = useCallback(
+    (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      if (!id) return;
+      e.stopPropagation();
+
+      archiveMutation.mutate(id, {
+        onSuccess: () => {
+          toast.success("笔记已移至回收站！");
+          // 如果当前正在查看该文档，跳转到列表页
+          if (isViewingThisDocument) {
+            router.replace(
+              getEditorListPathAfterLeavingDocument(
+                pathname,
+                effectiveWorkspaceSlug
+              )
+            );
+          } else {
+            router.refresh();
+          }
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof Error ? error.message : "移动到回收站失败"
+          );
+        },
+      });
+    },
+    [id, archiveMutation, isViewingThisDocument, router, pathname, effectiveWorkspaceSlug]
+  );
 
   const handleExpand = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>
@@ -113,7 +119,6 @@ const Item = ({
     event.stopPropagation();
     if (!id) return;
 
-    // 创建前立即展开父级，让 DocumentsList 挂载、query 就位
     forceExpand(id);
 
     createDocumentMutation.mutate(

@@ -117,7 +117,7 @@ const DocumentsList = ({
           pathname === `/editor/${document.id}`;
 
         return (
-          <div key={`${document.id}-${document.icon ?? ""}-${document.title}`}>
+          <div key={document.id}>
             <Item
               id={document.id}
               onClick={() => onRedirect(document.id)}

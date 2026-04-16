@@ -63,7 +63,7 @@ export function EditorPageClient({
           />
         </div>
         {/* overflow-y-auto：让内容在此容器内滚动，而非 body */}
-        <div className="flex-1 pt-14 overflow-y-auto">
+        <div className="flex-1 pt-11 overflow-y-auto">
           <EditorContent
             locale={locale}
             documentId={documentId}

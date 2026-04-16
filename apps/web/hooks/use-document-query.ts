@@ -332,15 +332,13 @@ export function useArchive() {
 
   return useMutation({
     mutationFn: deleteDocument,
-    onSuccess: async (_, documentId) => {
-      // 删除后刷新所有列表
-      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+    onSuccess: (_data, documentId) => {
+      // 刷新所有列表
+      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       // 刷新垃圾箱列表
-      await queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
-      // 刷新该文档的详情缓存，确保 deletedAt 字段立即更新
-      await queryClient.invalidateQueries({
-        queryKey: documentKeys.detail(documentId),
-      });
+      queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
+      // 刷新文档详情缓存，确保从回收站打开时能正确显示删除状态
+      queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
     },
   });
 }
@@ -481,15 +479,15 @@ export function useRestoreDocument() {
 
   return useMutation({
     mutationFn: restoreDocument,
-    onSuccess: async (updatedDoc) => {
+    onSuccess: async (_data, documentId) => {
+      // 取消可能正在进行的该查询请求
+      await queryClient.cancelQueries({ queryKey: documentKeys.detail(documentId) });
+      // 从缓存中移除该文档详情，确保下次读取时强制重新请求
+      queryClient.removeQueries({ queryKey: documentKeys.detail(documentId) });
       // Refresh trash list
-      await queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
+      queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
       // Refresh main lists as document reappears
-      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
-      // Refresh the specific document details
-      await queryClient.invalidateQueries({
-        queryKey: documentKeys.detail(updatedDoc.id),
-      });
+      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },
   });
 }
