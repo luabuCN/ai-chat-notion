@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEditorDocumentById } from "@repo/database";
-import { EditorClient } from "@/components/editor/editor-client";
 import { EditorPageHeader } from "@/components/editor/editor-page-header";
+import { PreviewEditorClient } from "@/components/editor/preview-editor-client";
 import { Metadata } from "next";
 
 interface PreviewPageProps {
@@ -56,8 +56,11 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
           readonly
         />
 
-        <div className="max-w-4xl mx-auto px-4 pb-20">
-          <EditorClient initialContent={document.content} readonly={true} />
+        <div className="mx-auto max-w-4xl px-4 pb-20">
+          <PreviewEditorClient
+            initialContent={document.content}
+            readonly={true}
+          />
         </div>
       </div>
     );

@@ -90,6 +90,7 @@ export function EditorHeaderWrapper({
       documentId={documentId}
       workspaceId={document?.workspaceId ?? null}
       isPublished={document?.isPublished}
+      isPubliclyEditable={(document as any)?.isPubliclyEditable ?? false}
       isFavorite={document?.isFavorite}
       isSaving={isSaving}
       isSaved={isSaved}

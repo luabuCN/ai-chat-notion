@@ -104,6 +104,8 @@ export async function verifyDocumentAccess(
       documentUserId: document.userId,
       documentWorkspaceId: document.workspaceId,
       documentIsPublished: document.isPublished,
+      documentIsPubliclyEditable:
+        (document as any).isPubliclyEditable ?? false,
       documentDeletedAt: document.deletedAt,
       ignoreDeletedAt: options?.ignoreDeletedAt === true,
       currentUserId: userId,

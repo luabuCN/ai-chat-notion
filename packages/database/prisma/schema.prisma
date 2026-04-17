@@ -269,8 +269,9 @@ model EditorDocument {
   coverImage         String?
   coverImageType     String?   @default("url") @db.VarChar(10)
   coverImagePosition Int?      @default(50)
-  isPublished        Boolean   @default(false)
-  publicShareToken   String?   @unique @db.VarChar(64) // 公开分享链接 token
+  isPublished        Boolean   @default(false) // 只读发布：开启后可通过 /preview/[id] 公开查看（不可编辑）
+  isPubliclyEditable Boolean   @default(false) // 公开协作：开启后任何人可通过 /public-doc/[token] 进入并编辑
+  publicShareToken   String?   @unique @db.VarChar(64) // 公开协作链接 token（仅 isPubliclyEditable 开启时生成 / 有效）
   isFavorite         Boolean   @default(false)
   deletedAt          DateTime? @db.Timestamp(6)
   createdAt          DateTime  @default(now()) @db.Timestamp(6)

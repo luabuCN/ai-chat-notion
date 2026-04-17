@@ -51,12 +51,13 @@ export async function GET(request: Request) {
     });
 
     // 2. 获取当前用户访问过的公开文档（排除自己的和已被邀请的）
+    //    包含两种模式：只读发布（isPublished）和公开协作（isPubliclyEditable）
     const invitedDocumentIds = collaborators.map((c) => c.document.id);
     const visitors = await prisma.documentVisitor.findMany({
       where: {
         userId: user.id,
         document: {
-          isPublished: true,
+          OR: [{ isPublished: true }, { isPubliclyEditable: true }],
           deletedAt: null,
           userId: { not: user.id },
           id: { notIn: invitedDocumentIds },
@@ -73,6 +74,7 @@ export async function GET(request: Request) {
             updatedAt: true,
             lastEditedByName: true,
             isPublished: true,
+            isPubliclyEditable: true,
             user: {
               select: {
                 id: true,
@@ -161,7 +163,8 @@ export async function GET(request: Request) {
         workspaceId: visitor.document.workspaceId,
         updatedAt: visitor.document.updatedAt,
         lastEditedByName: visitor.document.lastEditedByName,
-        permission: "view", // 公开文档只有查看权限
+        // 公开协作可编辑；仅只读发布则为查看
+        permission: visitor.document.isPubliclyEditable ? "edit" : "view",
         isPublic: true,
       });
     }

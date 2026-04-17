@@ -59,9 +59,12 @@ export function SmartEditorContent({
 
   // 追踪用户访问公开文档（用于在侧边栏显示）
   const isOwner = (document as any)?.accessLevel === "owner";
+  const docIsPubliclyAccessible =
+    (document?.isPublished ?? false) ||
+    ((document as any)?.isPubliclyEditable ?? false);
   useTrackDocumentVisit({
     documentId,
-    isPublished: document?.isPublished ?? false,
+    isPublic: docIsPubliclyAccessible,
     isOwner,
   });
 
@@ -70,7 +73,7 @@ export function SmartEditorContent({
   const lastDocumentIdRef = useRef<string>(documentId);
 
   // 自动检测是否应该启用协同编辑
-  // 逻辑：只有当文档公开分享（isPublished）或有已接受的协作者时才启用协同编辑
+  // 逻辑：只有当文档开启公开协作（isPubliclyEditable）或有已接受的协作者时才启用协同编辑
   const shouldEnableCollaboration = useMemo(() => {
     // 如果文档ID变了，重置决策
     if (lastDocumentIdRef.current !== documentId) {
@@ -98,14 +101,15 @@ export function SmartEditorContent({
 
     const docHasCollaborators = (document as any)?.hasCollaborators;
     const isUserCollaborator = (document as any)?.isCurrentUserCollaborator;
-    const docIsPublished = document.isPublished;
+    const docIsPubliclyEditable =
+      (document as any)?.isPubliclyEditable ?? false;
     const isDocumentOwner = (document as any)?.userId === userId;
 
     console.log("[Collab Detection]", {
       accessLevel,
       hasCollaborators: docHasCollaborators,
       isCurrentUserCollaborator: isUserCollaborator,
-      isPublished: docIsPublished,
+      isPubliclyEditable: docIsPubliclyEditable,
       isDocumentOwner,
     });
 
@@ -116,8 +120,8 @@ export function SmartEditorContent({
       return true;
     }
 
-    // 场景2：我的文档，但已发布或有协作者
-    if (docIsPublished || docHasCollaborators) {
+    // 场景2：我的文档，但已开启公开协作或有协作者
+    if (docIsPubliclyEditable || docHasCollaborators) {
       collabModeDecidedRef.current = true;
       return true;
     }

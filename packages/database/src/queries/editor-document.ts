@@ -216,24 +216,16 @@ export async function deleteEditorDocument({ id }: { id: string }) {
   }
 }
 
+/**
+ * 开启只读发布（/preview/[id] 可公开查看）
+ * 与公开协作 (isPubliclyEditable) 相互独立，不会产生或删除 publicShareToken
+ */
 export async function publishEditorDocument({ id }: { id: string }) {
   try {
-    // 获取当前文档检查是否已有 token
-    const existing = await prisma.editorDocument.findUnique({
-      where: { id },
-      select: { publicShareToken: true },
-    });
-
-    // 如果没有 token，生成一个新的
-    const publicShareToken =
-      existing?.publicShareToken ||
-      require("crypto").randomBytes(32).toString("hex");
-
     return await prisma.editorDocument.update({
       where: { id },
       data: {
         isPublished: true,
-        publicShareToken,
       },
     });
   } catch (_error) {
@@ -244,19 +236,71 @@ export async function publishEditorDocument({ id }: { id: string }) {
   }
 }
 
+/**
+ * 取消只读发布
+ */
 export async function unpublishEditorDocument({ id }: { id: string }) {
   try {
     return await prisma.editorDocument.update({
       where: { id },
       data: {
         isPublished: false,
-        // 不清除 token，以便重新发布时使用相同的链接
       },
     });
   } catch (_error) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to unpublish editor document"
+    );
+  }
+}
+
+/**
+ * 开启公开协作：任何人可通过 /public-doc/[token] 进入并编辑
+ * 会确保有 publicShareToken
+ */
+export async function enablePublicEditEditorDocument({ id }: { id: string }) {
+  try {
+    const existing = await prisma.editorDocument.findUnique({
+      where: { id },
+      select: { publicShareToken: true },
+    });
+
+    const publicShareToken =
+      existing?.publicShareToken ||
+      require("crypto").randomBytes(32).toString("hex");
+
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: {
+        isPubliclyEditable: true,
+        publicShareToken,
+      },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to enable public edit"
+    );
+  }
+}
+
+/**
+ * 关闭公开协作
+ * 不清除 token，便于下次再开启时链接保持不变
+ */
+export async function disablePublicEditEditorDocument({ id }: { id: string }) {
+  try {
+    return await prisma.editorDocument.update({
+      where: { id },
+      data: {
+        isPubliclyEditable: false,
+      },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to disable public edit"
     );
   }
 }

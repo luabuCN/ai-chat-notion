@@ -1,5 +1,8 @@
 import { getAuthFromRequest } from "@/lib/api-auth";
-import { publishEditorDocument, unpublishEditorDocument } from "@repo/database";
+import {
+  enablePublicEditEditorDocument,
+  disablePublicEditEditorDocument,
+} from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 import { verifyDocumentAccess } from "@/lib/document-access";
 
@@ -16,14 +19,13 @@ export async function POST(
   const { id } = await params;
 
   try {
-    // 验证文档访问权限 - 需要编辑权限才能发布
     const { access } = await verifyDocumentAccess(id, user.id, user.email);
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
-    const updatedDocument = await publishEditorDocument({ id });
+    const updatedDocument = await enablePublicEditEditorDocument({ id });
 
     return Response.json(updatedDocument, { status: 200 });
   } catch (error) {
@@ -32,7 +34,7 @@ export async function POST(
     }
     return new ChatSDKError(
       "bad_request:api",
-      "Failed to publish editor document"
+      "Failed to enable public edit for editor document"
     ).toResponse();
   }
 }
@@ -50,14 +52,13 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    // 验证文档访问权限 - 需要编辑权限才能取消发布
     const { access } = await verifyDocumentAccess(id, user.id, user.email);
 
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
 
-    const updatedDocument = await unpublishEditorDocument({ id });
+    const updatedDocument = await disablePublicEditEditorDocument({ id });
 
     return Response.json(updatedDocument, { status: 200 });
   } catch (error) {
@@ -66,7 +67,7 @@ export async function DELETE(
     }
     return new ChatSDKError(
       "bad_request:api",
-      "Failed to unpublish editor document"
+      "Failed to disable public edit for editor document"
     ).toResponse();
   }
 }

@@ -135,6 +135,28 @@ async function publishDocument({
   return response.json();
 }
 
+async function setDocumentPublicEdit({
+  documentId,
+  enable,
+}: {
+  documentId: string;
+  enable: boolean;
+}): Promise<EditorDocument> {
+  const response = await fetch(
+    `/api/editor-documents/${documentId}/public-edit`,
+    {
+      method: enable ? "POST" : "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "公开协作操作失败");
+  }
+
+  return response.json();
+}
+
 async function duplicateDocument(documentId: string): Promise<EditorDocument> {
   const response = await fetch(
     `/api/editor-documents/${documentId}/duplicate`,
@@ -368,6 +390,32 @@ export function usePublishDocument() {
         queryKey: documentKeys.detail(updatedDoc.id),
       });
       // 刷新列表
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+    },
+  });
+}
+
+export function usePublicEditDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: setDocumentPublicEdit,
+    onSuccess: async (updatedDoc) => {
+      queryClient.setQueryData(
+        documentKeys.detail(updatedDoc.id),
+        (oldData: any) => {
+          if (oldData) {
+            return {
+              ...oldData,
+              ...updatedDoc,
+            };
+          }
+          return updatedDoc;
+        }
+      );
+      await queryClient.invalidateQueries({
+        queryKey: documentKeys.detail(updatedDoc.id),
+      });
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
     },
   });

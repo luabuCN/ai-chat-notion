@@ -42,6 +42,8 @@ interface EditorHeaderProps {
   documentId: string;
   workspaceId?: string | null;
   isPublished?: boolean;
+  /** 公开协作：匿名用户可编辑（与 isPublished 相互独立） */
+  isPubliclyEditable?: boolean;
   isFavorite?: boolean;
   isSaving?: boolean;
   isSaved?: boolean;
@@ -67,6 +69,7 @@ export function EditorHeader({
   documentId,
   workspaceId = null,
   isPublished = false,
+  isPubliclyEditable = false,
   isFavorite = false,
   isSaving = false,
   isSaved = false,
@@ -232,7 +235,7 @@ export function EditorHeader({
           <DocumentSharePopover
             documentId={documentId}
             workspaceId={workspaceId}
-            isPublished={isPublished}
+            isPubliclyEditable={isPubliclyEditable}
             isOwner={isOwner}
             currentUserId={currentUserId}
             documentOwnerId={documentOwnerId}

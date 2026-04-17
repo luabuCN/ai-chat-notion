@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { usePublishDocument } from "@/hooks/use-document-query";
+import { usePublicEditDocument } from "@/hooks/use-document-query";
 import { useCollaboration } from "./collaboration-context";
 
 interface Collaborator {
@@ -57,12 +57,13 @@ interface WorkspaceMember {
 interface DocumentSharePopoverProps {
   documentId: string;
   workspaceId: string | null;
-  isPublished: boolean;
+  /** 公开协作模式：匿名用户可通过链接协同编辑 */
+  isPubliclyEditable: boolean;
   isOwner: boolean;
   currentUserId?: string;
   documentOwnerId?: string; // 文档创建者ID
   hasCollaborators?: boolean; // 是否有协作者（用于高亮显示）
-  publicShareToken?: string | null; // 公开分享链接 token
+  publicShareToken?: string | null; // 公开协作链接 token
 }
 
 type TabType = "members" | "guests";
@@ -70,7 +71,7 @@ type TabType = "members" | "guests";
 export function DocumentSharePopover({
   documentId,
   workspaceId,
-  isPublished,
+  isPubliclyEditable,
   isOwner,
   currentUserId,
   documentOwnerId,
@@ -101,7 +102,7 @@ export function DocumentSharePopover({
     null
   );
   const [publishing, setPublishing] = useState(false);
-  const publishMutation = usePublishDocument();
+  const publicEditMutation = usePublicEditDocument();
   const { connectedUsers } = useCollaboration();
 
   // 获取协作者列表
@@ -290,24 +291,28 @@ export function DocumentSharePopover({
     }
   };
 
-  // 切换发布状态
+  // 切换公开协作状态
   const handleTogglePublish = () => {
     if (!canInvite) {
-      toast.error("只有文档创建者或空间管理员可以管理发布状态");
+      toast.error("只有文档创建者或空间管理员可以管理公开协作");
       return;
     }
 
     setPublishing(true);
-    publishMutation.mutate(
-      { documentId, publish: !isPublished },
+    publicEditMutation.mutate(
+      { documentId, enable: !isPubliclyEditable },
       {
         onSuccess: () => {
           setPublishing(false);
-          toast.success(isPublished ? "文档已取消发布" : "文档已公开发布");
+          toast.success(
+            isPubliclyEditable ? "已关闭公开协作" : "已开启公开协作"
+          );
         },
         onError: () => {
           setPublishing(false);
-          toast.error(isPublished ? "取消发布失败" : "发布失败");
+          toast.error(
+            isPubliclyEditable ? "关闭公开协作失败" : "开启公开协作失败"
+          );
         },
       }
     );
@@ -324,18 +329,10 @@ export function DocumentSharePopover({
 
   // 复制文档链接
   const handleCopyLink = () => {
-    console.log(
-      "[Copy Link] isPublished:",
-      isPublished,
-      "publicShareToken:",
-      publicShareToken
-    );
     let url: string;
-    if (isPublished && publicShareToken) {
-      // 公开分享启用时，使用 token 链接
+    if (isPubliclyEditable && publicShareToken) {
       url = `${window.location.origin}/public-doc/${publicShareToken}`;
     } else {
-      // 否则使用编辑器链接
       url = `${window.location.origin}/editor/${documentId}`;
     }
     navigator.clipboard.writeText(url);
@@ -374,11 +371,11 @@ export function DocumentSharePopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant={isPublished || hasCollaborators ? "default" : "ghost"}
+          variant={isPubliclyEditable || hasCollaborators ? "default" : "ghost"}
           size="sm"
           className={cn(
             "h-8 gap-1.5",
-            isPublished || hasCollaborators
+            isPubliclyEditable || hasCollaborators
               ? "bg-primary text-primary-foreground hover:bg-primary/90"
               : "text-muted-foreground"
           )}
@@ -429,7 +426,7 @@ export function DocumentSharePopover({
           ) : activeTab === "members" ? (
             /* 成员 Tab */
             <div className="space-y-3">
-              {isPublished ? (
+              {isPubliclyEditable ? (
                 /* 公开模式：显示在线用户 */
                 <>
                   {/* 公开编辑提示 */}
@@ -580,7 +577,7 @@ export function DocumentSharePopover({
             /* 访客与公众 Tab */
             <div className="space-y-4">
               {/* 邀请协作者 - 只在非公开状态下显示 */}
-              {!isPublished && (
+              {!isPubliclyEditable && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">访客协作者</span>
@@ -654,7 +651,7 @@ export function DocumentSharePopover({
               )}
 
               {/* 公开状态提示 */}
-              {isPublished && (
+              {isPubliclyEditable && (
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
                   <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
                     <Globe className="size-4" />
@@ -667,7 +664,7 @@ export function DocumentSharePopover({
               )}
 
               {/* 协作者列表 - 只在非公开状态下显示 */}
-              {!isPublished && collaborators.length > 0 && (
+              {!isPubliclyEditable && collaborators.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
                   {collaborators.map((collaborator) => (
                     <div
@@ -750,16 +747,16 @@ export function DocumentSharePopover({
                 </div>
               )}
 
-              {/* 公开分享 */}
+              {/* 公开协作 */}
               <div className="border-t pt-3">
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-2">
-                    {isPublished ? (
+                    {isPubliclyEditable ? (
                       <Globe className="size-4 text-green-500" />
                     ) : (
                       <GlobeLock className="size-4 text-muted-foreground" />
                     )}
-                    <span className="text-sm">公开分享</span>
+                    <span className="text-sm">公开协作</span>
                   </div>
                   <button
                     type="button"
@@ -767,7 +764,7 @@ export function DocumentSharePopover({
                     disabled={publishing || !canInvite}
                     className={cn(
                       "w-10 h-5 rounded-full transition-colors relative",
-                      isPublished ? "bg-green-500" : "bg-muted",
+                      isPubliclyEditable ? "bg-green-500" : "bg-muted",
                       canInvite &&
                         !publishing &&
                         "cursor-pointer hover:opacity-80",
@@ -776,10 +773,10 @@ export function DocumentSharePopover({
                     )}
                     title={
                       !canInvite
-                        ? "只有文档创建者或空间管理员可以管理发布状态"
-                        : isPublished
-                        ? "点击取消发布"
-                        : "点击公开发布"
+                        ? "只有文档创建者或空间管理员可以管理公开协作"
+                        : isPubliclyEditable
+                        ? "点击关闭公开协作"
+                        : "点击开启公开协作"
                     }
                   >
                     {publishing ? (
@@ -788,16 +785,16 @@ export function DocumentSharePopover({
                       <div
                         className={cn(
                           "absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform",
-                          isPublished ? "translate-x-5" : "translate-x-0.5"
+                          isPubliclyEditable ? "translate-x-5" : "translate-x-0.5"
                         )}
                       />
                     )}
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {isPublished
-                    ? "任何人都可以通过链接查看此文档"
-                    : "仅协作者可以访问此文档"}
+                  {isPubliclyEditable
+                    ? "任何人都可以通过链接协作编辑此文档"
+                    : "仅受邀协作者可以编辑此文档"}
                 </p>
               </div>
 

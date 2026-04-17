@@ -10,11 +10,11 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
   const { token } = await params;
   const session = await auth();
 
-  // 根据 token 查找文档
+  // 根据 token 查找文档（仅公开协作开启时此链接有效）
   const document = await prisma.editorDocument.findFirst({
     where: {
       publicShareToken: token,
-      isPublished: true,
+      isPubliclyEditable: true,
       deletedAt: null,
     },
     select: {
@@ -24,7 +24,7 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
   });
 
   if (!document) {
-    // 文档不存在或未发布
+    // 文档不存在或公开协作未开启
     redirect("/");
   }
 

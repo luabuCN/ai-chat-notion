@@ -26,6 +26,7 @@ export interface DocumentAccessResult {
     userId: string;
     workspaceId: string | null;
     isPublished: boolean;
+    isPubliclyEditable: boolean;
   };
 }
 
@@ -78,6 +79,7 @@ export async function verifyDocumentAccess(
       userId: true,
       workspaceId: true,
       isPublished: true,
+      isPubliclyEditable: true,
       deletedAt: true,
     },
   });
@@ -148,6 +150,7 @@ export async function verifyDocumentAccess(
     documentUserId: document.userId,
     documentWorkspaceId: document.workspaceId,
     documentIsPublished: document.isPublished,
+    documentIsPubliclyEditable: document.isPubliclyEditable,
     documentDeletedAt: document.deletedAt,
     currentUserId: userId,
     currentUserEmail: userEmail,

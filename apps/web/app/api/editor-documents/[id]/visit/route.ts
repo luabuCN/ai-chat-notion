@@ -24,6 +24,7 @@ export async function POST(
       select: {
         id: true,
         isPublished: true,
+        isPubliclyEditable: true,
         userId: true,
       },
     });
@@ -32,8 +33,9 @@ export async function POST(
       return new ChatSDKError("not_found:document").toResponse();
     }
 
-    // 只记录公开的、非自己的文档
-    if (!document.isPublished || document.userId === user.id) {
+    // 只记录公开的（只读发布或公开协作）、非自己的文档
+    const isPublic = document.isPublished || document.isPubliclyEditable;
+    if (!isPublic || document.userId === user.id) {
       return Response.json({ success: true, tracked: false }, { status: 200 });
     }
 

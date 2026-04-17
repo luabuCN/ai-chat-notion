@@ -69,6 +69,8 @@ export type EditorDocument = {
   coverImageType: string | null;
   coverImagePosition: number | null;
   isPublished: boolean;
+  isPubliclyEditable: boolean;
+  publicShareToken: string | null;
   isFavorite: boolean;
   deletedAt: Date | null;
   createdAt: Date;

@@ -5,8 +5,9 @@
  * 1. 超级特权 (Owner/Admin) - 文档所有者、工作空间所有者、工作空间管理员
  * 2. 显式文档授权 (Doc Level) - 文档协作者权限（可以覆盖工作空间权限）
  * 3. 空间基础角色 (Space Level) - 工作空间成员权限
- * 4. 公开链接 (Public) - 已发布文档的公开访问（只读）
- * 5. 拒绝 (Deny) - 无权限
+ * 4. 公开协作 (Public Editable) - 任何人可编辑（`isPubliclyEditable`）
+ * 5. 只读发布 (Public Readonly) - 任何人可查看（`isPublished`）
+ * 6. 拒绝 (Deny) - 无权限
  */
 
 export type AccessLevel = "owner" | "edit" | "view" | "none";
@@ -15,7 +16,10 @@ export interface DocumentPermissionParams {
   documentId: string;
   documentUserId: string;
   documentWorkspaceId: string | null;
+  /** 只读发布：开启后匿名用户可 view（仅读取） */
   documentIsPublished: boolean;
+  /** 公开协作：开启后匿名用户可 edit */
+  documentIsPubliclyEditable?: boolean;
   documentDeletedAt: Date | null;
   ignoreDeletedAt?: boolean;
   currentUserId?: string;
@@ -50,6 +54,7 @@ export function checkDocumentPermission(
     documentUserId,
     documentWorkspaceId,
     documentIsPublished,
+    documentIsPubliclyEditable,
     documentDeletedAt,
     ignoreDeletedAt,
     currentUserId,
@@ -68,8 +73,11 @@ export function checkDocumentPermission(
 
   // 未登录用户
   if (!currentUserId) {
+    if (documentIsPubliclyEditable) {
+      return createPermissionResult("edit", "Publicly editable document");
+    }
     if (documentIsPublished) {
-      return createPermissionResult("edit", "Public published document");
+      return createPermissionResult("view", "Public published document");
     }
     return createPermissionResult("none", "Not authenticated");
   }
@@ -138,16 +146,21 @@ export function checkDocumentPermission(
   }
 
   // ========================================
-  // 4. 公开链接 (Public)
+  // 4. 公开协作 (Public Editable)
   // ========================================
-  // 已发布文档的公开访问（可编辑）
-
-  if (documentIsPublished) {
-    return createPermissionResult("edit", "Public published document");
+  if (documentIsPubliclyEditable) {
+    return createPermissionResult("edit", "Publicly editable document");
   }
 
   // ========================================
-  // 5. 拒绝 (Deny)
+  // 5. 只读发布 (Public Readonly)
+  // ========================================
+  if (documentIsPublished) {
+    return createPermissionResult("view", "Public published document");
+  }
+
+  // ========================================
+  // 6. 拒绝 (Deny)
   // ========================================
 
   return createPermissionResult("none", "No permission");

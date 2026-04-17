@@ -82,7 +82,8 @@ export function EditorContent({
     // 关键逻辑变更：移除 isReadOnly 的限制
     // 如果是只读用户，也应该进入协同模式以便看到他人的操作
 
-    const isPublished = (document as any)?.isPublished;
+    const isPubliclyEditable =
+      (document as any)?.isPubliclyEditable ?? false;
     const hasCollaborators = (document as any)?.hasCollaborators;
     const isCurrentUserCollaborator = (document as any)
       ?.isCurrentUserCollaborator;
@@ -94,8 +95,8 @@ export function EditorContent({
       return true;
     }
 
-    // 场景2：我的文档，但已发布或有协作者
-    if (isPublished || hasCollaborators) {
+    // 场景2：我的文档，但已开启公开协作或有协作者
+    if (isPubliclyEditable || hasCollaborators) {
       return true;
     }
 

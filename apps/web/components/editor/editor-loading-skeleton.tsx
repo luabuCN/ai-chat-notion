@@ -33,3 +33,26 @@ export function EditorLoadingSkeleton({ className }: { className?: string }) {
     </div>
   );
 }
+
+/**
+ * 正文区域骨架：与 max-w-4xl 正文列同宽，用于预览页等场景在编辑器分包加载时占位
+ */
+export function EditorBodyLoadingSkeleton() {
+  return (
+    <div
+      className="w-full space-y-3 pt-1"
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <span className="sr-only">正在加载正文</span>
+      <Skeleton className="h-4 w-full max-w-2xl rounded-md" aria-hidden />
+      <Skeleton className="h-4 w-full rounded-md" aria-hidden />
+      <Skeleton className="h-4 w-[92%] rounded-md" aria-hidden />
+      <Skeleton className="h-4 w-full rounded-md" aria-hidden />
+      <Skeleton className="h-4 w-[78%] rounded-md" aria-hidden />
+      <Skeleton className="h-4 w-full rounded-md" aria-hidden />
+      <Skeleton className="h-4 w-[88%] rounded-md" aria-hidden />
+    </div>
+  );
+}
