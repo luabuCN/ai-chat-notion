@@ -1,6 +1,13 @@
-// Tiptap Editor (new)
+// Tiptap Editor (non-collaborative)
 export * from "./tiptap-editor";
-export * from "./collaborative-editor";
+
+// Unified Editor (with collaboration support)
+export {
+  UnifiedEditor,
+  type UnifiedEditorProps,
+  type CollaborativeUser,
+  type ConnectionStatus,
+} from "./unified-editor";
 export {
   EDITOR_SELECT_FROM_MATERIAL_LIBRARY,
   type MaterialLibrarySelectDetail,

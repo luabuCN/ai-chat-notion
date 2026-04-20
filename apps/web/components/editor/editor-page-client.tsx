@@ -60,6 +60,8 @@ export function EditorPageClient({
             documentId={documentId}
             conversionLocked={conversionLocked}
             currentUserId={userId}
+            currentUserName={userName}
+            currentUserEmail={userEmail}
           />
         </div>
         {/* overflow-y-auto：让内容在此容器内滚动，而非 body */}

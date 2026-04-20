@@ -14,7 +14,7 @@ import {
 } from "@repo/ui";
 import { useWindowSize } from "usehooks-ts";
 import { useUpdateDocument } from "@/hooks/use-document-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Share,
   Clock,
@@ -23,10 +23,10 @@ import {
   MessageSquare,
   Loader2,
   CheckCircle2,
-  Wifi,
-  WifiOff,
   FileText,
   Globe,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { LanguageSwitcher } from "../language-switcher";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,8 @@ import { PublishPopover } from "./publish-popover";
 import { DocumentActionsMenu } from "./document-actions-menu";
 import { DocumentSharePopover } from "./document-share-popover";
 import { useCollaboration } from "./collaboration-context";
+import { generateUserColor } from "@repo/editor";
+import type { CollaborativeUser } from "@repo/editor";
 
 interface EditorHeaderProps {
   locale: string;
@@ -51,6 +53,8 @@ interface EditorHeaderProps {
   readonly?: boolean; // 只读模式，隐藏编辑相关按钮
   isOwner?: boolean;
   currentUserId?: string;
+  currentUserName?: string;
+  currentUserEmail?: string;
   documentOwnerId?: string;
   hasCollaborators?: boolean; // 是否有协作者
   publicShareToken?: string | null; // 公开分享链接 token
@@ -77,6 +81,8 @@ export function EditorHeader({
   readonly = false,
   isOwner = false,
   currentUserId,
+  currentUserName,
+  currentUserEmail,
   documentOwnerId,
   hasCollaborators = false,
   publicShareToken,
@@ -89,6 +95,35 @@ export function EditorHeader({
   const updateDocumentMutation = useUpdateDocument();
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
   const { connectedUsers, connectionStatus } = useCollaboration();
+
+  const viewerAsCollaborator = useMemo((): CollaborativeUser | null => {
+    if (!currentUserId) return null;
+    const name =
+      (currentUserName && currentUserName.trim()) ||
+      (currentUserEmail && currentUserEmail.split("@")[0]) ||
+      "当前用户";
+    return {
+      name,
+      color: generateUserColor(currentUserId),
+    };
+  }, [currentUserId, currentUserName, currentUserEmail]);
+
+  /** 与分享弹窗一致：awareness 为空时用当前用户兜底，并合并进列表 */
+  const headerOnlineUsers = useMemo(() => {
+    if (!viewerAsCollaborator) {
+      return connectedUsers;
+    }
+    const userKey = (u: CollaborativeUser) =>
+      `${u.name}|${u.color}|${typeof u.avatar === "string" ? u.avatar : ""}`;
+    const existing = new Set(connectedUsers.map(userKey));
+    if (connectedUsers.length === 0) {
+      return [viewerAsCollaborator];
+    }
+    if (existing.has(userKey(viewerAsCollaborator))) {
+      return connectedUsers;
+    }
+    return [...connectedUsers, viewerAsCollaborator];
+  }, [connectedUsers, viewerAsCollaborator]);
 
   const toggleFavorite = () => {
     if (conversionLocked || isUpdatingFavorite) return;
@@ -167,15 +202,14 @@ export function EditorHeader({
           conversionLocked && "pointer-events-none select-none opacity-60"
         )}
       >
-        {/* 在线用户头像和连接状态 */}
+        {/* 在线用户头像和连接状态（协同模式） */}
         {connectionStatus !== "idle" && (
           <div className="flex items-center gap-2 mr-2">
-            {/* 用户头像 */}
-            {connectedUsers.length > 0 && (
+            {headerOnlineUsers.length > 0 && (
               <div className="flex items-center -space-x-2">
-                {connectedUsers.slice(0, 5).map((user, index) => (
+                {headerOnlineUsers.slice(0, 5).map((user, index) => (
                   <Avatar
-                    key={`${user.name}-${index}`}
+                    key={`${user.name}-${user.color}-${index}`}
                     className="h-7 w-7 border-2 border-background"
                     style={{ backgroundColor: user.color }}
                   >
@@ -188,14 +222,13 @@ export function EditorHeader({
                     </AvatarFallback>
                   </Avatar>
                 ))}
-                {connectedUsers.length > 5 && (
-                  <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
-                    +{connectedUsers.length - 5}
+                {headerOnlineUsers.length > 5 && (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground">
+                    +{headerOnlineUsers.length - 5}
                   </div>
                 )}
               </div>
             )}
-            {/* 连接状态指示器 */}
             <div
               className={cn(
                 "flex items-center gap-1.5 text-xs",
@@ -213,7 +246,7 @@ export function EditorHeader({
               {connectionStatus === "connected" && (
                 <>
                   <Wifi className="h-3.5 w-3.5" />
-                  <span>{connectedUsers.length} 人在线</span>
+                  <span>{headerOnlineUsers.length} 人在线</span>
                 </>
               )}
               {connectionStatus === "disconnected" && (
@@ -227,7 +260,7 @@ export function EditorHeader({
         )}
 
         {connectionStatus !== "idle" && (
-          <Separator orientation="vertical" className="h-6 mx-2" />
+          <Separator orientation="vertical" className="mx-2 h-6" />
         )}
 
         {/* 分享按钮 - 仅文档所有者可见 */}
@@ -238,6 +271,8 @@ export function EditorHeader({
             isPubliclyEditable={isPubliclyEditable}
             isOwner={isOwner}
             currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserEmail={currentUserEmail}
             documentOwnerId={documentOwnerId}
             hasCollaborators={hasCollaborators}
             publicShareToken={publicShareToken}

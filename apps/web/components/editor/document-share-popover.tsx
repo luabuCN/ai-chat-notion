@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Popover,
   PopoverContent,
@@ -30,6 +30,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePublicEditDocument } from "@/hooks/use-document-query";
 import { useCollaboration } from "./collaboration-context";
+import { generateUserColor } from "@repo/editor";
+import type { CollaborativeUser } from "@repo/editor";
 
 interface Collaborator {
   id: string;
@@ -61,6 +63,8 @@ interface DocumentSharePopoverProps {
   isPubliclyEditable: boolean;
   isOwner: boolean;
   currentUserId?: string;
+  currentUserName?: string;
+  currentUserEmail?: string;
   documentOwnerId?: string; // 文档创建者ID
   hasCollaborators?: boolean; // 是否有协作者（用于高亮显示）
   publicShareToken?: string | null; // 公开协作链接 token
@@ -74,6 +78,8 @@ export function DocumentSharePopover({
   isPubliclyEditable,
   isOwner,
   currentUserId,
+  currentUserName,
+  currentUserEmail,
   documentOwnerId,
   hasCollaborators = false,
   publicShareToken,
@@ -104,6 +110,35 @@ export function DocumentSharePopover({
   const [publishing, setPublishing] = useState(false);
   const publicEditMutation = usePublicEditDocument();
   const { connectedUsers } = useCollaboration();
+
+  /** 协同 awareness 尚未就绪时，用当前登录用户兜底，避免「成员」列表为空 */
+  const viewerAsCollaborator = useMemo((): CollaborativeUser | null => {
+    if (!currentUserId) return null;
+    const name =
+      (currentUserName && currentUserName.trim()) ||
+      (currentUserEmail && currentUserEmail.split("@")[0]) ||
+      "当前用户";
+    return {
+      name,
+      color: generateUserColor(currentUserId),
+    };
+  }, [currentUserId, currentUserName, currentUserEmail]);
+
+  const onlineUsersForPublicTab = useMemo(() => {
+    if (!viewerAsCollaborator) {
+      return connectedUsers;
+    }
+    const userKey = (u: CollaborativeUser) =>
+      `${u.name}|${u.color}|${typeof u.avatar === "string" ? u.avatar : ""}`;
+    const existing = new Set(connectedUsers.map(userKey));
+    if (connectedUsers.length === 0) {
+      return [viewerAsCollaborator];
+    }
+    if (existing.has(userKey(viewerAsCollaborator))) {
+      return connectedUsers;
+    }
+    return [...connectedUsers, viewerAsCollaborator];
+  }, [connectedUsers, viewerAsCollaborator]);
 
   // 获取协作者列表
   const fetchCollaborators = useCallback(async () => {
@@ -440,15 +475,14 @@ export function DocumentSharePopover({
                     </p>
                   </div>
 
-                  {/* 在线用户列表 */}
-                  {connectedUsers.length > 0 ? (
+                  {onlineUsersForPublicTab.length > 0 ? (
                     <div className="space-y-2">
                       <div className="text-xs text-muted-foreground mb-2">
-                        当前在线 ({connectedUsers.length} 人)
+                        当前在线 ({onlineUsersForPublicTab.length} 人)
                       </div>
-                      {connectedUsers.map((user, index) => (
+                      {onlineUsersForPublicTab.map((user, index) => (
                         <div
-                          key={`${user.name}-${index}`}
+                          key={`${user.name}-${user.color}-${index}`}
                           className="flex items-center justify-between py-2"
                         >
                           <div className="flex items-center gap-3">

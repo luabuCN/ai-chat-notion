@@ -58,7 +58,8 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
 
         <div className="mx-auto max-w-4xl px-4 pb-20">
           <PreviewEditorClient
-            initialContent={document.content}
+            documentId={documentId}
+            initialContent={document.content ?? ""}
             readonly={true}
           />
         </div>

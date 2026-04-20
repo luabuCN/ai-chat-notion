@@ -5,7 +5,9 @@ import { EditorBodyLoadingSkeleton } from "@/components/editor/editor-loading-sk
 
 export const PreviewEditorClient = dynamic(
   () =>
-    import("@/components/editor/editor-client").then((m) => m.EditorClient),
+    import("@/components/editor/unified-editor-client").then(
+      (m) => m.UnifiedEditorClient
+    ),
   {
     ssr: false,
     loading: () => <EditorBodyLoadingSkeleton />,

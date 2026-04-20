@@ -12,6 +12,8 @@ interface EditorHeaderWrapperProps {
   /** PDF 转换进行中：顶部栏操作全部禁用 */
   conversionLocked?: boolean;
   currentUserId?: string;
+  currentUserName?: string;
+  currentUserEmail?: string;
 }
 
 export function EditorHeaderWrapper({
@@ -19,6 +21,8 @@ export function EditorHeaderWrapper({
   documentId,
   conversionLocked = false,
   currentUserId,
+  currentUserName,
+  currentUserEmail,
 }: EditorHeaderWrapperProps) {
   const { data: document } = useGetDocument(documentId);
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -100,6 +104,8 @@ export function EditorHeaderWrapper({
       sourcePdfUrl={document?.sourcePdfUrl ?? null}
       sourcePageUrl={document?.sourcePageUrl ?? null}
       currentUserId={currentUserId}
+      currentUserName={currentUserName}
+      currentUserEmail={currentUserEmail}
       documentOwnerId={document?.userId}
       hasCollaborators={(document as any)?.hasCollaborators ?? false}
       publicShareToken={(document as any)?.publicShareToken ?? null}

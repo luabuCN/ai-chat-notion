@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { EditorPageHeader } from "./editor-page-header";
-import { EditorClient } from "./editor-client";
-import { CollaborativeEditorClient } from "./collaborative-editor-client";
+import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
 import { EditorLoadingSkeleton } from "./editor-loading-skeleton";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
@@ -35,6 +34,15 @@ interface EditorContentProps {
   userEmail?: string;
 }
 
+/**
+ * 编辑器内容组件
+ *
+ * 新设计原则：
+ * - 始终使用 UnifiedEditor（Yjs + IndexedDB 本地 CRDT）
+ * - 开启协同 = 连接 WebSocket（通过 collabConfig prop）
+ * - 关闭协同 = 断开连接（collabConfig = null）
+ * - 不再切换编辑器组件，避免页面刷新和数据不准确
+ */
 export function EditorContent({
   locale,
   documentId,
@@ -50,14 +58,11 @@ export function EditorContent({
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
-  // 每次外部内容替换后递增，通知编辑器在挂载后异步灌入新内容
-  const [contentVersion, setContentVersion] = useState(0);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const contentDebounced = useDebounce(content, 1000);
   const titleDebounced = useDebounce(title, 500);
   const iconDebounced = useDebounce(icon, 500);
-
 
   // 只读模式：已删除的文档或只有查看权限
   const isReadOnly =
@@ -66,21 +71,14 @@ export function EditorContent({
   // 判断是否是文档所有者
   const isOwner = (document as any)?.accessLevel === "owner";
 
-  // 判断是否启用协同编辑：
-  // 1. 文档在工作空间中 + 当前用户有编辑权限
-  // 2. 文档有访客协作者 + 当前用户是协作者且有编辑权限
-  // 3. 他人文档（只读模式也应该能看到别人的光标）
-  const enableCollaboration = useMemo(() => {
-    // 基础检查：文档必须存在，且 ID 匹配
+  // 判断是否需要连接协同 WebSocket
+  // 新逻辑：根据文档状态判断是否需要连接，而不是切换编辑器
+  const shouldConnectCollab = useMemo(() => {
     if (!document) return false;
     if (document.id !== documentId) return false;
 
-    // 只要有任何权限（包括只读），都有资格连接协同
     const accessLevel = (document as any)?.accessLevel;
     if (!accessLevel) return false;
-
-    // 关键逻辑变更：移除 isReadOnly 的限制
-    // 如果是只读用户，也应该进入协同模式以便看到他人的操作
 
     const isPubliclyEditable =
       (document as any)?.isPubliclyEditable ?? false;
@@ -89,8 +87,7 @@ export function EditorContent({
       ?.isCurrentUserCollaborator;
     const isDocumentOwner = (document as any)?.userId === userId;
 
-    // 场景1：他人文档 (非拥有者)
-    // 如果我看别人的文档，我应该连接协同以看到拥有者的操作
+    // 场景1：他人文档（非拥有者）- 需要连接以看到他人操作
     if (!isDocumentOwner) {
       return true;
     }
@@ -108,49 +105,71 @@ export function EditorContent({
     return false;
   }, [document, documentId, userId]);
 
-  // 协同编辑 token（仅在启用协同时获取）
+  // 协同编辑 token（仅在需要连接协同时获取）
   const { data: collabData, isLoading: isTokenLoading } = useCollabToken(
-    enableCollaboration ? documentId : null
+    shouldConnectCollab ? documentId : null
   );
 
   // 协同服务器 URL
   const collabServerUrl =
     process.env.NEXT_PUBLIC_HOCUSPOCUS_URL || "ws://localhost:1234";
 
-  // 处理连接状态变更（将 editor 的状态类型转换为 context 的类型）
+  // 协同配置（null = 本地模式，不连接 WebSocket）
+  const collabConfig = useMemo(() => {
+    if (!shouldConnectCollab || !collabData?.token) {
+      return null;
+    }
+    return {
+      serverUrl: collabServerUrl,
+      token: collabData.token,
+    };
+  }, [shouldConnectCollab, collabData?.token, collabServerUrl]);
+
+  /** 供异步回调读取：关闭协同后仍可能收到「已断开」，此时不应再更新顶栏状态 */
+  const shouldConnectCollabRef = useRef(shouldConnectCollab);
+  shouldConnectCollabRef.current = shouldConnectCollab;
+
+  useEffect(() => {
+    if (!shouldConnectCollab) {
+      setConnectionStatus("idle");
+      setConnectedUsers([]);
+    }
+  }, [shouldConnectCollab, setConnectionStatus, setConnectedUsers]);
+
+  // 处理连接状态变更
   const handleConnectionStatusChange = useCallback(
     (status: EditorConnectionStatus) => {
+      if (!shouldConnectCollabRef.current) {
+        return;
+      }
       setConnectionStatus(status as ConnectionStatus);
     },
     [setConnectionStatus]
   );
 
   // 用户信息
-  const user = useMemo(
-    () => ({
+  const user = useMemo(() => {
+    if (!userId) return undefined;
+    return {
       name: userName || userEmail?.split("@")[0] || "Anonymous",
-      color: generateUserColor(userId || "default"),
-    }),
-    [userId, userName, userEmail]
-  );
+      color: generateUserColor(userId),
+    };
+  }, [userId, userName, userEmail]);
 
-  // 从 query 数据同步到本地 state（用于防抖编辑）
-  // 使用 documentId 作为依赖，只在文档切换时同步，避免更新时的循环
+  // 从 query 数据同步到本地 state
   const prevDocumentIdRef = useRef<string | null>(null);
   const prevTitleRef = useRef<string>("");
   const prevIconRef = useRef<string | null>(null);
   const prevContentRef = useRef<string>("");
 
-  // 初始化完成标志,防止首次加载时触发更新
+  // 初始化完成标志
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    // 当文档加载完成且 documentId 发生变化时，更新本地 state
     if (document) {
       const isDocumentChanged = documentId !== prevDocumentIdRef.current;
 
       if (isDocumentChanged) {
-        // 重置初始化标志
         isInitializedRef.current = false;
 
         prevDocumentIdRef.current = documentId;
@@ -161,26 +180,18 @@ export function EditorContent({
         setTitle(newTitle);
         setIcon(newIcon);
         setContent(newContent);
-        // 文档切换时递增版本，确保 EditorClient 把真实内容快照并注入编辑器
-        // （EditorClient 以空内容挂载时已消耗一次 version=0，
-        //  此处递增才能让真实内容走通更新路径）
-        setContentVersion((v) => v + 1);
 
-        // 重置 refs，避免下次比较时误判
         prevTitleRef.current = newTitle;
         prevIconRef.current = newIcon;
         prevContentRef.current = newContent;
 
-        // 发送文档加载事件，通知其他组件
         window.dispatchEvent(
           new CustomEvent("document-loaded", { detail: document })
         );
 
-        // 延迟设置初始化完成标志,等待防抖值稳定
-        // 这可以防止首次加载时触发不必要的更新
         setTimeout(() => {
           isInitializedRef.current = true;
-        }, 600); // 比防抖时间稍长一点
+        }, 600);
       }
     }
   }, [document, documentId]);
@@ -192,9 +203,8 @@ export function EditorContent({
     }
   }, [error]);
 
-  // 订阅 PDF 转换完成事件，直接将 markdown 写入编辑器
+  // 订阅 PDF 转换完成事件
   useEffect(() => {
-    // 如果页面加载时任务已经完成（极少情况），立即处理
     const existing = getConvertTask(documentId);
     if (existing?.status === "done" && existing.markdown) {
       const tiptapJson = markdownToTiptap(existing.markdown);
@@ -202,7 +212,6 @@ export function EditorContent({
       setContent(jsonStr);
       prevContentRef.current = jsonStr;
       isInitializedRef.current = true;
-      setContentVersion((v) => v + 1);
     }
 
     return subscribeConvertTask(documentId, (task) => {
@@ -211,10 +220,7 @@ export function EditorContent({
         const jsonStr = JSON.stringify(tiptapJson);
         setContent(jsonStr);
         prevContentRef.current = jsonStr;
-        // 确保初始化标志已设置，让防抖保存能触发
         isInitializedRef.current = true;
-        // 递增版本号，让编辑器在挂载完成后异步替换内容
-        setContentVersion((v) => v + 1);
       }
     });
   }, [documentId]);
@@ -222,10 +228,10 @@ export function EditorContent({
   // 防抖保存标题
   useEffect(() => {
     if (
-      !isInitializedRef.current || // 初始化未完成不保存
+      !isInitializedRef.current ||
       !documentId ||
       !document ||
-      isReadOnly || // 只读模式不保存
+      isReadOnly ||
       titleDebounced === document.title ||
       titleDebounced === "" ||
       titleDebounced === prevTitleRef.current
@@ -256,13 +262,13 @@ export function EditorContent({
     updateDocumentMutation.mutate,
   ]);
 
-  // 防抖保存icon
+  // 防抖保存 icon
   useEffect(() => {
     if (
-      !isInitializedRef.current || // 初始化未完成不保存
+      !isInitializedRef.current ||
       !documentId ||
       !document ||
-      isReadOnly || // 只读模式不保存
+      isReadOnly ||
       iconDebounced === document.icon ||
       iconDebounced === prevIconRef.current
     )
@@ -292,13 +298,14 @@ export function EditorContent({
     updateDocumentMutation.mutate,
   ]);
 
-  // 防抖保存内容
+  // 防抖保存内容（仅本地模式，协同模式通过 WebSocket 自动同步）
   useEffect(() => {
     if (
-      !isInitializedRef.current || // 初始化未完成不保存
+      shouldConnectCollab || // 协同模式下不通过 HTTP 保存
+      !isInitializedRef.current ||
       !documentId ||
       !document ||
-      isReadOnly || // 只读模式不保存
+      isReadOnly ||
       contentDebounced === document.content ||
       contentDebounced === prevContentRef.current
     )
@@ -327,6 +334,7 @@ export function EditorContent({
     document?.content,
     document?.deletedAt,
     updateDocumentMutation.mutate,
+    shouldConnectCollab,
   ]);
 
   useEffect(() => {
@@ -337,7 +345,7 @@ export function EditorContent({
     };
   }, []);
 
-  // 转换中：刷新/关标签前警告；若仍离开页面则永久删除未完成文档（非移入垃圾箱）
+  // PDF 转换锁定处理
   useEffect(() => {
     if (!conversionLocked) {
       return;
@@ -430,11 +438,17 @@ export function EditorContent({
     [documentId, updateDocumentMutation.mutate]
   );
 
-  const handleContentChange = useCallback((newContent: string) => {
-    setContent(newContent);
-  }, []);
+  // 编辑器内容变更回调（本地模式需要保存）
+  const handleEditorUpdate = useCallback(
+    (editor: any) => {
+      const jsonContent = JSON.stringify(editor.getJSON());
+      setContent(jsonContent);
+    },
+    []
+  );
 
-  if (isLoading || (enableCollaboration && isTokenLoading)) {
+  // 等待文档加载完成，如果需要协同则等待 token
+  if (isLoading || (shouldConnectCollab && isTokenLoading)) {
     return <EditorLoadingSkeleton className="min-h-full" />;
   }
 
@@ -459,29 +473,19 @@ export function EditorContent({
       />
 
       <div className="max-w-4xl mx-auto px-4 pb-20">
-        {enableCollaboration && collabData?.token && userId ? (
-          // 协同编辑模式
-          <CollaborativeEditorClient
-            key={`${documentId}-collab`}
+        {/* 统一编辑器：始终使用，通过 collabConfig 控制是否连接 WebSocket */}
+        {document && (
+          <UnifiedEditorClient
+            key={documentId}
             documentId={documentId}
-            token={collabData.token}
+            initialContent={content}
             user={user}
-            serverUrl={collabServerUrl}
+            collabConfig={collabConfig}
             readonly={isReadOnly || conversionLocked}
             onConnectedUsersChange={setConnectedUsers}
             onConnectionStatusChange={handleConnectionStatusChange}
+            onUpdate={shouldConnectCollab ? undefined : handleEditorUpdate}
           />
-        ) : (
-          // 传统编辑模式
-          document && (
-            <EditorClient
-              key={documentId}
-              initialContent={content}
-              contentVersion={contentVersion}
-              onChange={handleContentChange}
-              readonly={isReadOnly || conversionLocked}
-            />
-          )
         )}
       </div>
     </div>
