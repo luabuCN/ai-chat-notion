@@ -28,8 +28,6 @@ interface UnifiedEditorClientProps {
   } | null;
   readonly?: boolean;
   placeholder?: string;
-  /** IndexedDB 同步完成回调 */
-  onIndexedDBSynced?: () => void;
   /** WebSocket 同步完成回调 */
   onWebSocketSynced?: () => void;
   onDisconnect?: () => void;
@@ -46,7 +44,6 @@ export const UnifiedEditorClient = memo(
     collabConfig,
     readonly,
     placeholder,
-    onIndexedDBSynced,
     onWebSocketSynced,
     onDisconnect,
     onConnectedUsersChange,
@@ -77,11 +74,6 @@ export const UnifiedEditorClient = memo(
       };
     }, [collabConfig?.serverUrl, collabConfig?.token]);
 
-    const handleIndexedDBSynced = useCallback(() => {
-      console.log("[UnifiedEditor] IndexedDB synced");
-      onIndexedDBSynced?.();
-    }, [onIndexedDBSynced]);
-
     const handleWebSocketSynced = useCallback(() => {
       console.log("[UnifiedEditor] WebSocket synced");
       onWebSocketSynced?.();
@@ -103,7 +95,6 @@ export const UnifiedEditorClient = memo(
         uploadFile={uploadFile}
         readonly={readonly}
         navigate={navigate}
-        onIndexedDBSynced={handleIndexedDBSynced}
         onWebSocketSynced={handleWebSocketSynced}
         onDisconnect={handleDisconnect}
         onConnectedUsersChange={onConnectedUsersChange}

@@ -38,7 +38,7 @@ interface EditorContentProps {
  * 编辑器内容组件
  *
  * 新设计原则：
- * - 始终使用 UnifiedEditor（Yjs + IndexedDB 本地 CRDT）
+ * - 始终使用 UnifiedEditor（Yjs 本地 CRDT）
  * - 开启协同 = 连接 WebSocket（通过 collabConfig prop）
  * - 关闭协同 = 断开连接（collabConfig = null）
  * - 不再切换编辑器组件，避免页面刷新和数据不准确

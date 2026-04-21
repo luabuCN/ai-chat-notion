@@ -9,7 +9,6 @@ import { GripVerticalIcon, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import * as Y from "yjs";
-import { IndexeddbPersistence } from "y-indexeddb";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { DocumentLink } from "./tiptap/extensions/document-link";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
@@ -40,7 +39,6 @@ export interface UnifiedEditorProps {
   placeholder?: string;
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
-  onIndexedDBSynced?: () => void;
   onWebSocketSynced?: () => void;
   onDisconnect?: () => void;
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
@@ -74,7 +72,6 @@ export function UnifiedEditor({
   placeholder,
   onCreate,
   onUpdate,
-  onIndexedDBSynced,
   onWebSocketSynced,
   onDisconnect,
   onConnectedUsersChange,
@@ -102,8 +99,6 @@ export function UnifiedEditor({
     }
   }, []);
 
-  const onIndexedDBSyncedRef = useRef(onIndexedDBSynced);
-  onIndexedDBSyncedRef.current = onIndexedDBSynced;
   const onWebSocketSyncedRef = useRef(onWebSocketSynced);
   onWebSocketSyncedRef.current = onWebSocketSynced;
   const onDisconnectRef = useRef(onDisconnect);
@@ -142,9 +137,6 @@ export function UnifiedEditor({
   // 创建 Yjs 文档
   const ydoc = useMemo(() => new Y.Doc(), [documentId]);
 
-  // IndexedDB 状态
-  const [isIndexedDBSynced, setIsIndexedDBSynced] = useState(false);
-  const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const [isWebSocketSynced, setIsWebSocketSynced] = useState(!collabConfig);
 
   // 延迟渲染状态
@@ -156,31 +148,6 @@ export function UnifiedEditor({
     }, 0);
     return () => clearTimeout(timer);
   }, []);
-
-  // 初始化 IndexedDB
-  useEffect(() => {
-    if (!documentId) return;
-
-    setIsIndexedDBSynced(false);
-    const persistence = new IndexeddbPersistence(
-      `unified-editor-${documentId}`,
-      ydoc
-    );
-    persistenceRef.current = persistence;
-
-    persistence.on("synced", () => {
-      console.log(`[IndexedDB] Local data synced for ${documentId}`);
-      if (isMountedRef.current) {
-        setIsIndexedDBSynced(true);
-        onIndexedDBSyncedRef.current?.();
-      }
-    });
-
-    return () => {
-      persistence.destroy();
-      persistenceRef.current = null;
-    };
-  }, [documentId, ydoc]);
 
   useEffect(() => {
     connectedUsersSigRef.current = "";
@@ -382,8 +349,8 @@ export function UnifiedEditor({
 
   useEffect(() => {
     const hasFinishedInitialSync = collabConfig
-      ? isIndexedDBSynced && isWebSocketSynced
-      : isIndexedDBSynced;
+      ? isWebSocketSynced
+      : true;
 
     if (
       !editor ||
@@ -410,7 +377,6 @@ export function UnifiedEditor({
     collabConfig,
     editor,
     initialContent,
-    isIndexedDBSynced,
     isWebSocketSynced,
     ydoc,
   ]);
@@ -440,19 +406,6 @@ export function UnifiedEditor({
 
   if (!isClientReady) {
     return null;
-  }
-
-  if (!isIndexedDBSynced) {
-    return (
-      <div
-        className={`${className} flex items-center justify-center min-h-[200px]`}
-      >
-        <div className="text-center text-muted-foreground">
-          <div className="animate-spin h-6 w-6 border-2 border-current border-t-transparent rounded-full mx-auto mb-2" />
-          <span className="text-sm">加载本地数据...</span>
-        </div>
-      </div>
-    );
   }
 
   if (readonly) {
