@@ -1,8 +1,5 @@
-import { offset } from "@floating-ui/dom";
-import DragHandle from "@tiptap/extension-drag-handle-react";
 import { Placeholder } from "@tiptap/extensions";
 import { Content, Editor, EditorContent, useEditor } from "@tiptap/react";
-import { GripVerticalIcon, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePreviewControlled } from "@repo/ui";
 import { toast } from "sonner";
@@ -16,9 +13,10 @@ import {
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
+import { BlockDragHandleToolbar } from "./components/block-drag-handle-toolbar";
 import AIPanel from "./components/ai-panel";
-import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { TableOfContents } from "./components/table-of-contents";
+import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 
 /** 监听图片预览自定义事件，用 PhotoSlider 受控模式展示全屏预览（避免 React 19 element.ref 报错） */
@@ -181,25 +179,10 @@ export function TiptapEditor({
       <ImagePreviewPortal />
       {editor && (
         <>
-          <DragHandle
+          <BlockDragHandleToolbar
             editor={editor}
-            className="transition-all duration-300 ease-in-out"
-            computePositionConfig={{
-              middleware: [offset(20)],
-            }}
-          >
-            <div className="flex items-center gap-1 -ml-2">
-              <div
-                className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
-                onClick={handleSlashCommand}
-              >
-                <Plus className="size-3.5 text-muted-foreground" />
-              </div>
-              <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
-                <GripVerticalIcon className="size-3.5 text-muted-foreground" />
-              </div>
-            </div>
-          </DragHandle>
+            onAddClick={handleSlashCommand}
+          />
           <EditorContent
             editor={editor}
             className="prose dark:prose-invert focus:outline-none max-w-full z-0"

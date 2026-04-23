@@ -64,6 +64,10 @@ interface EditorHeaderProps {
   sourcePdfUrl?: string | null;
   /** 扩展侧栏等从网页剪藏时保存的原站 URL，用于标题旁标识与跳转 */
   sourcePageUrl?: string | null;
+  /** 全宽模式 */
+  isFullWidth?: boolean;
+  /** 全宽模式切换 */
+  onFullWidthChange?: (checked: boolean) => void;
 }
 
 export function EditorHeader({
@@ -89,6 +93,8 @@ export function EditorHeader({
   conversionLocked = false,
   sourcePdfUrl = null,
   sourcePageUrl = null,
+  isFullWidth = false,
+  onFullWidthChange,
 }: EditorHeaderProps) {
   const { open } = useSidebar();
   const { width: windowWidth } = useWindowSize();
@@ -324,6 +330,8 @@ export function EditorHeader({
               isOwner={isOwner}
               sourcePdfUrl={sourcePdfUrl}
               sourcePageUrl={sourcePageUrl}
+              isFullWidth={isFullWidth}
+              onFullWidthChange={onFullWidthChange}
             />
           </>
         )}

@@ -14,6 +14,10 @@ interface EditorHeaderWrapperProps {
   currentUserId?: string;
   currentUserName?: string;
   currentUserEmail?: string;
+  /** 全宽模式 */
+  isFullWidth?: boolean;
+  /** 全宽模式切换 */
+  onFullWidthChange?: (checked: boolean) => void;
 }
 
 export function EditorHeaderWrapper({
@@ -23,6 +27,8 @@ export function EditorHeaderWrapper({
   currentUserId,
   currentUserName,
   currentUserEmail,
+  isFullWidth = false,
+  onFullWidthChange,
 }: EditorHeaderWrapperProps) {
   const { data: document } = useGetDocument(documentId);
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -109,6 +115,8 @@ export function EditorHeaderWrapper({
       documentOwnerId={document?.userId}
       hasCollaborators={(document as any)?.hasCollaborators ?? false}
       publicShareToken={(document as any)?.publicShareToken ?? null}
+      isFullWidth={isFullWidth}
+      onFullWidthChange={onFullWidthChange}
     />
   );
 }

@@ -55,6 +55,26 @@ export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
           return false;
         }
 
+        // Don't show when image or attachment is selected
+        if (editor.isActive("image") || editor.isActive("attachment")) {
+          return false;
+        }
+
+        // Check if selection is within an image node (prevents conflict with media bubble menu)
+        const { $from, $to } = selection;
+        const isImageSelected =
+          $from.path.some((_, depth) => {
+            const n = $from.node(depth);
+            return n && n.type && n.type.name === "image";
+          }) || $to.path.some((_, depth) => {
+            const n = $to.node(depth);
+            return n && n.type && n.type.name === "image";
+          });
+
+        if (isImageSelected) {
+          return false;
+        }
+
         if (!isTextSelection(selection)) {
           return false;
         }

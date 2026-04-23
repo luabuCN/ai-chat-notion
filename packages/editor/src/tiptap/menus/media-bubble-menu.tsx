@@ -8,7 +8,7 @@ import {
 import { Input } from "@repo/ui/input";
 import { Editor } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { LinkIcon, Trash2Icon } from "lucide-react";
+import { LinkIcon, Trash2Icon, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 import { useState } from "react";
 import { useAIPanelStore } from "../../components/ai-panel/ai-panel-store";
 
@@ -26,6 +26,12 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
   const handleDelete = () => {
     editor.chain().focus().deleteSelection().run();
   };
+
+  const setAlignment = (align: "left" | "center" | "right") => {
+    editor.chain().focus().updateAttributes("image", { alignment: align }).run();
+  };
+
+  const currentAlignment = editor.isActive("image") ? editor.getAttributes("image").alignment || "center" : "center";
 
   const openReplaceDialog = () => {
     if (editor.isActive("image")) {
@@ -80,6 +86,37 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
         }}
       >
         <div className="flex items-center gap-1 rounded-md border bg-popover p-1 shadow-xl">
+          <>
+            <div className="flex items-center gap-0.5 border-r pr-1 mr-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-8 w-8 p-0 ${currentAlignment === "left" ? "bg-accent" : ""}`}
+                onClick={() => setAlignment("left")}
+                title="左对齐"
+              >
+                <AlignLeft className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-8 w-8 p-0 ${currentAlignment === "center" ? "bg-accent" : ""}`}
+                onClick={() => setAlignment("center")}
+                title="居中"
+              >
+                <AlignCenter className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-8 w-8 p-0 ${currentAlignment === "right" ? "bg-accent" : ""}`}
+                onClick={() => setAlignment("right")}
+                title="右对齐"
+              >
+                <AlignRight className="size-4" />
+              </Button>
+            </div>
+          </>
           <Button
             variant="ghost"
             size="sm"

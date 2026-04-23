@@ -1,25 +1,54 @@
-import { offset } from "@floating-ui/dom";
 import { HocuspocusProvider } from "@hocuspocus/provider";
-import DragHandle from "@tiptap/extension-drag-handle-react";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { Placeholder } from "@tiptap/extensions";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
-import { GripVerticalIcon, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ImagePreviewControlled } from "@repo/ui";
 import { toast } from "sonner";
 import * as Y from "yjs";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { DocumentLink } from "./tiptap/extensions/document-link";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
+import {
+  TIPTAP_IMAGE_PREVIEW_EVENT,
+  type TiptapImagePreviewDetail,
+} from "./tiptap/extensions/image/image";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
+import { BlockDragHandleToolbar } from "./components/block-drag-handle-toolbar";
 import AIPanel from "./components/ai-panel";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
+
+/** 监听图片预览自定义事件，用受控模式展示全屏预览（与 tiptap-editor 一致） */
+function ImagePreviewPortal() {
+  const [state, setState] = useState<{ src: string; visible: boolean } | null>(
+    null
+  );
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<TiptapImagePreviewDetail>).detail;
+      setState({ src: detail.src, visible: true });
+    };
+    window.addEventListener(TIPTAP_IMAGE_PREVIEW_EVENT, handler);
+    return () => window.removeEventListener(TIPTAP_IMAGE_PREVIEW_EVENT, handler);
+  }, []);
+
+  if (!state) return null;
+
+  return (
+    <ImagePreviewControlled
+      src={state.src}
+      visible={state.visible}
+      onClose={() => setState(null)}
+    />
+  );
+}
 
 export interface CollaborativeUser {
   name: string;
@@ -416,35 +445,21 @@ export function UnifiedEditor({
           className="prose dark:prose-invert focus:outline-none max-w-full z-0"
         />
         <TableOfContents editor={editor} />
+        <ImagePreviewPortal />
       </div>
     );
   }
 
   return (
     <div className={className} key={editorKey}>
+      <ImagePreviewPortal />
       {/* 编辑器主体 */}
       {editor && (
         <>
-          <DragHandle
+          <BlockDragHandleToolbar
             editor={editor}
-            className="transition-all duration-300 ease-in-out"
-            computePositionConfig={{
-              middleware: [offset(20)],
-            }}
-          >
-            <div className="flex items-center gap-1 -ml-2">
-              <button
-                type="button"
-                className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
-                onClick={handleSlashCommand}
-              >
-                <Plus className="size-3.5 text-muted-foreground" />
-              </button>
-              <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
-                <GripVerticalIcon className="size-3.5 text-muted-foreground" />
-              </div>
-            </div>
-          </DragHandle>
+            onAddClick={handleSlashCommand}
+          />
           <EditorContent
             editor={editor}
             className="prose dark:prose-invert focus:outline-none max-w-full z-0"

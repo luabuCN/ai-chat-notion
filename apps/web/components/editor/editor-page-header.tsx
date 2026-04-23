@@ -26,6 +26,8 @@ interface EditorPageHeaderProps {
   readonly?: boolean;
   isOwner?: boolean; // 是否是文档所有者，控制标题/图标/封面的编辑权限
   isLoggedIn?: boolean;
+  /** 全宽模式 */
+  isFullWidth?: boolean;
   onAddComment?: () => void;
 }
 
@@ -42,6 +44,7 @@ export function EditorPageHeader({
   readonly = false,
   isOwner = true, // 默认为 true，保持向后兼容
   isLoggedIn = false,
+  isFullWidth = false,
   onAddComment,
 }: EditorPageHeaderProps) {
   const router = useRouter();
@@ -138,7 +141,7 @@ export function EditorPageHeader({
       />
 
       {/* 内容区域 */}
-      <div className="max-w-4xl mx-auto px-16">
+      <div className={isFullWidth ? "px-20" : "max-w-4xl mx-auto px-16"}>
         {/* 图标区域 - 有封面时显示在封面下方偏移位置 */}
         {icon && (
           <div className={cover ? "-mt-10 mb-4 relative z-10" : "mt-8 mb-4"}>

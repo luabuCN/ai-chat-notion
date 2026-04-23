@@ -1,6 +1,7 @@
 import { Editor } from "@tiptap/react";
 import { Button } from "@repo/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/popover";
+import { cn } from "../../../lib/utils";
 import {
   WandSparkles,
   ChevronDown,
@@ -12,6 +13,7 @@ import {
   MicVocal,
 } from "lucide-react";
 import { useAIPanelStore } from "../../../components/ai-panel/ai-panel-store";
+import { BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS } from "../bubble-menu-z";
 import { useState } from "react";
 
 interface AiSelectorProps {
@@ -84,7 +86,7 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[200px] p-1"
+        className={cn("w-[200px] p-1", BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS)}
         onMouseLeave={() => {
           setShowLanguages(false);
           setShowTones(false);
@@ -122,7 +124,7 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
             <ChevronDown className="w-3 h-3 ml-auto -rotate-90" />
           </Button>
           {showLanguages && (
-            <div className="absolute left-full top-0 ml-1 w-[150px] rounded-md border bg-popover p-1 shadow-md">
+            <div className="absolute left-full top-0 z-10 ml-1 w-[150px] rounded-md border bg-popover p-1 shadow-md">
               {languages.map((lang) => (
                 <Button
                   key={lang}
@@ -158,7 +160,7 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
             <ChevronDown className="w-3 h-3 ml-auto -rotate-90" />
           </Button>
           {showTones && (
-            <div className="absolute left-full top-0 ml-1 w-[150px] rounded-md border bg-popover p-1 shadow-md">
+            <div className="absolute left-full top-0 z-10 ml-1 w-[150px] rounded-md border bg-popover p-1 shadow-md">
               {tones.map((tone) => (
                 <Button
                   key={tone}

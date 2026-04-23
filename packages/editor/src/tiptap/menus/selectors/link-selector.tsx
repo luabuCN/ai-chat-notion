@@ -12,6 +12,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { useRef } from "react";
+import { BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS } from "../bubble-menu-z";
 
 export const LinkSelector = ({ editor }: { editor: Editor }) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +67,10 @@ export const LinkSelector = ({ editor }: { editor: Editor }) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-full min-w-80 p-1"
+        className={cn(
+          "w-full min-w-80 p-1",
+          BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS
+        )}
         align="start"
         sideOffset={5}
       >

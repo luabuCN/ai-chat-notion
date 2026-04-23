@@ -15,6 +15,11 @@
   z-index: 99999 !important;
 }
 
+/* Portaled 的 Ask AI / 链接等 Popover 需高于上方面值，否则子菜单会叠在横栏按钮下 */
+.bubble-menu-portal-popover-elevate {
+  z-index: 100000 !important;
+}
+
 .tiptap {
   overflow: auto hidden;
   outline: none;

@@ -5,6 +5,7 @@ import { CollaborationProvider } from "./collaboration-context";
 import { EditorHeaderWrapper } from "./editor-header-wrapper";
 import { EditorContent } from "./editor-content";
 import { useSidebar } from "@repo/ui";
+import { useLocalStorage } from "usehooks-ts";
 import {
   useConvertTask,
   isConvertTaskPipelineBusy,
@@ -27,6 +28,7 @@ export function EditorPageClient({
 }: EditorPageClientProps) {
   const { state, isMobile } = useSidebar();
   const [mounted, setMounted] = useState(false);
+  const [isFullWidth, setIsFullWidth] = useLocalStorage("editor-full-width", false);
   const convertTask = useConvertTask(documentId);
   const conversionLocked = isConvertTaskPipelineBusy(convertTask);
 
@@ -62,6 +64,8 @@ export function EditorPageClient({
             currentUserId={userId}
             currentUserName={userName}
             currentUserEmail={userEmail}
+            isFullWidth={isFullWidth}
+            onFullWidthChange={setIsFullWidth}
           />
         </div>
         {/* overflow-y-auto：让内容在此容器内滚动，而非 body */}
@@ -73,6 +77,7 @@ export function EditorPageClient({
             userId={userId}
             userName={userName}
             userEmail={userEmail}
+            isFullWidth={isFullWidth}
           />
         </div>
       </div>

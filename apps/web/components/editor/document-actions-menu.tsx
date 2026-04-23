@@ -11,6 +11,8 @@ import {
   Trash2,
   FileDown,
   Globe,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import {
   Button,
@@ -19,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from "@repo/ui";
 import {
   useGetDocument,
@@ -39,6 +42,10 @@ interface DocumentActionsMenuProps {
   sourcePdfUrl?: string | null;
   /** 网页剪藏时保存的原站 URL，存在则显示「打开原网页」 */
   sourcePageUrl?: string | null;
+  /** 全宽模式状态 */
+  isFullWidth?: boolean;
+  /** 全宽模式切换回调 */
+  onFullWidthChange?: (checked: boolean) => void;
 }
 
 export function DocumentActionsMenu({
@@ -47,6 +54,8 @@ export function DocumentActionsMenu({
   isOwner = false,
   sourcePdfUrl = null,
   sourcePageUrl = null,
+  isFullWidth = false,
+  onFullWidthChange,
 }: DocumentActionsMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -151,6 +160,16 @@ export function DocumentActionsMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {/* 全宽切换 - 所有人可见 */}
+          <DropdownMenuItem onClick={() => onFullWidthChange?.(!isFullWidth)}>
+            {isFullWidth ? (
+              <Minimize2 className="mr-2 h-4 w-4" />
+            ) : (
+              <Maximize2 className="mr-2 h-4 w-4" />
+            )}
+            {isFullWidth ? "退出全宽" : "全宽"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {/* 仅文档所有者可见：创建副本 */}
           {isOwner && (
             <DropdownMenuItem onClick={handleDuplicate}>

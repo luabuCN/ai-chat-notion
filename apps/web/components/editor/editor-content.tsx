@@ -32,6 +32,8 @@ interface EditorContentProps {
   userId?: string;
   userName?: string;
   userEmail?: string;
+  /** 全宽模式 */
+  isFullWidth?: boolean;
 }
 
 /**
@@ -50,6 +52,7 @@ export function EditorContent({
   userId,
   userName,
   userEmail,
+  isFullWidth = false,
 }: EditorContentProps) {
   const { data: document, isLoading, error } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
@@ -470,9 +473,10 @@ export function EditorContent({
         readonly={isReadOnly || conversionLocked}
         isOwner={isOwner}
         isLoggedIn={!!userId}
+        isFullWidth={isFullWidth}
       />
 
-      <div className="max-w-4xl mx-auto px-4 pb-20">
+      <div className={isFullWidth ? "mx-auto px-8 pb-20" : "max-w-4xl mx-auto px-4 pb-20"}>
         {/* 统一编辑器：始终使用，通过 collabConfig 控制是否连接 WebSocket */}
         {document && (
           <UnifiedEditorClient
