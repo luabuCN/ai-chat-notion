@@ -19,6 +19,7 @@ import { Attachment } from "./extensions/attachment";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 
 const TiptapStarterKit = StarterKit.configure({
+  undoRedo: false, // 禁用 StarterKit 的 UndoRedo，由 Collaboration 扩展统一管理 undo/redo
   bulletList: {
     HTMLAttributes: {
       class: cn("list-disc list-outside leading-3 -mt-2"),

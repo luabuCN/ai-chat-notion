@@ -153,6 +153,11 @@
 .tiptap.ProseMirror img.ProseMirror-selectednode {
   filter: brightness(90%);
 }
+/* 文本光标编辑或只读时隐藏图片缩放手柄，避免与正文编辑抢视觉 */
+.tiptap.ProseMirror.pm-hide-image-resize .image-resize-handle {
+  opacity: 0 !important;
+  pointer-events: none;
+}
 .tiptap.ProseMirror th,
 .tiptap td {
   position: relative;

@@ -1,12 +1,34 @@
 import Image from "@tiptap/extension-image";
 import type { Node } from "@tiptap/pm/model";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
 
 /** 自定义事件：点击预览按钮时派发，全局 ImagePreviewPortal 监听并展示预览 */
 export const TIPTAP_IMAGE_PREVIEW_EVENT = "tiptap-image-preview";
 
 export type TiptapImagePreviewDetail = { src: string };
 
-function buildNodeView(node: Node, view: any, getPos: () => number | undefined) {
+const imageResizeVisibilityKey = new PluginKey("imageResizeVisibility");
+
+function getImageResizeMinWidthPx(wrapper: HTMLElement): number {
+  const prose = wrapper.closest(".ProseMirror");
+  let containerW = 0;
+  if (prose instanceof HTMLElement && prose.clientWidth > 0) {
+    containerW = prose.clientWidth;
+  } else if (wrapper.parentElement instanceof HTMLElement) {
+    containerW = wrapper.parentElement.clientWidth;
+  }
+  if (containerW <= 0) {
+    return 20;
+  }
+  return Math.max(20, Math.floor(containerW * 0.3));
+}
+
+function buildNodeView(
+  node: Node,
+  view: EditorView,
+  getPos: () => number | undefined
+) {
   const { src, alt, title, width, alignment } = node.attrs as {
     src: string;
     alt: string | null;
@@ -35,13 +57,15 @@ function buildNodeView(node: Node, view: any, getPos: () => number | undefined) 
   const leftHandle = document.createElement("div");
   leftHandle.className =
     "image-resize-handle image-resize-handle-left opacity-0 group-hover:opacity-100 absolute top-0 bottom-0 left-0 w-5 cursor-ew-resize flex items-center justify-center z-10";
-  leftHandle.innerHTML = '<div class="h-16 w-2 rounded-full bg-blue-500 shadow-lg"></div>';
+  leftHandle.innerHTML =
+    '<div class="h-16 w-2 rounded-full bg-neutral-500/45 shadow-sm ring-1 ring-black/5 dark:bg-neutral-400/40 dark:ring-white/10"></div>';
 
   // Right resize handle
   const rightHandle = document.createElement("div");
   rightHandle.className =
     "image-resize-handle image-resize-handle-right opacity-0 group-hover:opacity-100 absolute top-0 bottom-0 right-0 w-5 cursor-ew-resize flex items-center justify-center z-10";
-  rightHandle.innerHTML = '<div class="h-16 w-2 rounded-full bg-blue-500 shadow-lg"></div>';
+  rightHandle.innerHTML =
+    '<div class="h-16 w-2 rounded-full bg-neutral-500/45 shadow-sm ring-1 ring-black/5 dark:bg-neutral-400/40 dark:ring-white/10"></div>';
 
   const overlay = document.createElement("div");
   overlay.className = "absolute right-3 top-3 opacity-60 transition-opacity group-hover:opacity-100";
@@ -88,8 +112,10 @@ function buildNodeView(node: Node, view: any, getPos: () => number | undefined) 
   const handleResizeMove = (e: MouseEvent) => {
     if (!isResizing) return;
     const delta = e.clientX - startX;
-    const newWidth = resizeSide === "right" ? startWidth + delta : startWidth - delta;
-    if (newWidth >= 20) {
+    const newWidth =
+      resizeSide === "right" ? startWidth + delta : startWidth - delta;
+    const minW = getImageResizeMinWidthPx(wrapper);
+    if (newWidth >= minW) {
       img.style.width = `${newWidth}px`;
     }
   };
@@ -97,7 +123,12 @@ function buildNodeView(node: Node, view: any, getPos: () => number | undefined) 
   const handleResizeEnd = () => {
     if (!isResizing) return;
     isResizing = false;
-    const newWidth = img.offsetWidth;
+    const minW = getImageResizeMinWidthPx(wrapper);
+    let newWidth = img.offsetWidth;
+    if (newWidth < minW) {
+      newWidth = minW;
+      img.style.width = `${newWidth}px`;
+    }
     const pos = getPos();
     if (typeof pos === "number" && pos >= 0) {
       const tr = view.state.tr.setNodeMarkup(pos, undefined, {
@@ -110,13 +141,48 @@ function buildNodeView(node: Node, view: any, getPos: () => number | undefined) 
     document.removeEventListener("mouseup", handleResizeEnd);
   };
 
-  leftHandle.addEventListener("mousedown", (e) => handleResizeStart(e, "left"));
-  rightHandle.addEventListener("mousedown", (e) => handleResizeStart(e, "right"));
+  if (view.editable) {
+    leftHandle.addEventListener("mousedown", (e) =>
+      handleResizeStart(e, "left")
+    );
+    rightHandle.addEventListener("mousedown", (e) =>
+      handleResizeStart(e, "right")
+    );
+  } else {
+    leftHandle.style.display = "none";
+    rightHandle.style.display = "none";
+  }
 
   return { wrapper, img };
 }
 
 export const TiptapImage = Image.extend({
+  addProseMirrorPlugins() {
+    const parentPlugins = this.parent?.() ?? [];
+    return [
+      ...parentPlugins,
+      new Plugin({
+        key: imageResizeVisibilityKey,
+        view: (editorView) => {
+          const sync = () => {
+            const hide =
+              !editorView.editable ||
+              editorView.state.selection instanceof TextSelection;
+            editorView.dom.classList.toggle("pm-hide-image-resize", hide);
+          };
+          sync();
+          return {
+            update: () => {
+              sync();
+            },
+            destroy: () => {
+              editorView.dom.classList.remove("pm-hide-image-resize");
+            },
+          };
+        },
+      }),
+    ];
+  },
   addAttributes() {
     return {
       ...this.parent?.(),
