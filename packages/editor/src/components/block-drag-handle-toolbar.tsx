@@ -4,9 +4,12 @@ import DragHandle from "@tiptap/extension-drag-handle-react";
 import { GripVerticalIcon, Plus } from "lucide-react";
 import type { MouseEvent } from "react";
 
+import type { DragHandleNodePayload } from "../hooks/use-slash-command";
+
 export type BlockDragHandleToolbarProps = {
   editor: Editor;
   onAddClick: (e: MouseEvent<HTMLButtonElement>) => void;
+  onDragHandleNodeChange?: (payload: DragHandleNodePayload) => void;
 };
 
 /**
@@ -15,10 +18,12 @@ export type BlockDragHandleToolbarProps = {
 export function BlockDragHandleToolbar({
   editor,
   onAddClick,
+  onDragHandleNodeChange,
 }: BlockDragHandleToolbarProps) {
   return (
     <DragHandle
       editor={editor}
+      onNodeChange={onDragHandleNodeChange}
       className="transition-all duration-300 ease-in-out"
       computePositionConfig={{
         middleware: [offset(20)],

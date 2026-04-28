@@ -39,6 +39,7 @@ export const CodeBlockBubbleMenu = ({ editor }: { editor: Editor | null }) => {
   return (
     <BubbleMenu
       editor={editor}
+      pluginKey="editorCodeBlockBubbleMenu"
       shouldShow={() =>
         editor.isActive("codeBlock") && !isThinking && !isStreaming
       }

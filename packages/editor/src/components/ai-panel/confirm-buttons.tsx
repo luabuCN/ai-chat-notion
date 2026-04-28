@@ -5,7 +5,7 @@ import { useAIPanelStore } from "./ai-panel-store";
 export default function ConfirmButtons() {
   return (
     <div id="ai-confirm-buttons" className="mt-1 inline-flex">
-      <div className="rounded-md border bg-popover p-1 text-popover-foreground">
+      <div className="rounded-xl border border-violet-200/70 bg-white/95 p-1 text-popover-foreground shadow-xl ring-1 ring-violet-100/80 backdrop-blur dark:border-violet-500/25 dark:bg-background/95 dark:ring-violet-500/15">
         <ReplaceButton />
         <InsertBelowButton />
         <DiscardButton />

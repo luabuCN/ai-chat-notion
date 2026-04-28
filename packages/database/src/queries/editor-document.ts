@@ -149,7 +149,12 @@ export async function updateEditorDocument({
   try {
     const data: any = {};
     if (title !== undefined) data.title = title;
-    if (content !== undefined) data.content = content;
+    if (content !== undefined) {
+      data.content = content;
+      // Non-collab saves update the JSON snapshot. Drop any older Yjs snapshot so
+      // the collab server rebuilds from the latest content on the next connect.
+      data.yjsState = null;
+    }
     if (icon !== undefined) data.icon = icon;
     if (coverImage !== undefined) data.coverImage = coverImage;
     if (coverImageType !== undefined) data.coverImageType = coverImageType;
@@ -263,18 +268,29 @@ export async function enablePublicEditEditorDocument({ id }: { id: string }) {
   try {
     const existing = await prisma.editorDocument.findUnique({
       where: { id },
-      select: { publicShareToken: true },
+      select: {
+        publicShareToken: true,
+        isPubliclyEditable: true,
+        _count: {
+          select: { collaborators: true },
+        },
+      },
     });
 
     const publicShareToken =
       existing?.publicShareToken ||
-      require("crypto").randomBytes(32).toString("hex");
+      `${globalThis.crypto.randomUUID()}${globalThis.crypto.randomUUID()}`
+        .replaceAll("-", "")
+        .slice(0, 64);
+    const shouldResetYjsState =
+      !existing?.isPubliclyEditable && existing?._count.collaborators === 0;
 
     return await prisma.editorDocument.update({
       where: { id },
       data: {
         isPubliclyEditable: true,
         publicShareToken,
+        ...(shouldResetYjsState && { yjsState: null }),
       },
     });
   } catch (_error) {

@@ -37,6 +37,7 @@ export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
   return (
     <BubbleMenu
       editor={editor}
+      pluginKey="editorDefaultBubbleMenu"
       className="bubbleMenu-floating"
       options={{
         placement: "top",
@@ -62,14 +63,16 @@ export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
 
         // Check if selection is within an image node (prevents conflict with media bubble menu)
         const { $from, $to } = selection;
-        const isImageSelected =
-          $from.path.some((_, depth) => {
-            const n = $from.node(depth);
-            return n && n.type && n.type.name === "image";
-          }) || $to.path.some((_, depth) => {
-            const n = $to.node(depth);
-            return n && n.type && n.type.name === "image";
-          });
+        const isImageSelected = [$from, $to].some((position) => {
+          let depth = position.depth;
+          while (depth >= 0) {
+            if (position.node(depth).type.name === "image") {
+              return true;
+            }
+            depth -= 1;
+          }
+          return false;
+        });
 
         if (isImageSelected) {
           return false;

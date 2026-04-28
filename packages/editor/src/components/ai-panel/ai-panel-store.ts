@@ -5,6 +5,7 @@ import {
   getStreamOptions,
   buildUserPromptMessage,
   buildPresetPromptMessage,
+  getEditorSelectedContent,
 } from "./util";
 import { AIStreamRequest } from "./types";
 import scrollIntoView from "scroll-into-view-if-needed";
@@ -37,6 +38,129 @@ const cleanMarks = (node: any): any => {
   }
 
   return node;
+};
+
+const buildInlinePreviewContent = (text: string) => {
+  const lines = text.split("\n");
+  return lines.flatMap((line, index) => {
+    const content: Array<{ type: string; text?: string }> = line
+      ? [{ type: "text", text: line }]
+      : [];
+    if (index < lines.length - 1) {
+      content.push({ type: "hardBreak" });
+    }
+    return content;
+  });
+};
+
+const buildPlainTextBlockContent = (text: string) => ({
+  type: "paragraph",
+  content: buildInlinePreviewContent(text),
+});
+
+const parseMarkdownContent = (editor: Editor, markdown: string) => {
+  const manager = (editor as any).storage.markdown?.manager;
+  if (!manager) {
+    return markdown;
+  }
+
+  const processedMarkdown = markdown.replace(/^(#{1,6})([^\s#])/gm, "$1 $2");
+  const json = manager.parse(processedMarkdown);
+  return cleanMarks(json.type === "doc" ? json.content : json);
+};
+
+const getCurrentBlockRange = (editor: Editor) => {
+  const { selection } = editor.state;
+  const depth = Math.min(1, selection.$from.depth);
+
+  if (depth === 0) {
+    return {
+      from: selection.from,
+      to: selection.to,
+    };
+  }
+
+  return {
+    from: selection.$from.before(depth),
+    to: selection.$from.after(depth),
+  };
+};
+
+const SCROLL_MARGIN = 96;
+const INLINE_STREAM_RENDER_INTERVAL = 48;
+
+function findNearestVerticalScrollParent(from: HTMLElement | null): HTMLElement | null {
+  let node: HTMLElement | null = from;
+
+  while (node) {
+    if (node === document.documentElement || node === document.body) {
+      break;
+    }
+
+    const style = window.getComputedStyle(node);
+    const overflowY = style.overflowY;
+
+    if (
+      (overflowY === "auto" ||
+        overflowY === "scroll" ||
+        overflowY === "overlay") &&
+      node.scrollHeight > node.clientHeight + 1
+    ) {
+      return node;
+    }
+
+    node = node.parentElement;
+  }
+
+  return null;
+}
+
+const scrollCaretIntoReadableView = (editor: Editor) => {
+  const view = editor.view;
+  const pos = editor.state.selection.anchor;
+  let caretRect: { top: number; bottom: number };
+
+  try {
+    const coords = view.coordsAtPos(pos);
+    caretRect = {
+      top: coords.top,
+      bottom: coords.bottom,
+    };
+  } catch {
+    return;
+  }
+
+  const dom = view.dom as HTMLElement;
+  let scrollParent = findNearestVerticalScrollParent(dom);
+
+  while (scrollParent) {
+    const parentRect = scrollParent.getBoundingClientRect();
+
+    if (caretRect.bottom > parentRect.bottom - SCROLL_MARGIN) {
+      scrollParent.scrollTop += caretRect.bottom - parentRect.bottom + SCROLL_MARGIN;
+    } else if (caretRect.top < parentRect.top + SCROLL_MARGIN) {
+      scrollParent.scrollTop += caretRect.top - parentRect.top - SCROLL_MARGIN;
+    }
+
+    scrollParent = findNearestVerticalScrollParent(scrollParent.parentElement);
+  }
+
+  const viewportBottom = window.innerHeight;
+
+  if (caretRect.bottom > viewportBottom - SCROLL_MARGIN) {
+    window.scrollBy({
+      top: caretRect.bottom - viewportBottom + SCROLL_MARGIN,
+      left: 0,
+      behavior: "auto",
+    });
+  }
+
+  scrollIntoView(dom, {
+    scrollMode: "if-needed",
+    block: "nearest",
+    behavior: "auto",
+    skipOverflowHiddenElements: true,
+  });
 };
 
 // 触发来源模式
@@ -88,6 +212,7 @@ interface AIPanelState {
   replaceResult: () => void;
   discardResult: () => void;
   startStream: (request: AIStreamRequest) => Promise<void>;
+  startInlineStream: (request: AIStreamRequest) => Promise<void>;
   stopStream: () => void;
   retryStream: () => void;
   insertBelow: () => void;
@@ -348,18 +473,182 @@ export const store = create<AIPanelState>()((set, get) => ({
     }
   },
 
+  // Stream directly into the document for insertion-style AI writing.
+  startInlineStream: async (request: AIStreamRequest) => {
+    get().stopStream();
+
+    const { editor } = get();
+    if (!editor) return;
+
+    const wasEditable = editor.isEditable;
+    editor.setEditable(false);
+
+    const controller = new AbortController();
+    const insertRange = getCurrentBlockRange(editor);
+    const insertFrom = insertRange.from;
+    let insertTo = insertRange.to;
+    let streamedMarkdown = "";
+    let hasRenderedContent = false;
+    let hasRenderedFormattedContent = false;
+    let lastRenderAt = 0;
+
+    const renderInlineContent = (force = false) => {
+      if (!streamedMarkdown) return;
+
+      const now = Date.now();
+      if (!force && now - lastRenderAt < INLINE_STREAM_RENDER_INTERVAL) {
+        return;
+      }
+
+      let contentToInsert: any;
+      let isFormattedContent = false;
+
+      try {
+        contentToInsert = parseMarkdownContent(editor, streamedMarkdown);
+        isFormattedContent = true;
+      } catch {
+        if (hasRenderedFormattedContent) {
+          lastRenderAt = now;
+          return;
+        }
+        contentToInsert = buildPlainTextBlockContent(streamedMarkdown);
+      }
+
+      const previousDocSize = editor.state.doc.content.size;
+
+      try {
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(
+            { from: insertFrom, to: insertTo },
+            contentToInsert,
+            { updateSelection: true }
+          )
+          .run();
+      } catch {
+        if (hasRenderedContent) {
+          lastRenderAt = now;
+          return;
+        }
+
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(
+            { from: insertFrom, to: insertTo },
+            buildPlainTextBlockContent(streamedMarkdown),
+            { updateSelection: true }
+          )
+          .run();
+        isFormattedContent = false;
+      }
+
+      const nextDocSize = editor.state.doc.content.size;
+      insertTo += nextDocSize - previousDocSize;
+      hasRenderedContent = true;
+      hasRenderedFormattedContent =
+        hasRenderedFormattedContent || isFormattedContent;
+      lastRenderAt = now;
+      scrollCaretIntoReadableView(editor);
+    };
+
+    set({
+      currentRequest: request,
+      isVisible: true,
+      isInputFocused: false,
+      isThinking: true,
+      isStreaming: false,
+      error: null,
+      result: "",
+      abortController: controller,
+      wasEditable,
+    });
+
+    try {
+      const response = await fetch("/api/ai/completion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Response body is null");
+      }
+
+      const decoder = new TextDecoder();
+      set({ isThinking: false, isStreaming: true });
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        if (chunk) {
+          streamedMarkdown += chunk;
+          renderInlineContent();
+        }
+      }
+
+      renderInlineContent(true);
+
+      set({
+        isVisible: false,
+        isStreaming: false,
+        isThinking: false,
+        result: "",
+        hasSelection: false,
+        prompt: "",
+      });
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        return;
+      }
+
+      set({
+        isVisible: true,
+        error: {
+          message: error.message,
+          action: {
+            label: "Retry",
+            handler: () => get().startInlineStream(request),
+          },
+        },
+        isStreaming: false,
+        isThinking: false,
+      });
+    } finally {
+      if (wasEditable) {
+        editor.setEditable(true);
+      }
+      set({ abortController: null });
+    }
+  },
+
   // Submit user prompt
   submitUserPrompt: async () => {
-    const { prompt, editor, startStream } = get();
+    const { mode, prompt, editor, startStream, startInlineStream } = get();
     if (!prompt.trim() || !editor) return;
-
-    set({ prompt: "" });
 
     const request: AIStreamRequest = {
       messages: buildUserPromptMessage(editor, prompt),
       options: getStreamOptions(),
     };
 
+    if (mode === "command" && !getEditorSelectedContent(editor)) {
+      await startInlineStream(request);
+      return;
+    }
+
+    set({ prompt: "" });
     await startStream(request);
   },
 

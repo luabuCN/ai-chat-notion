@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useAIPanelStore } from "../../../components/ai-panel/ai-panel-store";
 import { BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS } from "../bubble-menu-z";
-import { useState } from "react";
+import { type MouseEvent, useState } from "react";
 
 interface AiSelectorProps {
   editor: Editor | null;
@@ -45,10 +45,31 @@ const tones = [
   "Friendly",
 ];
 
+type SubmenuPlacement = "top" | "bottom";
+
+const SUBMENU_ITEM_HEIGHT = 32;
+const SUBMENU_PADDING = 8;
+const VIEWPORT_PADDING = 16;
+
+function getSubmenuPlacement(
+  trigger: HTMLElement,
+  itemCount: number
+): SubmenuPlacement {
+  const rect = trigger.getBoundingClientRect();
+  const menuHeight = itemCount * SUBMENU_ITEM_HEIGHT + SUBMENU_PADDING;
+  const spaceBelow = window.innerHeight - rect.top - VIEWPORT_PADDING;
+  const spaceAbove = rect.bottom - VIEWPORT_PADDING;
+
+  return menuHeight > spaceBelow && spaceAbove > spaceBelow ? "bottom" : "top";
+}
+
 export const AiSelector = ({ editor }: AiSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [showLanguages, setShowLanguages] = useState(false);
   const [showTones, setShowTones] = useState(false);
+  const [languagePlacement, setLanguagePlacement] =
+    useState<SubmenuPlacement>("top");
+  const [tonePlacement, setTonePlacement] = useState<SubmenuPlacement>("top");
 
   const setVisible = useAIPanelStore((state) => state.setVisible);
   const setMode = useAIPanelStore((state) => state.setMode);
@@ -71,6 +92,20 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
     submitPresetPrompt(presetId as any, options);
   };
 
+  const handleLanguageMouseEnter = (event: MouseEvent<HTMLDivElement>) => {
+    setLanguagePlacement(
+      getSubmenuPlacement(event.currentTarget, languages.length)
+    );
+    setShowLanguages(true);
+    setShowTones(false);
+  };
+
+  const handleToneMouseEnter = (event: MouseEvent<HTMLDivElement>) => {
+    setTonePlacement(getSubmenuPlacement(event.currentTarget, tones.length));
+    setShowTones(true);
+    setShowLanguages(false);
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -86,6 +121,7 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
       </PopoverTrigger>
       <PopoverContent
         align="start"
+        collisionPadding={VIEWPORT_PADDING}
         className={cn("w-[200px] p-1", BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS)}
         onMouseLeave={() => {
           setShowLanguages(false);
@@ -109,10 +145,7 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
         {/* 翻译子菜单 */}
         <div
           className="relative"
-          onMouseEnter={() => {
-            setShowLanguages(true);
-            setShowTones(false);
-          }}
+          onMouseEnter={handleLanguageMouseEnter}
         >
           <Button
             variant="ghost"
@@ -124,7 +157,12 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
             <ChevronDown className="w-3 h-3 ml-auto -rotate-90" />
           </Button>
           {showLanguages && (
-            <div className="absolute left-full top-0 z-10 ml-1 w-[150px] rounded-md border bg-popover p-1 shadow-md">
+            <div
+              className={cn(
+                "absolute left-full z-10 ml-1 max-h-[min(18rem,calc(100vh-2rem))] w-[150px] overflow-y-auto rounded-md border bg-popover p-1 shadow-md",
+                languagePlacement === "bottom" ? "bottom-0" : "top-0"
+              )}
+            >
               {languages.map((lang) => (
                 <Button
                   key={lang}
@@ -145,10 +183,7 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
         {/* 语气子菜单 */}
         <div
           className="relative"
-          onMouseEnter={() => {
-            setShowTones(true);
-            setShowLanguages(false);
-          }}
+          onMouseEnter={handleToneMouseEnter}
         >
           <Button
             variant="ghost"
@@ -160,7 +195,12 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
             <ChevronDown className="w-3 h-3 ml-auto -rotate-90" />
           </Button>
           {showTones && (
-            <div className="absolute left-full top-0 z-10 ml-1 w-[150px] rounded-md border bg-popover p-1 shadow-md">
+            <div
+              className={cn(
+                "absolute left-full z-10 ml-1 max-h-[min(18rem,calc(100vh-2rem))] w-[150px] overflow-y-auto rounded-md border bg-popover p-1 shadow-md",
+                tonePlacement === "bottom" ? "bottom-0" : "top-0"
+              )}
+            >
               {tones.map((tone) => (
                 <Button
                   key={tone}

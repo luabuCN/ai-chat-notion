@@ -73,6 +73,7 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
     <>
       <BubbleMenu
         editor={editor}
+        pluginKey="editorMediaBubbleMenu"
         options={{
           placement: "top",
           offset: 8,

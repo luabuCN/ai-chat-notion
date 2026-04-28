@@ -34,6 +34,8 @@ interface UnifiedEditorClientProps {
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   onUpdate?: (editor: any) => void;
+  /** UnifiedEditor 初始内容已应用并完成首帧绘制 */
+  onEditorReady?: () => void;
 }
 
 export const UnifiedEditorClient = memo(
@@ -49,6 +51,7 @@ export const UnifiedEditorClient = memo(
     onConnectedUsersChange,
     onConnectionStatusChange,
     onUpdate,
+    onEditorReady,
   }: UnifiedEditorClientProps) {
     const router = useRouter();
     const navigate = useCallback(
@@ -100,6 +103,7 @@ export const UnifiedEditorClient = memo(
         onConnectedUsersChange={onConnectedUsersChange}
         onConnectionStatusChange={onConnectionStatusChange}
         onUpdate={onUpdate}
+        onEditorReady={onEditorReady}
       />
     );
   }

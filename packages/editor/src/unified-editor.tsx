@@ -68,6 +68,8 @@ export interface UnifiedEditorProps {
   placeholder?: string;
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
+  /** 初始内容已应用且可展示时调用（含协同同步完成、setContent 与下一帧绘制） */
+  onEditorReady?: () => void;
   onWebSocketSynced?: () => void;
   onDisconnect?: () => void;
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
@@ -101,6 +103,7 @@ export function UnifiedEditor({
   placeholder,
   onCreate,
   onUpdate,
+  onEditorReady,
   onWebSocketSynced,
   onDisconnect,
   onConnectedUsersChange,
@@ -138,6 +141,8 @@ export function UnifiedEditor({
   onConnectionStatusChangeRef.current = onConnectionStatusChange;
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
+  const onEditorReadyRef = useRef(onEditorReady);
+  onEditorReadyRef.current = onEditorReady;
   const userRef = useRef(user);
   userRef.current = user;
 
@@ -368,7 +373,8 @@ export function UnifiedEditor({
     [editorKey, readonly]
   );
 
-  const { handleSlashCommand } = useSlashCommandTrigger(editor);
+  const { handleSlashCommand, onDragHandleNodeChange } =
+    useSlashCommandTrigger(editor);
 
   // 应用初始内容
   const initialContentAppliedRef = useRef(false);
@@ -377,31 +383,40 @@ export function UnifiedEditor({
   }, [editorKey]);
 
   useEffect(() => {
-    const hasFinishedInitialSync = collabConfig
-      ? isWebSocketSynced
-      : true;
+    const hasFinishedInitialSync = collabConfig ? isWebSocketSynced : true;
 
     if (
       !editor ||
-      !initialContent ||
       initialContentAppliedRef.current ||
       !hasFinishedInitialSync
-    )
+    ) {
       return;
+    }
 
-    const xmlFragment = ydoc.get("default", Y.XmlFragment);
-    const shouldApplyInitialContent = editor.isEmpty || xmlFragment.length === 0;
+    if (initialContent) {
+      const xmlFragment = ydoc.get("default", Y.XmlFragment);
+      const shouldApplyInitialContent =
+        editor.isEmpty || xmlFragment.length === 0;
 
-    if (shouldApplyInitialContent) {
-      console.log("[UnifiedEditor] Applying initial content");
-      try {
-        const contentJson = JSON.parse(initialContent);
-        editor.commands.setContent(contentJson, { emitUpdate: false });
-      } catch (e) {
-        console.error("[UnifiedEditor] Failed to parse initial content", e);
+      if (shouldApplyInitialContent) {
+        try {
+          const contentJson = JSON.parse(initialContent);
+          editor.commands.setContent(contentJson, { emitUpdate: false });
+        } catch {
+          // 保持空文档并继续展示，避免整页卡住
+        }
       }
     }
+
     initialContentAppliedRef.current = true;
+    const scheduleReady = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          onEditorReadyRef.current?.();
+        });
+      });
+    };
+    scheduleReady();
   }, [
     collabConfig,
     editor,
@@ -459,6 +474,7 @@ export function UnifiedEditor({
           <BlockDragHandleToolbar
             editor={editor}
             onAddClick={handleSlashCommand}
+            onDragHandleNodeChange={onDragHandleNodeChange}
           />
           <EditorContent
             editor={editor}

@@ -159,7 +159,8 @@ export function TiptapEditor({
     return () => clearTimeout(timer);
   }, [content, contentVersion, editor]);
 
-  const { handleSlashCommand } = useSlashCommandTrigger(editor);
+  const { handleSlashCommand, onDragHandleNodeChange } =
+    useSlashCommandTrigger(editor);
 
   if (readonly) {
     return (
@@ -182,6 +183,7 @@ export function TiptapEditor({
           <BlockDragHandleToolbar
             editor={editor}
             onAddClick={handleSlashCommand}
+            onDragHandleNodeChange={onDragHandleNodeChange}
           />
           <EditorContent
             editor={editor}

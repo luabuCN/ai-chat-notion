@@ -1,4 +1,4 @@
-import { WandSparkles, Send, CircleStop } from "lucide-react";
+import { WandSparkles, Send, Loader2 } from "lucide-react";
 import { Input } from "@repo/ui/input";
 import { Button } from "@repo/ui/button";
 import { useAIPanelStore } from "./ai-panel-store";
@@ -38,10 +38,20 @@ export function UserPrompt() {
     : isStreaming
     ? "AI is writing..."
     : "Ask AI anything...";
+  const statusText = isThinking
+    ? "AI is thinking..."
+    : isStreaming
+    ? "AI is writing..."
+    : "";
 
   const isEmptyPrompt = !prompt.trim();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if ((isThinking || isStreaming) && e.key === "Enter") {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey && !isComposing) {
       submitUserPrompt();
     }
@@ -58,7 +68,7 @@ export function UserPrompt() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isStreaming && e.key === "Escape") {
+      if ((isThinking || isStreaming) && e.key === "Escape") {
         handleStop();
       }
     };
@@ -67,7 +77,7 @@ export function UserPrompt() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isStreaming, stopStream]);
+  }, [isThinking, isStreaming, stopStream]);
 
   // Create debounced scroll function
   const debouncedScroll = useCallback(
@@ -92,32 +102,39 @@ export function UserPrompt() {
   }, [isVisible, result, isStreaming, debouncedScroll]);
 
   return (
-    <div className="ai-panel-input flex items-center w-full rounded-md border bg-popover dark:bg-popover p-0.5 text-popover-foreground">
-      <WandSparkles className="mx-2.5 w-4 h-4 text-muted-foreground" />
+    <div className="ai-panel-input flex w-full items-center rounded-xl border border-violet-200/70 bg-white/95 p-1 text-popover-foreground shadow-[0_18px_45px_rgba(124,58,237,0.16)] ring-1 ring-violet-100/80 backdrop-blur dark:border-violet-500/25 dark:bg-background/95 dark:ring-violet-500/15">
+      <WandSparkles className="mx-2.5 h-4 w-4 text-violet-500" />
       <Input
         ref={inputRef}
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 px-0 border-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+        className="flex-1 border-none bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         onFocus={() => setInputFocused(true)}
         onBlur={() => setInputFocused(false)}
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={() => setIsComposing(false)}
         onKeyDown={handleKeyDown}
-        disabled={isThinking}
+        disabled={isThinking || isStreaming}
       />
+      {statusText ? (
+        <span className="mr-1 whitespace-nowrap text-muted-foreground text-xs">
+          {statusText}
+        </span>
+      ) : null}
       <Button
         size="icon"
         variant="ghost"
-        onClick={() => (isStreaming ? handleStop() : submitUserPrompt())}
-        disabled={isEmptyPrompt && !isStreaming}
-        className="h-8 w-8"
+        onClick={() =>
+          isThinking || isStreaming ? handleStop() : submitUserPrompt()
+        }
+        disabled={isEmptyPrompt && !(isThinking || isStreaming)}
+        className="h-8 w-8 rounded-lg text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:text-violet-300 dark:hover:bg-violet-500/10"
       >
         {isThinking || isStreaming ? (
-          <CircleStop className="w-5 h-5 text-primary" />
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
         ) : (
-          <Send className="w-4 h-4" />
+          <Send className="h-4 w-4" />
         )}
       </Button>
     </div>

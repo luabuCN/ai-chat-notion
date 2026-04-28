@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { EditorPageHeader } from "./editor-page-header";
 import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
-import { EditorLoadingSkeleton } from "./editor-loading-skeleton";
+import { EditorLoadingSkeleton, EditorBodyLoadingSkeleton } from "./editor-loading-skeleton";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
@@ -128,6 +128,12 @@ export function EditorContent({
     };
   }, [shouldConnectCollab, collabData?.token, collabServerUrl]);
 
+  /** 文档或协同模式切换时需重新等待编辑器就绪 */
+  const editorMountKey = useMemo(
+    () => `${documentId}:${collabConfig?.token ?? "local"}`,
+    [documentId, collabConfig?.token]
+  );
+
   /** 供异步回调读取：关闭协同后仍可能收到「已断开」，此时不应再更新顶栏状态 */
   const shouldConnectCollabRef = useRef(shouldConnectCollab);
   shouldConnectCollabRef.current = shouldConnectCollab;
@@ -168,34 +174,52 @@ export function EditorContent({
   // 初始化完成标志
   const isInitializedRef = useRef(false);
 
+  const [isEditorBodyReady, setIsEditorBodyReady] = useState(false);
+  /** 已把当前 documentId 对应的服务端正文快照写入 content state，再挂载编辑器，避免首帧 initialContent 为空 */
+  const [documentSnapshotApplied, setDocumentSnapshotApplied] =
+    useState(false);
+
+  const handleEditorReady = useCallback(() => {
+    setIsEditorBodyReady(true);
+  }, []);
+
   useEffect(() => {
-    if (document) {
-      const isDocumentChanged = documentId !== prevDocumentIdRef.current;
+    setIsEditorBodyReady(false);
+  }, [editorMountKey]);
 
-      if (isDocumentChanged) {
-        isInitializedRef.current = false;
+  useEffect(() => {
+    if (!document || document.id !== documentId) {
+      setDocumentSnapshotApplied(false);
+      return;
+    }
 
-        prevDocumentIdRef.current = documentId;
-        const newTitle = document.title ?? "";
-        const newIcon = document.icon ?? null;
-        const newContent = document.content ?? "";
+    const isDocumentChanged = documentId !== prevDocumentIdRef.current;
 
-        setTitle(newTitle);
-        setIcon(newIcon);
-        setContent(newContent);
+    if (isDocumentChanged) {
+      isInitializedRef.current = false;
 
-        prevTitleRef.current = newTitle;
-        prevIconRef.current = newIcon;
-        prevContentRef.current = newContent;
+      prevDocumentIdRef.current = documentId;
+      const newTitle = document.title ?? "";
+      const newIcon = document.icon ?? null;
+      const newContent = document.content ?? "";
 
-        window.dispatchEvent(
-          new CustomEvent("document-loaded", { detail: document })
-        );
+      setTitle(newTitle);
+      setIcon(newIcon);
+      setContent(newContent);
 
-        setTimeout(() => {
-          isInitializedRef.current = true;
-        }, 600);
-      }
+      prevTitleRef.current = newTitle;
+      prevIconRef.current = newIcon;
+      prevContentRef.current = newContent;
+
+      setDocumentSnapshotApplied(true);
+
+      window.dispatchEvent(
+        new CustomEvent("document-loaded", { detail: document })
+      );
+
+      setTimeout(() => {
+        isInitializedRef.current = true;
+      }, 600);
     }
   }, [document, documentId]);
 
@@ -476,21 +500,44 @@ export function EditorContent({
         isFullWidth={isFullWidth}
       />
 
-      <div className={isFullWidth ? "mx-auto px-8 pb-20" : "max-w-4xl mx-auto px-4 pb-20"}>
-        {/* 统一编辑器：始终使用，通过 collabConfig 控制是否连接 WebSocket */}
-        {document && (
-          <UnifiedEditorClient
-            key={documentId}
-            documentId={documentId}
-            initialContent={content}
-            user={user}
-            collabConfig={collabConfig}
-            readonly={isReadOnly || conversionLocked}
-            onConnectedUsersChange={setConnectedUsers}
-            onConnectionStatusChange={handleConnectionStatusChange}
-            onUpdate={shouldConnectCollab ? undefined : handleEditorUpdate}
-          />
-        )}
+      <div
+        className={
+          isFullWidth
+            ? "relative mx-auto min-h-[min(50vh,520px)] px-8 pb-20"
+            : "relative mx-auto min-h-[min(50vh,520px)] max-w-4xl px-4 pb-20"
+        }
+      >
+        {document && !documentSnapshotApplied ? (
+          <EditorBodyLoadingSkeleton />
+        ) : null}
+        {document && documentSnapshotApplied ? (
+          <>
+            {!isEditorBodyReady ? (
+              <div className="absolute inset-0 z-10 bg-background pt-1">
+                <EditorBodyLoadingSkeleton />
+              </div>
+            ) : null}
+            <div
+              className={
+                isEditorBodyReady ? undefined : "pointer-events-none opacity-0"
+              }
+              aria-hidden={!isEditorBodyReady}
+            >
+              <UnifiedEditorClient
+                key={documentId}
+                documentId={documentId}
+                initialContent={content}
+                user={user}
+                collabConfig={collabConfig}
+                readonly={isReadOnly || conversionLocked}
+                onConnectedUsersChange={setConnectedUsers}
+                onConnectionStatusChange={handleConnectionStatusChange}
+                onUpdate={shouldConnectCollab ? undefined : handleEditorUpdate}
+                onEditorReady={handleEditorReady}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );
