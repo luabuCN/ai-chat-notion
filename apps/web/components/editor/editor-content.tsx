@@ -476,11 +476,11 @@ export function EditorContent({
 
   // 等待文档加载完成，如果需要协同则等待 token
   if (isLoading || (shouldConnectCollab && isTokenLoading)) {
-    return <EditorLoadingSkeleton className="min-h-full" />;
+    return <EditorLoadingSkeleton className="min-h-full pt-11" />;
   }
 
   return (
-    <div className="relative min-h-full">
+    <div className="relative min-h-full pt-11">
       <PdfConvertingOverlay documentId={documentId} />
       <EditorPageHeader
         initialTitle={title}
@@ -503,8 +503,8 @@ export function EditorContent({
       <div
         className={
           isFullWidth
-            ? "relative mx-auto min-h-[min(50vh,520px)] px-8 pb-20"
-            : "relative mx-auto min-h-[min(50vh,520px)] max-w-4xl px-4 pb-20"
+            ? "relative mx-auto min-h-[min(50vh,520px)] px-8"
+            : "relative mx-auto min-h-[min(50vh,520px)] max-w-4xl px-4"
         }
       >
         {document && !documentSnapshotApplied ? (

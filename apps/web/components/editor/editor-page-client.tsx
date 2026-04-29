@@ -85,7 +85,7 @@ export function EditorPageClient({
             {/* overflow-y-auto：让内容在此容器内滚动，而非 body；id 供气泡菜单与滚动导航定位 */}
             <div
               id="editor-scroll-container"
-              className="flex-1 overflow-y-auto pt-11"
+              className="flex-1 overflow-y-auto scroll-pb-20 scroll-pt-11"
             >
               <EditorContent
                 locale={locale}

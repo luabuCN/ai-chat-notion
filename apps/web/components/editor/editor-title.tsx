@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, KeyboardEvent } from "react";
 import TextareaAutosize from "react-textarea-autosize";
+import { DOCUMENT_TITLE_ID } from "@repo/editor";
 
 interface EditorTitleProps {
   value: string;
@@ -26,6 +27,7 @@ export function EditorTitle({
 
   return (
     <TextareaAutosize
+      id={DOCUMENT_TITLE_ID}
       ref={inputRef}
       value={value}
       onChange={(e) => onChange(e.target.value)}

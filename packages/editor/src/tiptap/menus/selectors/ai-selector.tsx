@@ -11,6 +11,7 @@ import {
   BugOff,
   Languages,
   MicVocal,
+  PenLine,
 } from "lucide-react";
 import { useAIPanelStore } from "../../../components/ai-panel/ai-panel-store";
 import { BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS } from "../bubble-menu-z";
@@ -77,6 +78,9 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
   const submitPresetPrompt = useAIPanelStore(
     (state) => state.submitPresetPrompt
   );
+  const submitInlineContinueWriting = useAIPanelStore(
+    (state) => state.submitInlineContinueWriting
+  );
 
   if (!editor) return null;
 
@@ -90,6 +94,15 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
     setVisible(true);
     // 直接提交预设
     submitPresetPrompt(presetId as any, options);
+  };
+
+  const handleContinueWritingClick = () => {
+    setOpen(false);
+    setShowLanguages(false);
+    setShowTones(false);
+    setMode("bubble");
+    setHasSelection(true);
+    submitInlineContinueWriting();
   };
 
   const handleLanguageMouseEnter = (event: MouseEvent<HTMLDivElement>) => {
@@ -129,6 +142,16 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
         }}
       >
         {/* 预设选项 */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 text-sm font-normal"
+          onClick={handleContinueWritingClick}
+        >
+          <PenLine className="w-4 h-4" />
+          继续书写
+        </Button>
+
         {presets.map((preset) => (
           <Button
             key={preset.id}

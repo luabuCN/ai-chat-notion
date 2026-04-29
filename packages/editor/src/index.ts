@@ -19,6 +19,7 @@ export {
   type DocumentLinkOptions,
 } from "./tiptap/extensions/document-link";
 export * from "./tiptap/content-renderer";
+export * from "./tiptap/constants";
 export * from "./tiptap/default-extensions";
 export * from "./hooks/use-editor-export";
 export * from "./hooks/use-slash-command";

@@ -42,6 +42,7 @@ export default function AIPanel({ editor }: AIPanelProps) {
   const isStreaming = useAIPanelStore((state) => state.isStreaming);
   const mode = useAIPanelStore((state) => state.mode);
   const setHasSelection = useAIPanelStore((state) => state.setHasSelection);
+  const setMode = useAIPanelStore((state) => state.setMode);
   const result = useAIPanelStore((state) => state.result);
   const error = useAIPanelStore((state) => state.error);
   const setVisible = useAIPanelStore((state) => state.setVisible);
@@ -274,6 +275,7 @@ export default function AIPanel({ editor }: AIPanelProps) {
         });
         if (hasAtom) return;
         event.preventDefault();
+        setMode("command");
         setHasSelection(false);
         setVisible(true);
       }
@@ -287,7 +289,7 @@ export default function AIPanel({ editor }: AIPanelProps) {
         editorDom.removeEventListener("keydown", fn);
       }
     };
-  }, [editor, setVisible, setHasSelection]);
+  }, [editor, setMode, setVisible, setHasSelection]);
 
   if (!portalContainer) return null;
 
@@ -330,7 +332,7 @@ export default function AIPanel({ editor }: AIPanelProps) {
           border: "none",
         }}
       >
-      <AIResultPanel result={result} error={error} />
+      <AIResultPanel result={result} isStreaming={isStreaming} error={error} />
       {/* bubble 模式：显示加载状态（与输入框样式一致） */}
       {mode === "bubble" && (isThinking || isStreaming) && !result && (
         <div className="ai-panel-input flex w-full items-center rounded-xl border border-violet-200/70 bg-white/95 p-1 text-popover-foreground shadow-[0_18px_45px_rgba(124,58,237,0.16)] ring-1 ring-violet-100/80 backdrop-blur dark:border-violet-500/25 dark:bg-background/95 dark:ring-violet-500/15">

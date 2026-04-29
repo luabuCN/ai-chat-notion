@@ -153,8 +153,13 @@ function getAfterContext(
 }
 
 export function getDocumentTitle() {
-  const title = document.getElementById(DOCUMENT_TITLE_ID)?.textContent;
-  return title;
+  const el = document.getElementById(DOCUMENT_TITLE_ID);
+  const title =
+    el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+      ? el.value
+      : el?.textContent;
+
+  return title?.trim() || null;
 }
 
 export function getDefaultSystemPrompt() {
@@ -173,10 +178,11 @@ export function buildUserPromptMessage(
   instruction: string
 ): ChatMessage[] {
   const content = getEditorSelectedContent(editor);
+  const title = getDocumentTitle();
 
   // Combine context information into a single message
   const contextParts = [
-    `Document title: ${getDocumentTitle()}`,
+    title ? `Document title: ${title}` : null,
     content ? `Selected content: ${content}` : null,
   ].filter(Boolean);
 
@@ -196,6 +202,47 @@ export function buildUserPromptMessage(
     ...(content ? [{ role: "user", content }] : []),
     { role: "user", content: instruction },
   ].filter(Boolean) as ChatMessage[];
+}
+
+export function buildContinueWritingPromptMessage(editor: Editor): ChatMessage[] {
+  const selection = editor.state.selection;
+  const content = getEditorSelectedContent(editor);
+  const title = getDocumentTitle();
+  const beforeContext = getBeforeContext(editor, selection, MAX_CONTEXT_LENGTH);
+  const afterContext = getAfterContext(editor, selection, MAX_CONTEXT_LENGTH / 2);
+
+  const contextParts = [
+    title ? `Document title: ${title}` : null,
+    beforeContext ? `Previous context: ${beforeContext}` : null,
+    content ? `Selected content to continue from: ${content}` : null,
+    afterContext ? `Following context after the selection: ${afterContext}` : null,
+  ].filter(Boolean);
+
+  return [
+    {
+      role: "system",
+      content: [
+        "You are an expert continuation writer.",
+        "Continue the selected text naturally and coherently in the same language, style, tone, and formatting.",
+        "Write only the continuation content that should be inserted after the selected text.",
+        "Do not explain, do not ask follow-up questions, do not mention that you are an AI, and do not repeat the selected text.",
+        getDefaultSystemPrompt(),
+      ].join(" "),
+    },
+    ...(contextParts.length > 0
+      ? [
+          {
+            role: "assistant" as const,
+            content: `The context information is:\n\n${contextParts.join("\n\n")}`,
+          },
+        ]
+      : []),
+    {
+      role: "user",
+      content:
+        "续写。请直接输出应该接在选中内容后面的正文，不要输出解释、提示语或问题。",
+    },
+  ];
 }
 
 export function buildPresetPromptMessage(

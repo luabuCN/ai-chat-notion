@@ -16,7 +16,6 @@ import {
   PaperclipIcon,
   ShapesIcon,
   Smile,
-  SparklesIcon,
   SquarePlayIcon,
   TableIcon,
   TextQuoteIcon,
@@ -244,24 +243,6 @@ const insertItems: CommandSuggestionItem[] = [
   },
 ];
 
-const aiWriterItem: CommandSuggestionItem = {
-  id: "aiWriter",
-  title: "AI Writer",
-  description: "Ask AI with custom prompt.",
-  keywords: ["ai"],
-  category: null,
-  icon: SparklesIcon,
-  command: ({ editor, range }) => {
-    editor.chain().focus().deleteRange(range).run();
-    import("../../../components/ai-panel/ai-panel-store").then(
-      ({ store }) => {
-        store.getState().setMode("command");
-        store.getState().setVisible(true);
-      }
-    );
-  },
-};
-
 const materialLibraryItem: CommandSuggestionItem = {
   id: "materialLibrary",
   title: "插入图片从素材库",
@@ -379,8 +360,8 @@ const getSuggestion = ({
 
       const items = ai
         ? uploadFile
-          ? [aiWriterItem, materialLibraryItem, documentLinkItem, ...formatItems, ...uploadItems, ...insertItems]
-          : [aiWriterItem, materialLibraryItem, documentLinkItem, ...formatItems, ...insertItems]
+          ? [materialLibraryItem, documentLinkItem, ...formatItems, ...uploadItems, ...insertItems]
+          : [materialLibraryItem, documentLinkItem, ...formatItems, ...insertItems]
         : uploadFile
           ? [documentLinkItem, ...formatItems, ...uploadItems, ...insertItems]
           : [documentLinkItem, ...formatItems, ...insertItems];

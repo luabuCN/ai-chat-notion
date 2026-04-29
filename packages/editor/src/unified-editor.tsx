@@ -305,7 +305,7 @@ export function UnifiedEditor({
       ...defaultExtensions,
       DocumentLink.configure({ navigate: stableNavigate }),
       Placeholder.configure({
-        placeholder: placeholder ?? "Type / for commands...",
+        placeholder: placeholder ?? "Type / for commands, or press Space for AI...",
         emptyEditorClass: "is-editor-empty text-gray-400",
         emptyNodeClass: "is-empty text-gray-400",
       }),

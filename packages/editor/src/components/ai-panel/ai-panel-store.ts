@@ -4,11 +4,35 @@ import {
   PresetType,
   getStreamOptions,
   buildUserPromptMessage,
+  buildContinueWritingPromptMessage,
   buildPresetPromptMessage,
   getEditorSelectedContent,
 } from "./util";
 import { AIStreamRequest } from "./types";
 import scrollIntoView from "scroll-into-view-if-needed";
+
+const AI_COMPLETION_ENDPOINT = "/api/ai/openai";
+
+const buildAICompletionPayload = (request: AIStreamRequest) => {
+  const options = request.options as
+    | { temperature?: unknown; model?: unknown }
+    | undefined;
+  const model =
+    typeof request.modelId === "string" && request.modelId.length > 0
+      ? request.modelId
+      : typeof options?.model === "string"
+        ? options.model
+        : undefined;
+
+  return {
+    messages: request.messages,
+    stream: true,
+    ...(typeof options?.temperature === "number"
+      ? { temperature: options.temperature }
+      : {}),
+    ...(model ? { model } : {}),
+  };
+};
 
 // 递归清理无效 mark 组合（code 不能与 bold/italic 等共存）
 const cleanMarks = (node: any): any => {
@@ -88,6 +112,12 @@ const getCurrentBlockRange = (editor: Editor) => {
 
 const SCROLL_MARGIN = 96;
 const INLINE_STREAM_RENDER_INTERVAL = 48;
+
+type InlineStreamPlacement = "replaceCurrentBlock" | "appendAfterSelection";
+
+interface InlineStreamOptions {
+  placement?: InlineStreamPlacement;
+}
 
 function findNearestVerticalScrollParent(from: HTMLElement | null): HTMLElement | null {
   let node: HTMLElement | null = from;
@@ -212,12 +242,16 @@ interface AIPanelState {
   replaceResult: () => void;
   discardResult: () => void;
   startStream: (request: AIStreamRequest) => Promise<void>;
-  startInlineStream: (request: AIStreamRequest) => Promise<void>;
+  startInlineStream: (
+    request: AIStreamRequest,
+    options?: InlineStreamOptions
+  ) => Promise<void>;
   stopStream: () => void;
   retryStream: () => void;
   insertBelow: () => void;
   submitUserPrompt: () => Promise<void>;
   submitPresetPrompt: (preset: PresetType, options?: any) => Promise<void>;
+  submitInlineContinueWriting: () => Promise<void>;
 }
 
 export const store = create<AIPanelState>()((set, get) => ({
@@ -409,12 +443,12 @@ export const store = create<AIPanelState>()((set, get) => ({
     });
 
     try {
-      const response = await fetch("/api/ai/completion", {
+      const response = await fetch(AI_COMPLETION_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify(buildAICompletionPayload(request)),
         signal: controller.signal,
       });
 
@@ -474,7 +508,10 @@ export const store = create<AIPanelState>()((set, get) => ({
   },
 
   // Stream directly into the document for insertion-style AI writing.
-  startInlineStream: async (request: AIStreamRequest) => {
+  startInlineStream: async (
+    request: AIStreamRequest,
+    options?: InlineStreamOptions
+  ) => {
     get().stopStream();
 
     const { editor } = get();
@@ -485,8 +522,26 @@ export const store = create<AIPanelState>()((set, get) => ({
 
     const controller = new AbortController();
     const insertRange = getCurrentBlockRange(editor);
-    const insertFrom = insertRange.from;
+    let insertFrom = insertRange.from;
     let insertTo = insertRange.to;
+
+    if (options?.placement === "appendAfterSelection") {
+      const { selection } = editor.state;
+      const depth = Math.min(1, selection.$to.depth);
+      const insertAt = depth === 0 ? selection.to : selection.$to.after(depth);
+      const previousDocSize = editor.state.doc.content.size;
+
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(insertAt, { type: "paragraph" })
+        .run();
+
+      const insertedSize = editor.state.doc.content.size - previousDocSize;
+      insertFrom = insertAt;
+      insertTo = insertAt + Math.max(insertedSize, 0);
+    }
+
     let streamedMarkdown = "";
     let hasRenderedContent = false;
     let hasRenderedFormattedContent = false;
@@ -566,12 +621,12 @@ export const store = create<AIPanelState>()((set, get) => ({
     });
 
     try {
-      const response = await fetch("/api/ai/completion", {
+      const response = await fetch(AI_COMPLETION_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify(buildAICompletionPayload(request)),
         signal: controller.signal,
       });
 
@@ -663,6 +718,19 @@ export const store = create<AIPanelState>()((set, get) => ({
     };
 
     await startStream(request);
+  },
+
+  submitInlineContinueWriting: async () => {
+    const { editor, startInlineStream } = get();
+    if (!editor) return;
+
+    const request: AIStreamRequest = {
+      messages: buildContinueWritingPromptMessage(editor),
+      options: getStreamOptions("continue_writing"),
+    };
+
+    set({ mode: "bubble" as AITriggerMode });
+    await startInlineStream(request, { placement: "appendAfterSelection" });
   },
 
   // Retry stream

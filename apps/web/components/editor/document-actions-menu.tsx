@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   MoreHorizontal,
@@ -33,6 +33,8 @@ import { useEditorExport } from "@repo/editor";
 import { DocumentSelectorDialog } from "./document-selector-dialog";
 import { toast } from "sonner";
 import { getEditorListPathAfterLeavingDocument } from "@/lib/utils";
+
+const FULL_WIDTH_MIN_WIDTH = 980;
 
 interface DocumentActionsMenuProps {
   documentId: string;
@@ -75,12 +77,38 @@ export function DocumentActionsMenu({
   const [isExporting, setIsExporting] = useState(false);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [canEnterFullWidth, setCanEnterFullWidth] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      `(min-width: ${FULL_WIDTH_MIN_WIDTH}px)`
+    );
+    const updateCanEnterFullWidth = () => {
+      setCanEnterFullWidth(mediaQuery.matches);
+    };
+
+    updateCanEnterFullWidth();
+    mediaQuery.addEventListener("change", updateCanEnterFullWidth);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateCanEnterFullWidth);
+    };
+  }, []);
 
   const isLoading =
     isExporting ||
     duplicateMutation.isPending ||
     moveMutation.isPending ||
     archiveMutation.isPending;
+  const isFullWidthDisabled = !isFullWidth && !canEnterFullWidth;
+
+  const handleFullWidthToggle = () => {
+    if (isFullWidthDisabled) {
+      return;
+    }
+
+    onFullWidthChange?.(!isFullWidth);
+  };
 
   const handleDuplicate = async () => {
     try {
@@ -161,7 +189,10 @@ export function DocumentActionsMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {/* 全宽切换 - 所有人可见 */}
-          <DropdownMenuItem onClick={() => onFullWidthChange?.(!isFullWidth)}>
+          <DropdownMenuItem
+            disabled={isFullWidthDisabled}
+            onClick={handleFullWidthToggle}
+          >
             {isFullWidth ? (
               <Minimize2 className="mr-2 h-4 w-4" />
             ) : (
