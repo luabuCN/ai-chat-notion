@@ -1,24 +1,25 @@
 /**
- * 文档权限检查核心逻辑
+ * Document permission calculation.
  *
- * 权限漏斗模型（优先级从高到低）：
- * 1. 超级特权 (Owner/Admin) - 文档所有者、工作空间所有者、工作空间管理员
- * 2. 显式文档授权 (Doc Level) - 文档协作者权限（可以覆盖工作空间权限）
- * 3. 空间基础角色 (Space Level) - 工作空间成员权限
- * 4. 公开协作 (Public Editable) - 任何人可编辑（`isPubliclyEditable`）
- * 5. 只读发布 (Public Readonly) - 任何人可查看（`isPublished`）
- * 6. 拒绝 (Deny) - 无权限
+ * Current model:
+ * - A document belongs to one workspace at most.
+ * - Workspace membership grants inherited permission: view or edit.
+ * - Direct document sharing grants document-level permission: view or edit.
+ * - If a user has both workspace and direct-share permission, the effective
+ *   permission is the stricter one.
  */
 
 export type AccessLevel = "owner" | "edit" | "view" | "none";
+
+type GrantLevel = Exclude<AccessLevel, "owner">;
 
 export interface DocumentPermissionParams {
   documentId: string;
   documentUserId: string;
   documentWorkspaceId: string | null;
-  /** 只读发布：开启后匿名用户可 view（仅读取） */
+  /** Public read-only publishing: anonymous users can view. */
   documentIsPublished: boolean;
-  /** 公开协作：开启后匿名用户可 edit */
+  /** Public editing link: users without other grants can edit. */
   documentIsPubliclyEditable?: boolean;
   documentDeletedAt: Date | null;
   ignoreDeletedAt?: boolean;
@@ -40,13 +41,15 @@ export interface DocumentPermissionResult {
   canPublish: boolean;
   isOwner: boolean;
   isCollaborator: boolean;
-  reason: string; // 用于调试，说明权限来源
+  reason: string;
 }
 
-/**
- * 核心权限检查函数（漏斗模型）
- * 可以在客户端和服务端共用
- */
+const permissionRank: Record<GrantLevel, number> = {
+  none: 0,
+  view: 1,
+  edit: 2,
+};
+
 export function checkDocumentPermission(
   params: DocumentPermissionParams
 ): DocumentPermissionResult {
@@ -66,12 +69,10 @@ export function checkDocumentPermission(
     documentCollaboratorStatus,
   } = params;
 
-  // 已删除的文档不允许访问（需忽略时由调用方传 ignoreDeletedAt）
   if (documentDeletedAt && !ignoreDeletedAt) {
     return createPermissionResult("none", "Document is deleted");
   }
 
-  // 未登录用户
   if (!currentUserId) {
     if (documentIsPubliclyEditable) {
       return createPermissionResult("edit", "Publicly editable document");
@@ -82,98 +83,136 @@ export function checkDocumentPermission(
     return createPermissionResult("none", "Not authenticated");
   }
 
-  // ========================================
-  // 1. 超级特权检查 (Owner/Admin)
-  // ========================================
-
-  // 1.1 文档所有者 - 完全权限
   if (documentUserId === currentUserId) {
     return createPermissionResult("owner", "Document owner", true);
   }
 
-  // 1.2 工作空间所有者 - 完全权限
   if (documentWorkspaceId && workspaceOwnerId === currentUserId) {
     return createPermissionResult("owner", "Workspace owner", true);
   }
 
-  // 1.3 工作空间管理员 - 编辑权限
-  // 管理员可以编辑所有文档，但不能删除或修改空间设置
-  if (documentWorkspaceId && workspaceMemberRole === "admin") {
-    return createPermissionResult("edit", "Workspace admin");
+  const workspaceAccess = getWorkspaceAccess({
+    hasWorkspace: Boolean(documentWorkspaceId),
+    workspaceMemberRole,
+    workspaceMemberPermission,
+  });
+
+  const shareAccess = getDocumentShareAccess({
+    currentUserEmail,
+    documentCollaboratorPermission,
+    documentCollaboratorStatus,
+  });
+
+  const isCollaborator = Boolean(shareAccess);
+  const effectiveAccess = getEffectiveAccess(workspaceAccess, shareAccess);
+
+  if (effectiveAccess) {
+    return createPermissionResult(
+      effectiveAccess,
+      getEffectiveReason(workspaceAccess, shareAccess, effectiveAccess),
+      false,
+      isCollaborator
+    );
   }
 
-  // ========================================
-  // 2. 显式文档授权 (Doc Level) ⭐ 关键
-  // ========================================
-  // 文档协作者权限优先于工作空间成员权限
-  // 这允许给工作空间"观察者"单独授予文档"编辑"权限
-
-  if (
-    currentUserEmail &&
-    documentCollaboratorStatus === "accepted" &&
-    documentCollaboratorPermission
-  ) {
-    if (documentCollaboratorPermission === "edit") {
-      return createPermissionResult(
-        "edit",
-        "Document collaborator (edit)",
-        false,
-        true
-      );
-    }
-    if (documentCollaboratorPermission === "view") {
-      return createPermissionResult(
-        "view",
-        "Document collaborator (view)",
-        false,
-        true
-      );
-    }
-  }
-
-  // ========================================
-  // 3. 空间基础角色 (Space Level)
-  // ========================================
-  // 工作空间成员的默认权限
-
-  if (documentWorkspaceId && workspaceMemberPermission) {
-    if (workspaceMemberPermission === "edit") {
-      return createPermissionResult("edit", "Workspace member (edit)");
-    }
-    if (workspaceMemberPermission === "view") {
-      return createPermissionResult("view", "Workspace member (view)");
-    }
-  }
-
-  // ========================================
-  // 4. 公开协作 (Public Editable)
-  // ========================================
   if (documentIsPubliclyEditable) {
     return createPermissionResult("edit", "Publicly editable document");
   }
 
-  // ========================================
-  // 5. 只读发布 (Public Readonly)
-  // ========================================
   if (documentIsPublished) {
     return createPermissionResult("view", "Public published document");
   }
 
-  // ========================================
-  // 6. 拒绝 (Deny)
-  // ========================================
-
   return createPermissionResult("none", "No permission");
 }
 
-/**
- * 创建权限结果对象
- */
+function getWorkspaceAccess(params: {
+  hasWorkspace: boolean;
+  workspaceMemberRole?: string;
+  workspaceMemberPermission?: string;
+}): GrantLevel | undefined {
+  const { hasWorkspace, workspaceMemberRole, workspaceMemberPermission } =
+    params;
+
+  if (!hasWorkspace) {
+    return undefined;
+  }
+
+  if (workspaceMemberRole === "admin") {
+    return "edit";
+  }
+
+  return normalizeGrant(workspaceMemberPermission);
+}
+
+function getDocumentShareAccess(params: {
+  currentUserEmail?: string;
+  documentCollaboratorPermission?: string;
+  documentCollaboratorStatus?: string;
+}): GrantLevel | undefined {
+  const {
+    currentUserEmail,
+    documentCollaboratorPermission,
+    documentCollaboratorStatus,
+  } = params;
+
+  if (!currentUserEmail || documentCollaboratorStatus !== "accepted") {
+    return undefined;
+  }
+
+  return normalizeGrant(documentCollaboratorPermission);
+}
+
+function getEffectiveAccess(
+  workspaceAccess?: GrantLevel,
+  shareAccess?: GrantLevel
+): GrantLevel | undefined {
+  if (workspaceAccess && shareAccess) {
+    return permissionRank[workspaceAccess] <= permissionRank[shareAccess]
+      ? workspaceAccess
+      : shareAccess;
+  }
+
+  return workspaceAccess ?? shareAccess;
+}
+
+function normalizeGrant(permission?: string): GrantLevel | undefined {
+  if (permission === "edit") {
+    return "edit";
+  }
+
+  if (
+    permission === "view" ||
+    permission === "read" ||
+    permission === "comment"
+  ) {
+    return "view";
+  }
+
+  return undefined;
+}
+
+function getEffectiveReason(
+  workspaceAccess: GrantLevel | undefined,
+  shareAccess: GrantLevel | undefined,
+  effectiveAccess: GrantLevel
+): string {
+  if (workspaceAccess && shareAccess) {
+    return `Stricter of workspace (${workspaceAccess}) and document share (${shareAccess})`;
+  }
+
+  if (workspaceAccess) {
+    return `Workspace member (${effectiveAccess})`;
+  }
+
+  return `Document collaborator (${effectiveAccess})`;
+}
+
 function createPermissionResult(
   access: AccessLevel,
   reason: string,
-  isOwner: boolean = false,
-  isCollaborator: boolean = false
+  isOwner = false,
+  isCollaborator = false
 ): DocumentPermissionResult {
   const canView = access !== "none";
   const canEdit = access === "owner" || access === "edit";
