@@ -73,7 +73,7 @@ export default function AIResultPanel({
   return (
     <div
       className={cn(
-        "relative mb-2 flex max-h-[22rem] flex-col overflow-hidden rounded-2xl border border-border/70",
+        "relative mb-2 flex max-h-[22rem] flex-col overflow-hidden rounded-xl border border-border/70 shadow-[var(--shadow-card)]",
         "bg-background/98",
         "dark:border-border/70 dark:bg-background/95",
         className

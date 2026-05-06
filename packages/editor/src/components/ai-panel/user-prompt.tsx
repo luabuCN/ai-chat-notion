@@ -102,8 +102,8 @@ export function UserPrompt() {
   }, [isVisible, result, isStreaming, debouncedScroll]);
 
   return (
-    <div className="ai-panel-input flex w-full items-center rounded-xl border border-violet-200/70 bg-white/95 p-1 text-popover-foreground shadow-[0_18px_45px_rgba(124,58,237,0.16)] ring-1 ring-violet-100/80 backdrop-blur dark:border-violet-500/25 dark:bg-background/95 dark:ring-violet-500/15">
-      <WandSparkles className="mx-2.5 h-4 w-4 text-violet-500" />
+    <div className="ai-panel-input flex w-full items-center rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[var(--shadow-card)]">
+      <WandSparkles className="mx-2.5 h-4 w-4 text-primary" />
       <Input
         ref={inputRef}
         value={prompt}
@@ -129,7 +129,7 @@ export function UserPrompt() {
           isThinking || isStreaming ? handleStop() : submitUserPrompt()
         }
         disabled={isEmptyPrompt && !(isThinking || isStreaming)}
-        className="h-8 w-8 rounded-lg text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:text-violet-300 dark:hover:bg-violet-500/10"
+        className="h-8 w-8 rounded-[5px] text-primary hover:bg-accent hover:text-primary"
       >
         {isThinking || isStreaming ? (
           <Loader2 className="h-5 w-5 animate-spin text-primary" />

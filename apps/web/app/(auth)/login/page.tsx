@@ -65,14 +65,12 @@ export default function Page() {
   };
 
   return (
-    <div className="flex h-dvh w-screen items-start justify-center bg-gray-50/50 dark:bg-zinc-950/50 pt-12 md:items-center md:pt-0">
-      <div className="absolute inset-0 -z-10 h-full w-full bg-white dark:bg-zinc-950 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[14px_24px]">
-        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/5 opacity-20 blur-[100px]" />
-      </div>
+    <div className="flex h-dvh w-screen items-start justify-center bg-muted/40 pt-12 md:items-center md:pt-0">
+      <div className="absolute inset-0 -z-10 h-full w-full bg-background" />
 
-      <div className="flex w-full max-w-md flex-col gap-8 overflow-hidden rounded-2xl bg-background border border-zinc-200 dark:border-zinc-800 p-4 shadow-xl shadow-zinc-200/50 dark:shadow-none sm:p-0 sm:py-12">
+      <div className="flex w-full max-w-md flex-col gap-8 overflow-hidden rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-0 sm:py-12">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="font-semibold text-2xl tracking-tight dark:text-zinc-50">
+          <h3 className="font-bold text-[26px] leading-[1.23] tracking-[-0.625px]">
             欢迎回来
           </h3>
           <p className="text-muted-foreground text-sm">
@@ -90,7 +88,7 @@ export default function Page() {
             className={`flex-1 py-2 text-sm rounded-lg transition-colors ${
               loginMode === "password"
                 ? "bg-primary text-primary-foreground"
-                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                : "bg-secondary text-secondary-foreground hover:bg-accent"
             }`}
           >
             密码登录
@@ -101,7 +99,7 @@ export default function Page() {
             className={`flex-1 py-2 text-sm rounded-lg transition-colors ${
               loginMode === "code"
                 ? "bg-primary text-primary-foreground"
-                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                : "bg-secondary text-secondary-foreground hover:bg-accent"
             }`}
           >
             验证码登录
@@ -112,13 +110,13 @@ export default function Page() {
           <AuthForm action={handleSubmit} defaultEmail={email}>
             <SubmitButton isSuccessful={isSuccessful}>登录</SubmitButton>
             <div className="mt-4 flex items-center justify-between gap-4">
-              <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-              <span className="text-zinc-500 text-xs uppercase">或</span>
-              <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-muted-foreground text-xs uppercase">或</span>
+              <div className="h-px flex-1 bg-border" />
             </div>
 
             <button
-              className="mt-4 flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="mt-4 flex w-full items-center justify-center gap-3 rounded-[4px] border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring/25"
               onClick={() => {
                 import("next-auth/react").then((m) =>
                   m.signIn("github", { callbackUrl })
@@ -137,7 +135,7 @@ export default function Page() {
               使用 GitHub 登录
             </button>
 
-            <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
+            <p className="mt-4 text-center text-muted-foreground text-sm">
               {"还没有账号？ "}
               <Link
                 className="font-semibold text-primary hover:underline"
@@ -153,13 +151,13 @@ export default function Page() {
 
             <div className="px-4 sm:px-16">
               <div className="flex items-center justify-between gap-4">
-                <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-                <span className="text-zinc-500 text-xs uppercase">或</span>
-                <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-muted-foreground text-xs uppercase">或</span>
+                <div className="h-px flex-1 bg-border" />
               </div>
 
               <button
-                className="mt-4 flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="mt-4 flex w-full items-center justify-center gap-3 rounded-[4px] border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring/25"
                 onClick={() => {
                   import("next-auth/react").then((m) =>
                     m.signIn("github", { callbackUrl })
@@ -178,7 +176,7 @@ export default function Page() {
                 使用 GitHub 登录
               </button>
 
-              <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
+              <p className="mt-4 text-center text-muted-foreground text-sm">
                 {"还没有账号？ "}
                 <Link
                   className="font-semibold text-primary hover:underline"

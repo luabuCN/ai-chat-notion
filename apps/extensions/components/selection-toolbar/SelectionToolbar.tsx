@@ -86,10 +86,10 @@ const TOOLBAR_ACTION_ITEMS: ToolbarActionItem[] = [
 
 /** 固定 px；ghost 会带 hover 背景，这里改为透明 + 仅主题色变化 */
 const iconButtonClassName =
-  "box-border h-[26px] w-[26px] shrink-0 rounded-lg p-0 text-slate-600 hover:bg-transparent hover:text-primary active:bg-transparent active:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer";
+  "box-border h-[26px] w-[26px] shrink-0 rounded-[5px] p-0 text-muted-foreground hover:bg-accent hover:text-primary active:bg-accent active:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer";
 
 const tooltipSurfaceClassName =
-  "border-slate-200 bg-white text-slate-900 shadow-md";
+  "border-border bg-popover text-popover-foreground shadow-[var(--shadow-card)]";
 
 const aiAvatarButtonClassName =
   "group inline-flex size-[26px] items-center justify-center rounded-full bg-transparent outline-none hover:bg-transparent active:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer";
@@ -144,7 +144,7 @@ export function SelectionToolbar({
     <div
       aria-label="文本选区快捷操作"
       aria-orientation="horizontal"
-      className="box-border flex h-[36px] items-center gap-[8px] rounded-full border border-gray-100 bg-white px-[10px] py-0 shadow-sm"
+      className="box-border flex h-[36px] items-center gap-[8px] rounded-full border border-border bg-popover px-[10px] py-0 shadow-[var(--shadow-card)]"
       onMouseDown={(e) => e.preventDefault()}
       role="toolbar"
     >
@@ -159,7 +159,7 @@ export function SelectionToolbar({
                 type="button"
               >
                 <Avatar className="size-[26px]!">
-                  <AvatarFallback className="bg-primary/10 text-slate-600 group-hover:text-primary group-active:text-primary">
+                  <AvatarFallback className="bg-[var(--badge-blue-bg)] text-primary group-hover:text-primary group-active:text-primary">
                     <Brain className="size-[16px]!" strokeWidth={2} />
                   </AvatarFallback>
                 </Avatar>
@@ -187,12 +187,12 @@ export function SelectionToolbar({
         </Tooltip>
       ))}
 
-      <div className="inline-flex h-[26px] items-stretch overflow-hidden rounded-lg border border-slate-200/60 bg-white">
+      <div className="inline-flex h-[26px] items-stretch overflow-hidden rounded-[5px] border border-border bg-popover">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               aria-label="翻译为英语"
-              className="box-border flex h-full w-[26px] shrink-0 items-center justify-center rounded-none border-r border-slate-200/60 bg-white p-0 text-slate-600 outline-none hover:bg-slate-50 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="box-border flex h-full w-[26px] shrink-0 items-center justify-center rounded-none border-r border-border bg-popover p-0 text-muted-foreground outline-none hover:bg-accent hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               onClick={() => {
                 const selectedText = getSelectedText();
                 void onTranslateLanguage?.(
@@ -216,7 +216,7 @@ export function SelectionToolbar({
                 <button
                   aria-haspopup="menu"
                   aria-label="选择翻译语言"
-                  className="box-border flex h-full w-[22px] shrink-0 items-center justify-center rounded-none bg-white p-0 text-slate-600 outline-none hover:bg-slate-50 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="box-border flex h-full w-[22px] shrink-0 items-center justify-center rounded-none bg-popover p-0 text-muted-foreground outline-none hover:bg-accent hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   type="button"
                 >
                   <ChevronDown className="size-[12px]! opacity-80" strokeWidth={2} />
@@ -229,7 +229,7 @@ export function SelectionToolbar({
           </Tooltip>
           <DropdownMenuContent
             align="center"
-            className="z-[2147483647] max-h-[min(320px,calc(100vh-96px))] w-[min(100vw-24px,280px)] overflow-y-auto border-slate-200 bg-white p-1 text-slate-900 shadow-md"
+            className="z-[2147483647] max-h-[min(320px,calc(100vh-96px))] w-[min(100vw-24px,280px)] overflow-y-auto border-border bg-popover p-1 text-popover-foreground shadow-[var(--shadow-card)]"
             container={extensionMenuPortalHost}
             onCloseAutoFocus={(e) => e.preventDefault()}
             side="top"
@@ -245,7 +245,7 @@ export function SelectionToolbar({
                 }}
               >
                 <span className="w-full font-medium leading-tight">{lang.labelZh}</span>
-                <span className="w-full text-[12px] leading-tight text-slate-500">
+                <span className="w-full text-[12px] leading-tight text-muted-foreground">
                   {lang.nativeName}
                 </span>
               </DropdownMenuItem>
@@ -254,7 +254,7 @@ export function SelectionToolbar({
         </DropdownMenu>
       </div>
 
-      <Separator className="h-[14px]! w-px bg-gray-200" orientation="vertical" />
+      <Separator className="h-[14px]! w-px bg-border" orientation="vertical" />
 
       <Button
         aria-label="关闭"

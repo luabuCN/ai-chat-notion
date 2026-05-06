@@ -335,7 +335,7 @@ export default function AIPanel({ editor }: AIPanelProps) {
       <AIResultPanel result={result} isStreaming={isStreaming} error={error} />
       {/* bubble 模式：显示加载状态（与输入框样式一致） */}
       {mode === "bubble" && (isThinking || isStreaming) && !result && (
-        <div className="ai-panel-input flex w-full items-center rounded-xl border border-violet-200/70 bg-white/95 p-1 text-popover-foreground shadow-[0_18px_45px_rgba(124,58,237,0.16)] ring-1 ring-violet-100/80 backdrop-blur dark:border-violet-500/25 dark:bg-background/95 dark:ring-violet-500/15">
+        <div className="ai-panel-input flex w-full items-center rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[var(--shadow-card)]">
           <Loader2 className="mx-2.5 w-4 h-4 text-muted-foreground animate-spin" />
           <div className="flex-1 py-2 text-sm text-muted-foreground">
             {isThinking ? "AI is thinking..." : "AI is writing..."}

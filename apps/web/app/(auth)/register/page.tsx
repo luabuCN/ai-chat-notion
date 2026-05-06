@@ -102,14 +102,12 @@ export default function Page() {
   };
 
   return (
-    <div className="flex h-dvh w-screen items-start justify-center bg-gray-50/50 dark:bg-zinc-950/50 pt-12 md:items-center md:pt-0">
-      <div className="absolute inset-0 -z-10 h-full w-full bg-white dark:bg-zinc-950 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[14px_24px]">
-        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/5 opacity-20 blur-[100px]" />
-      </div>
+    <div className="flex h-dvh w-screen items-start justify-center bg-muted/40 pt-12 md:items-center md:pt-0">
+      <div className="absolute inset-0 -z-10 h-full w-full bg-background" />
 
-      <div className="flex w-full max-w-md flex-col gap-8 overflow-hidden rounded-2xl bg-background border border-zinc-200 dark:border-zinc-800 p-4 shadow-xl shadow-zinc-200/50 dark:shadow-none sm:p-0 sm:py-12">
+      <div className="flex w-full max-w-md flex-col gap-8 overflow-hidden rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-0 sm:py-12">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="font-semibold text-2xl tracking-tight dark:text-zinc-50">
+          <h3 className="font-bold text-[26px] leading-[1.23] tracking-[-0.625px]">
             创建账号
           </h3>
           <p className="text-muted-foreground text-sm">填写以下信息完成注册</p>
@@ -119,7 +117,7 @@ export default function Page() {
           {/* 用户名 */}
           <div className="flex flex-col gap-2">
             <Label
-              className="font-normal text-zinc-600 dark:text-zinc-400"
+              className="font-normal text-muted-foreground"
               htmlFor="name"
             >
               用户名
@@ -140,7 +138,7 @@ export default function Page() {
           {/* 邮箱 */}
           <div className="flex flex-col gap-2">
             <Label
-              className="font-normal text-zinc-600 dark:text-zinc-400"
+              className="font-normal text-muted-foreground"
               htmlFor="email"
             >
               邮箱地址
@@ -159,7 +157,7 @@ export default function Page() {
           {/* 验证码 */}
           <div className="flex flex-col gap-2">
             <Label
-              className="font-normal text-zinc-600 dark:text-zinc-400"
+              className="font-normal text-muted-foreground"
               htmlFor="code"
             >
               邮箱验证码
@@ -194,7 +192,7 @@ export default function Page() {
           {/* 密码 */}
           <div className="flex flex-col gap-2">
             <Label
-              className="font-normal text-zinc-600 dark:text-zinc-400"
+              className="font-normal text-muted-foreground"
               htmlFor="password"
             >
               密码
@@ -214,13 +212,13 @@ export default function Page() {
           <SubmitButton isSuccessful={isSuccessful}>注册</SubmitButton>
 
           <div className="mt-4 flex items-center justify-between gap-4">
-            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-            <span className="text-zinc-500 text-xs uppercase">或</span>
-            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-muted-foreground text-xs uppercase">或</span>
+            <div className="h-px flex-1 bg-border" />
           </div>
 
           <button
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex w-full items-center justify-center gap-3 rounded-[4px] border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring/25"
             onClick={() => {
               import("next-auth/react").then((m) =>
                 m.signIn("github", { callbackUrl })
@@ -239,7 +237,7 @@ export default function Page() {
             使用 GitHub 注册
           </button>
 
-          <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
+          <p className="mt-4 text-center text-muted-foreground text-sm">
             {"已有账号？ "}
             <Link
               className="font-semibold text-primary hover:underline"

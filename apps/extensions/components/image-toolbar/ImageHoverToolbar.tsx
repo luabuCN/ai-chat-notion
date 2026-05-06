@@ -55,7 +55,7 @@ export function ImageHoverToolbar({
                   aria-expanded={menuOpen}
                   aria-haspopup="menu"
                   aria-label="图片工具"
-                  className="pointer-events-auto size-9 shrink-0 touch-manipulation cursor-pointer rounded-full border border-white/15 bg-slate-800 text-white shadow-[0_4px_14px_rgba(15,23,42,0.35)] transition-[transform,background-color,box-shadow] duration-150 hover:bg-slate-700 hover:shadow-[0_6px_18px_rgba(15,23,42,0.45)] active:scale-[0.97] active:bg-slate-500 active:shadow-[0_2px_8px_rgba(15,23,42,0.3)] disabled:pointer-events-none disabled:opacity-60"
+                  className="pointer-events-auto size-9 shrink-0 touch-manipulation cursor-pointer rounded-full border border-border bg-popover text-primary shadow-[var(--shadow-card)] transition-[transform,background-color,box-shadow] duration-150 hover:bg-accent active:scale-95 disabled:pointer-events-none disabled:opacity-60"
                   disabled={busy}
                   size="sm"
                   type="button"
@@ -69,7 +69,7 @@ export function ImageHoverToolbar({
               </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent
-              className="border-slate-200 bg-white text-slate-900 shadow-md"
+              className="border-border bg-popover text-popover-foreground shadow-[var(--shadow-card)]"
               side="top"
               sideOffset={8}
             >
@@ -78,7 +78,7 @@ export function ImageHoverToolbar({
           </Tooltip>
           <DropdownMenuContent
             align="end"
-            className="z-[2147483647] min-w-44 border-slate-200/90 bg-white p-1 text-slate-900 shadow-lg"
+            className="z-[2147483647] min-w-44 border-border bg-popover p-1 text-popover-foreground shadow-[var(--shadow-card)]"
             collisionPadding={12}
             container={extensionMenuPortalHost ?? undefined}
             data-wisewrite-image-toolbar=""
@@ -94,7 +94,7 @@ export function ImageHoverToolbar({
                 onImageChat();
               }}
             >
-              <MessageCircle aria-hidden className="size-4 text-slate-600" />
+              <MessageCircle aria-hidden className="size-4 text-muted-foreground" />
               图片聊天
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -105,7 +105,7 @@ export function ImageHoverToolbar({
                 onExtract();
               }}
             >
-              <ScanLine aria-hidden className="size-4 text-slate-600" />
+              <ScanLine aria-hidden className="size-4 text-muted-foreground" />
               提取文字
             </DropdownMenuItem>
           </DropdownMenuContent>
