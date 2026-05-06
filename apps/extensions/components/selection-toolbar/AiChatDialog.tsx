@@ -81,16 +81,16 @@ export function AiChatDialog({
               className="pointer-events-auto w-[520px] max-w-[calc(100vw-32px)] will-change-transform"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <div className="rounded-2xl border border-slate-200/60 bg-slate-50 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+              <div className="rounded-xl border border-border bg-popover shadow-[var(--shadow-deep)] animate-in fade-in zoom-in-95 duration-150">
                 {/* 选中文字展示区 (拖拽手柄区域) */}
                 <div className="drag-handle cursor-grab px-2 pt-2 pb-1 select-none active:cursor-grabbing">
-                  <div className="flex w-full items-center gap-3 rounded-lg bg-slate-200/60 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-slate-500 select-none">
+                  <div className="flex w-full items-center gap-3 rounded-[5px] bg-muted px-3 py-2">
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground select-none">
                       {selectedText}
                     </span>
                     <button
                       aria-label="关闭"
-                      className="shrink-0 rounded-full bg-slate-400 p-[3px] text-white hover:bg-slate-500 transition-colors cursor-pointer"
+                      className="shrink-0 rounded-full bg-secondary p-[3px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
                       onClick={onClose}
                       onMouseDown={(e) => e.stopPropagation()}
                       type="button"
@@ -113,7 +113,7 @@ export function AiChatDialog({
                   </Avatar>
                   <TextareaAutosize
                     ref={inputRef}
-                    className="min-h-8 w-full flex-1 resize-none bg-transparent px-1 py-1.5 text-sm shadow-none placeholder:text-slate-400 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 leading-relaxed"
+                    className="min-h-8 w-full flex-1 resize-none bg-transparent px-1 py-1.5 text-sm shadow-none placeholder:text-[#a39e98] focus-visible:outline-none focus:ring-0 focus-visible:ring-0 leading-relaxed"
                     maxRows={6}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={onKeyDown}

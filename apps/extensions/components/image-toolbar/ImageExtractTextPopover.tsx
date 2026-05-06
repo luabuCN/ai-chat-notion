@@ -52,7 +52,7 @@ export function ImageExtractTextPopover({
       title="提取的文字"
       footer={
         phase === "done" && error === null ? (
-          <div className="flex justify-end bg-white px-3 py-2">
+          <div className="flex justify-end bg-popover px-3 py-2">
             <Button
               className="rounded-lg px-4"
               onClick={() => {
@@ -94,7 +94,7 @@ export function ImageExtractTextPopover({
           {error}
         </p>
       ) : (
-        <pre className="wrap-break-word whitespace-pre-wrap font-mono text-slate-800 text-[14px] font-normal leading-relaxed ">
+        <pre className="wrap-break-word whitespace-pre-wrap font-mono text-foreground text-[14px] font-normal leading-relaxed ">
           {text.length > 0 ? text : "未识别到文字"}
         </pre>
       )}

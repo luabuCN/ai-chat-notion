@@ -40,7 +40,7 @@ export function HighlightPopover({
       }}
     >
       <div
-        className="flex items-center gap-[6px] rounded-full border border-gray-100 bg-white px-[10px] py-[6px] shadow-md"
+        className="flex items-center gap-[6px] rounded-full border border-border bg-popover px-[10px] py-[6px] shadow-[var(--shadow-card)]"
         onMouseDown={(e) => e.preventDefault()}
       >
         {COLOR_ENTRIES.map(([key, value]) => (
@@ -55,17 +55,17 @@ export function HighlightPopover({
             }}
             style={{
               backgroundColor: value.dot,
-              borderColor: key === currentColor ? "#94a3b8" : "transparent",
+              borderColor: key === currentColor ? "var(--primary)" : "transparent",
             }}
             type="button"
           />
         ))}
 
-        <div className="mx-[2px] h-[14px] w-px bg-gray-200" />
+        <div className="mx-[2px] h-[14px] w-px bg-border" />
 
         <button
           aria-label="删除高亮"
-          className="flex size-[22px] items-center justify-center rounded-md text-slate-500 hover:text-red-500 cursor-pointer transition-colors"
+          className="flex size-[22px] items-center justify-center rounded-[5px] text-muted-foreground hover:bg-accent hover:text-destructive cursor-pointer transition-colors"
           onClick={() => {
             removeHighlight(highlightId);
             void deleteHighlightFromDb(highlightId);

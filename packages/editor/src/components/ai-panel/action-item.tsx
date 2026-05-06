@@ -12,9 +12,9 @@ export default function ActionItem({ icon, label, onClick }: ActionItemProps) {
     <button
       type="button"
       className={cn(
-        "flex w-full min-w-[200px] items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-none",
-        "hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-500/10 dark:hover:text-violet-200",
-        "focus:bg-violet-50 focus:text-violet-700 dark:focus:bg-violet-500/10 dark:focus:text-violet-200",
+        "flex w-full min-w-[200px] items-center gap-2 rounded-[5px] px-2 py-1.5 text-sm outline-none",
+        "hover:bg-accent hover:text-accent-foreground",
+        "focus:bg-accent focus:text-accent-foreground",
         "group relative text-left"
       )}
       onClick={onClick}

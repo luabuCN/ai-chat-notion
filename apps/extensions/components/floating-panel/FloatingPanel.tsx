@@ -106,7 +106,7 @@ export function FloatingPanel({
             <div
               ref={panelRef}
               className={cn(
-                "pointer-events-auto flex max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl will-change-transform",
+                "pointer-events-auto flex max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-deep)] will-change-transform",
                 "resize",
                 className,
               )}
@@ -118,11 +118,11 @@ export function FloatingPanel({
                 width: defaultWidth,
               }}
             >
-              <header className="flex shrink-0 select-none items-center gap-2 border-b border-slate-200/80 px-3 py-2.5">
+              <header className="flex shrink-0 select-none items-center gap-2 border-b border-border px-3 py-2.5">
                 {onBack ? (
                   <button
                     aria-label="返回"
-                    className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     onClick={(e) => {
                       e.stopPropagation();
                       onBack();
@@ -138,7 +138,7 @@ export function FloatingPanel({
                     仅标题条可拖拽；titleAddon（如下拉）若在 drag-handle 内会与 react-draggable 抢 mousedown，导致菜单无法打开。
                   */}
                   <div className="floating-panel-drag-handle flex min-h-0 min-w-0 flex-1 cursor-grab items-center active:cursor-grabbing">
-                    <h2 className="min-w-0 truncate text-[15px] font-medium text-slate-900">
+                    <h2 className="min-w-0 truncate text-[15px] font-semibold text-foreground">
                       {title}
                     </h2>
                   </div>
@@ -152,7 +152,7 @@ export function FloatingPanel({
                       aria-label={pinned ? "取消固定" : "固定窗口"}
                       aria-pressed={pinned}
                       className={cn(
-                        "flex size-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900",
+                        "flex size-8 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                         pinned && "bg-primary/10 text-primary",
                       )}
                       onClick={(e) => {
@@ -167,7 +167,7 @@ export function FloatingPanel({
                   ) : null}
                   <button
                     aria-label="关闭"
-                    className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                    className="flex size-8 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     onClick={(e) => {
                       e.stopPropagation();
                       onClose();
@@ -190,7 +190,7 @@ export function FloatingPanel({
               </div>
 
               {footer ? (
-                <div className="shrink-0 border-t border-slate-200/80">{footer}</div>
+                <div className="shrink-0 border-t border-border">{footer}</div>
               ) : null}
             </div>
           </Draggable>
