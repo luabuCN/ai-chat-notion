@@ -231,10 +231,16 @@ export function EditorContent({
     }
   }, [document, documentId]);
 
-  // 显示错误
+  // 显示错误（仅在 EditorContent 内部渲染时的非致命错误）
+  // 注意：致命错误（401/403/404）已在 EditorPageClient 中处理并显示错误页面
   useEffect(() => {
     if (error) {
-      toast.error(error.message || "加载文档失败");
+      const docError = error as any;
+      const statusCode = docError?.statusCode ?? 0;
+      // 非权限/不存在类错误才显示 toast
+      if (statusCode !== 401 && statusCode !== 403 && statusCode !== 404) {
+        toast.error(error.message || "加载文档失败");
+      }
     }
   }, [error]);
 

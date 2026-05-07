@@ -37,11 +37,22 @@ async function fetchDocuments(
   return response.json();
 }
 
+interface FetchDocumentError {
+  message: string;
+  code?: string;
+  statusCode: number;
+}
+
 async function fetchDocument(documentId: string): Promise<EditorDocument> {
   const response = await fetch(`/api/editor-documents/${documentId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "获取文档失败");
+    const errorData = await response.json().catch(() => ({}));
+    const error: FetchDocumentError = {
+      message: errorData.message || "获取文档失败",
+      code: errorData.code,
+      statusCode: response.status,
+    };
+    throw error;
   }
   return response.json();
 }

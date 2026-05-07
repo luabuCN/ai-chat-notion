@@ -139,6 +139,70 @@ export async function POST(
 }
 
 /**
+ * PATCH /api/editor-documents/[id]/collaborators?email=xxx
+ * 更新协作者权限（不重置接受状态）
+ */
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { user } = getAuthFromRequest(request);
+  const { id: documentId } = await params;
+
+  if (!user) {
+    return new ChatSDKError("unauthorized:document").toResponse();
+  }
+
+  try {
+    const { access } = await verifyDocumentAccess(
+      documentId,
+      user.id,
+      user.email
+    );
+
+    // 只有 owner 才能更新协作者权限
+    if (access !== "owner") {
+      return new ChatSDKError("forbidden:document").toResponse();
+    }
+
+    const body = await request.json();
+    const { email, permission } = body as {
+      email: string;
+      permission: "view" | "edit";
+    };
+
+    if (!email || !permission) {
+      return new ChatSDKError(
+        "bad_request:api",
+        "Email and permission are required"
+      ).toResponse();
+    }
+
+    const collaborator = await prisma.documentCollaborator.update({
+      where: {
+        documentId_email: {
+          documentId,
+          email,
+        },
+      },
+      data: {
+        permission,
+      },
+    });
+
+    return Response.json(collaborator, { status: 200 });
+  } catch (error) {
+    if (error instanceof ChatSDKError) {
+      return error.toResponse();
+    }
+    return new ChatSDKError(
+      "bad_request:api",
+      "Failed to update collaborator permission"
+    ).toResponse();
+  }
+}
+
+/**
  * DELETE /api/editor-documents/[id]/collaborators?email=xxx
  * 移除协作者
  */

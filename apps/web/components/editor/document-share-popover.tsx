@@ -276,18 +276,10 @@ export function DocumentSharePopover({
   ) => {
     setUpdating(email);
     try {
-      // 先删除再重新邀请（简化实现）
-      await fetch(
-        `/api/editor-documents/${documentId}/collaborators?email=${encodeURIComponent(
-          email
-        )}`,
-        { method: "DELETE" }
-      );
-
       const response = await fetch(
         `/api/editor-documents/${documentId}/collaborators`,
         {
-          method: "POST",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, permission }),
         }
@@ -298,6 +290,9 @@ export function DocumentSharePopover({
           prev.map((c) => (c.email === email ? { ...c, permission } : c))
         );
         toast.success("权限已更新");
+      } else {
+        const error = await response.json();
+        toast.error(error.message || "更新失败");
       }
     } catch (error) {
       toast.error("更新失败");
@@ -731,7 +726,7 @@ export function DocumentSharePopover({
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 ml-1">
                         {collaborator.status === "pending" && canInvite && (
                           <Button
                             variant="ghost"

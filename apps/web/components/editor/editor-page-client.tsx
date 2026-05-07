@@ -13,6 +13,8 @@ import {
   isConvertTaskPipelineBusy,
 } from "@/lib/pdf/convert-store";
 import { EditorScrollNav } from "./editor-scroll-nav";
+import { FileQuestion, ShieldAlert, LogIn } from "lucide-react";
+import Link from "next/link";
 
 interface EditorPageClientProps {
   locale: string;
@@ -29,7 +31,7 @@ export function EditorPageClient({
   userName,
   userEmail,
 }: EditorPageClientProps) {
-  const { isPending: isDocumentPending } = useGetDocument(documentId);
+  const { isPending: isDocumentPending, error } = useGetDocument(documentId);
   const { state, isMobile } = useSidebar();
   const [mounted, setMounted] = useState(false);
   const [isFullWidth, setIsFullWidth] = useLocalStorage("editor-full-width", false);
@@ -49,6 +51,66 @@ export function EditorPageClient({
     : state === "collapsed"
     ? "0"
     : "var(--sidebar-width)";
+
+  // 文档加载出错（无权限 / 不存在）
+  const docError = error as any;
+
+  if (docError && !isDocumentPending) {
+    const statusCode = docError.statusCode ?? 0;
+    const isUnauthorized = statusCode === 401;
+    const isForbidden = statusCode === 403;
+    const isNotFound = statusCode === 404;
+
+    return (
+      <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-4 text-center max-w-md">
+            {isUnauthorized ? (
+              <ShieldAlert className="size-16 text-muted-foreground/60" />
+            ) : (
+              <FileQuestion className="size-16 text-muted-foreground/60" />
+            )}
+            <h2 className="text-xl font-semibold text-foreground">
+              {isUnauthorized
+                ? "请先登录"
+                : isForbidden
+                ? "无访问权限"
+                : isNotFound
+                ? "文档不存在"
+                : "加载失败"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {isUnauthorized
+                ? "你需要登录后才能查看此文档"
+                : isForbidden
+                ? "你没有权限查看此文档，请联系文档所有者获取访问权限"
+                : isNotFound
+                ? "此文档不存在或已被删除"
+                : docError.message || "加载文档时发生错误，请稍后重试"}
+            </p>
+            <div className="flex gap-3 mt-2">
+              {isUnauthorized ? (
+                <Link
+                  href={`/sign-in?callbackUrl=${encodeURIComponent(`/editor/${documentId}`)}`}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <LogIn className="size-4" />
+                  登录
+                </Link>
+              ) : (
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  返回首页
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <CollaborationProvider>
