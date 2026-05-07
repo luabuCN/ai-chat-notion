@@ -135,7 +135,10 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
       <PopoverContent
         align="start"
         collisionPadding={VIEWPORT_PADDING}
-        className={cn("w-[200px] p-1", BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS)}
+        className={cn(
+          "w-[200px] p-1 data-[state=closed]:!animate-none",
+          BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS
+        )}
         onMouseLeave={() => {
           setShowLanguages(false);
           setShowTones(false);

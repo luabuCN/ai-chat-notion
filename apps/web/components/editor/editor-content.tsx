@@ -86,9 +86,17 @@ export function EditorContent({
     const isPubliclyEditable =
       (document as any)?.isPubliclyEditable ?? false;
     const hasCollaborators = (document as any)?.hasCollaborators;
+    const hasWorkspaceCollaborators = (document as any)
+      ?.hasWorkspaceCollaborators;
     const isCurrentUserCollaborator = (document as any)
       ?.isCurrentUserCollaborator;
     const isDocumentOwner = (document as any)?.userId === userId;
+
+    // Space documents are collaborative by default once the space has more
+    // than one user who can access documents in that space.
+    if (hasWorkspaceCollaborators) {
+      return true;
+    }
 
     // 场景1：他人文档（非拥有者）- 需要连接以看到他人操作
     if (!isDocumentOwner) {

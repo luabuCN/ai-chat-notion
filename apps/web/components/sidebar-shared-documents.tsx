@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ChevronDown, ChevronRight, Users, FileIcon } from "lucide-react";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@repo/ui";
+import { useWorkspace } from "@/components/workspace-provider";
 import { cn } from "@/lib/utils";
 import { SidebarDocumentsProvider } from "./sidebar-documents-context";
 import Item from "./sidebar-document-item";
@@ -28,6 +29,7 @@ interface SharedDocumentsGroup {
 export function SidebarSharedDocuments() {
   const router = useRouter();
   const pathname = usePathname();
+  const { currentWorkspace } = useWorkspace();
 
   const [sharedGroups, setSharedGroups] = useState<SharedDocumentsGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,12 @@ export function SidebarSharedDocuments() {
       setLoading(true);
     }
     try {
-      const response = await fetch("/api/editor-documents/shared-with-me");
+      const params = new URLSearchParams();
+      if (currentWorkspace?.id) {
+        params.set("workspaceId", currentWorkspace.id);
+      }
+      const url = `/api/editor-documents/shared-with-me${params.toString() ? `?${params}` : ""}`;
+      const response = await fetch(url);
       if (response.ok) {
         const data = (await response.json()) as SharedDocumentsGroup[];
         setSharedGroups(data);
@@ -63,7 +70,7 @@ export function SidebarSharedDocuments() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [currentWorkspace?.id]);
 
   useEffect(() => {
     const silent = !isFirstPathFetch.current;

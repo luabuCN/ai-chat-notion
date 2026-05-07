@@ -14,6 +14,7 @@ export interface DocumentAccessResult {
   access: AccessLevel;
   document: any;
   hasCollaborators?: boolean;
+  hasWorkspaceCollaborators?: boolean;
   isCurrentUserCollaborator?: boolean;
 }
 
@@ -40,8 +41,9 @@ export async function verifyDocumentAccess(
     const collaboratorCount = await prisma.documentCollaborator.count({
       where: {
         documentId,
-        status: "accepted",
-        permission: "edit",
+        status: {
+          in: ["pending", "accepted"],
+        },
       },
     });
     const hasCollaborators = collaboratorCount > 0;
@@ -50,13 +52,25 @@ export async function verifyDocumentAccess(
     let workspaceOwnerId: string | undefined;
     let workspaceMemberRole: string | undefined;
     let workspaceMemberPermission: string | undefined;
+    let hasWorkspaceCollaborators = false;
 
     if (document.workspaceId && userId) {
-      const workspace = await prisma.workspace.findUnique({
-        where: { id: document.workspaceId },
-        select: { ownerId: true },
-      });
+      const [workspace, workspaceMembers] = await Promise.all([
+        prisma.workspace.findUnique({
+          where: { id: document.workspaceId },
+          select: { ownerId: true },
+        }),
+        prisma.workspaceMember.findMany({
+          where: { workspaceId: document.workspaceId },
+          select: { userId: true },
+        }),
+      ]);
       workspaceOwnerId = workspace?.ownerId;
+      const workspaceMemberIds = workspaceMembers.map((member) => member.userId);
+      const workspaceUserIds = new Set(
+        [workspaceOwnerId, ...workspaceMemberIds].filter(Boolean)
+      );
+      hasWorkspaceCollaborators = workspaceUserIds.size > 1;
 
       const memberInfo = await getWorkspaceMemberPermission({
         workspaceId: document.workspaceId,
@@ -120,6 +134,7 @@ export async function verifyDocumentAccess(
       access: permissionResult.access,
       document,
       hasCollaborators,
+      hasWorkspaceCollaborators,
       isCurrentUserCollaborator,
     };
   } catch (error) {

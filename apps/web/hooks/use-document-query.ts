@@ -326,6 +326,7 @@ export function useUpdateDocument() {
             ...updatedDoc,
             accessLevel: oldData.accessLevel,
             hasCollaborators: oldData.hasCollaborators,
+            hasWorkspaceCollaborators: oldData.hasWorkspaceCollaborators,
             isCurrentUserCollaborator: oldData.isCurrentUserCollaborator,
           };
         }

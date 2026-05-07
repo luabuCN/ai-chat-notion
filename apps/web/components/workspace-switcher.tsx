@@ -367,7 +367,7 @@ export function WorkspaceSwitcher({
                       return (
                         <div
                           key={workspace.id}
-                          className={`flex items-center gap-1 mx-1 rounded-md ${
+                          className={`flex items-center gap-1 mx-1 my-1 rounded-md ${
                             isActive
                               ? "bg-primary/10 border border-primary/30"
                               : "hover:bg-muted"

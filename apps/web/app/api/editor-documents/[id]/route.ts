@@ -15,8 +15,13 @@ export async function GET(
   const { user } = getAuthFromRequest(request);
 
   try {
-    const { access, document, hasCollaborators, isCurrentUserCollaborator } =
-      await verifyDocumentAccess(id, user?.id, user?.email);
+    const {
+      access,
+      document,
+      hasCollaborators,
+      hasWorkspaceCollaborators,
+      isCurrentUserCollaborator,
+    } = await verifyDocumentAccess(id, user?.id, user?.email);
 
     if (access === "none") {
       if (!user) {
@@ -30,6 +35,7 @@ export async function GET(
         ...document,
         accessLevel: access,
         hasCollaborators,
+        hasWorkspaceCollaborators,
         isCurrentUserCollaborator,
       },
       { status: 200 }

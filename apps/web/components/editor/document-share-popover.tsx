@@ -5,6 +5,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Badge,
   Button,
   Select,
   SelectContent,
@@ -14,6 +15,9 @@ import {
   Avatar,
   AvatarFallback,
   Input,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo/ui";
 import {
   Users,
@@ -381,21 +385,21 @@ export function DocumentSharePopover({
     switch (status) {
       case "pending":
         return (
-          <span className="text-xs text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded">
+          <Badge variant="outline" className="shrink-0 text-[11px] font-medium border-transparent bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 whitespace-nowrap">
             待接受
-          </span>
+          </Badge>
         );
       case "accepted":
         return (
-          <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+          <Badge variant="outline" className="shrink-0 text-[11px] font-medium border-transparent bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
             已接受
-          </span>
+          </Badge>
         );
       case "rejected":
         return (
-          <span className="text-xs text-red-600 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded">
+          <Badge variant="outline" className="shrink-0 text-[11px] font-medium border-transparent bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 whitespace-nowrap">
             已拒绝
-          </span>
+          </Badge>
         );
       default:
         return null;
@@ -705,17 +709,24 @@ export function DocumentSharePopover({
                       key={collaborator.id}
                       className="flex items-center justify-between py-2"
                     >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8 bg-primary/10">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="size-8 bg-primary/10 shrink-0">
                           <AvatarFallback className="text-xs text-primary">
                             {collaborator.email.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex flex-col">
+                        <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm">
-                              {collaborator.email}
-                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-sm truncate max-w-[160px]">
+                                  {collaborator.email}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{collaborator.email}</p>
+                              </TooltipContent>
+                            </Tooltip>
                             {getStatusLabel(collaborator.status)}
                           </div>
                         </div>

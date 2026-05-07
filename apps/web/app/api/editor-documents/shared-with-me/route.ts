@@ -13,6 +13,10 @@ export async function GET(request: Request) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
+  // 支持传入当前选中的空间 ID，用于排除已在该空间中的文档
+  const { searchParams } = new URL(request.url);
+  const currentWorkspaceId = searchParams.get("workspaceId");
+
   try {
     // 1. 获取当前用户被邀请的文档
     const collaborators = await prisma.documentCollaborator.findMany({
@@ -90,7 +94,20 @@ export async function GET(request: Request) {
       },
     });
 
-    // 3. 按邀请者（文档所有者）分组
+    // 3. 如果指定了当前空间，排除已在该空间中的文档，保持资源唯一性
+    let filteredCollaborators = collaborators;
+    let filteredVisitors = visitors;
+
+    if (currentWorkspaceId) {
+      filteredCollaborators = collaborators.filter(
+        (c) => c.document.workspaceId !== currentWorkspaceId
+      );
+      filteredVisitors = visitors.filter(
+        (v) => v.document.workspaceId !== currentWorkspaceId
+      );
+    }
+
+    // 4. 按邀请者（文档所有者）分组
     const groupedByOwner: Record<
       string,
       {
@@ -111,7 +128,7 @@ export async function GET(request: Request) {
     > = {};
 
     // 添加被邀请的文档
-    for (const collaborator of collaborators) {
+    for (const collaborator of filteredCollaborators) {
       const ownerId = collaborator.document.userId;
       const ownerEmail = collaborator.document.user.email || "";
       const ownerName =
@@ -141,7 +158,7 @@ export async function GET(request: Request) {
     }
 
     // 添加访问过的公开文档
-    for (const visitor of visitors) {
+    for (const visitor of filteredVisitors) {
       const ownerId = visitor.document.userId;
       const ownerEmail = visitor.document.user.email || "";
       const ownerName =
@@ -169,7 +186,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // 4. 转换为数组并按文档数量排序
+    // 5. 转换为数组并按文档数量排序
     const result = Object.values(groupedByOwner).sort(
       (a, b) => b.documents.length - a.documents.length
     );
