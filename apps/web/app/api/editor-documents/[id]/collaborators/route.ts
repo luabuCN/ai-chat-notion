@@ -1,13 +1,14 @@
 import { getAuthFromRequest } from "@/lib/api-auth";
-import { ChatSDKError } from "@/lib/errors";
 import { verifyDocumentAccess } from "@/lib/document-access";
+import { ChatSDKError } from "@/lib/errors";
+import {
+  assertDocumentCanManage,
+  isPermissionChangedError,
+  permissionChangedResponse,
+} from "@/lib/permission-assert";
 import { prisma } from "@repo/database";
 import crypto from "node:crypto";
 
-/**
- * GET /api/editor-documents/[id]/collaborators
- * 获取文档的所有协作者
- */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -26,7 +27,6 @@ export async function GET(
       user.email
     );
 
-    // 只有 owner 和 edit 权限才能查看协作者列表
     if (access !== "owner" && access !== "edit") {
       return new ChatSDKError("forbidden:document").toResponse();
     }
@@ -48,10 +48,6 @@ export async function GET(
   }
 }
 
-/**
- * POST /api/editor-documents/[id]/collaborators
- * 邀请新协作者
- */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -64,20 +60,10 @@ export async function POST(
   }
 
   try {
-    const { access } = await verifyDocumentAccess(
-      documentId,
-      user.id,
-      user.email
-    );
+    await assertDocumentCanManage(documentId, user);
 
-    // 只有 owner 才能邀请协作者
-    if (access !== "owner") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
-
-    const body = await request.json();
-    const { email, permission = "edit" } = body as {
-      email: string;
+    const { email, permission = "edit" } = (await request.json()) as {
+      email?: string;
       permission?: "view" | "edit";
     };
 
@@ -88,7 +74,6 @@ export async function POST(
       ).toResponse();
     }
 
-    // 检查是否已经邀请过
     const existing = await prisma.documentCollaborator.findUnique({
       where: {
         documentId_email: {
@@ -99,15 +84,16 @@ export async function POST(
     });
 
     if (existing) {
-      return new ChatSDKError("bad_request:api", "该用户已被邀请").toResponse();
+      return new ChatSDKError(
+        "bad_request:api",
+        "This user has already been invited"
+      ).toResponse();
     }
 
-    // 检查被邀请者是否已注册
     const invitedUser = await prisma.user.findFirst({
       where: { email },
     });
 
-    // 生成邀请 token
     const token = crypto.randomBytes(32).toString("hex");
 
     const collaborator = await prisma.documentCollaborator.create({
@@ -116,18 +102,19 @@ export async function POST(
         email,
         userId: invitedUser?.id,
         permission,
-        status: "pending", // 始终为待处理状态,等待用户接受
+        status: "pending",
         invitedBy: user.id,
         token,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7天过期
-        acceptedAt: null, // 用户接受后才设置
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        acceptedAt: null,
       },
     });
 
-    // TODO: 发送邀请邮件
-
     return Response.json(collaborator, { status: 201 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
@@ -138,10 +125,6 @@ export async function POST(
   }
 }
 
-/**
- * PATCH /api/editor-documents/[id]/collaborators?email=xxx
- * 更新协作者权限（不重置接受状态）
- */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -154,24 +137,14 @@ export async function PATCH(
   }
 
   try {
-    const { access } = await verifyDocumentAccess(
-      documentId,
-      user.id,
-      user.email
-    );
+    await assertDocumentCanManage(documentId, user);
 
-    // 只有 owner 才能更新协作者权限
-    if (access !== "owner") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
-
-    const body = await request.json();
-    const { email, permission } = body as {
-      email: string;
-      permission: "view" | "edit";
+    const { email, permission } = (await request.json()) as {
+      email?: string;
+      permission?: "view" | "edit";
     };
 
-    if (!email || !permission) {
+    if (!email || !permission || !["view", "edit"].includes(permission)) {
       return new ChatSDKError(
         "bad_request:api",
         "Email and permission are required"
@@ -185,27 +158,24 @@ export async function PATCH(
           email,
         },
       },
-      data: {
-        permission,
-      },
+      data: { permission },
     });
 
     return Response.json(collaborator, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
     return new ChatSDKError(
       "bad_request:api",
-      "Failed to update collaborator permission"
+      "Failed to update collaborator"
     ).toResponse();
   }
 }
 
-/**
- * DELETE /api/editor-documents/[id]/collaborators?email=xxx
- * 移除协作者
- */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -227,16 +197,7 @@ export async function DELETE(
   }
 
   try {
-    const { access } = await verifyDocumentAccess(
-      documentId,
-      user.id,
-      user.email
-    );
-
-    // 只有 owner 才能移除协作者
-    if (access !== "owner") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
+    await assertDocumentCanManage(documentId, user);
 
     await prisma.documentCollaborator.delete({
       where: {
@@ -249,6 +210,9 @@ export async function DELETE(
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }

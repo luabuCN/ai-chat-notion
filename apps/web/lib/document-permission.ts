@@ -97,7 +97,7 @@ export function checkDocumentPermission(
     return createPermissionResult("none", "Not authenticated");
   }
 
-  if (documentUserId === currentUserId) {
+  if (!documentWorkspaceId && documentUserId === currentUserId) {
     return createPermissionResult("owner", "Document owner", true);
   }
 

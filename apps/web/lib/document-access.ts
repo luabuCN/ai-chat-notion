@@ -13,6 +13,7 @@ export type AccessLevel = "owner" | "edit" | "view" | "none";
 export interface DocumentAccessResult {
   access: AccessLevel;
   document: any;
+  canManage?: boolean;
   hasCollaborators?: boolean;
   hasWorkspaceCollaborators?: boolean;
   isCurrentUserCollaborator?: boolean;
@@ -130,9 +131,15 @@ export async function verifyDocumentAccess(
       documentCollaboratorPermission,
       documentCollaboratorStatus,
     });
+    const canManage =
+      permissionResult.access === "owner" ||
+      workspaceMemberRole === "admin" ||
+      workspaceMemberRole === "owner";
+
     return {
       access: permissionResult.access,
       document,
+      canManage,
       hasCollaborators,
       hasWorkspaceCollaborators,
       isCurrentUserCollaborator,

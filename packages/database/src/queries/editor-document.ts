@@ -341,20 +341,13 @@ export async function duplicateEditorDocument({
       );
     }
 
-    // Verify ownership
-    if (original.userId !== userId) {
-      throw new ChatSDKError(
-        "forbidden:database",
-        "You don't have permission to duplicate this document"
-      );
-    }
-
     // Create duplicate with " copy" suffix
     return await prisma.editorDocument.create({
       data: {
         title: `${original.title} copy`,
         content: original.content ?? "",
-        userId: original.userId,
+        userId,
+        workspaceId: original.workspaceId,
         parentDocumentId: original.parentDocumentId,
         icon: original.icon,
         coverImage: original.coverImage,

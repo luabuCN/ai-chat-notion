@@ -17,6 +17,7 @@ import {
   AvatarImage,
 } from "@repo/ui";
 import { Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Workspace } from "./workspace-switcher";
 
 interface Member {
@@ -100,9 +101,13 @@ export function WorkspaceSettingsDialog({
         setMembers((prev) =>
           prev.map((m) => (m.userId === userId ? updatedMember : m))
         );
+      } else {
+        const error = await response.json().catch(() => null);
+        toast.error(error?.message || "更新成员失败");
       }
     } catch (error) {
       console.error("Failed to update member:", error);
+      toast.error("更新成员失败");
     } finally {
       setUpdating(null);
     }
@@ -149,6 +154,14 @@ export function WorkspaceSettingsDialog({
     return permission === "edit" ? "可修改" : "可查看";
   };
 
+  const getMemberPermissionLabel = (member: Member): string => {
+    if (member.userId === workspace?.ownerId || member.role === "admin") {
+      return "可修改";
+    }
+
+    return getPermissionLabel(member.permission);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -169,8 +182,8 @@ export function WorkspaceSettingsDialog({
                 <thead className="bg-muted/50">
                   <tr className="border-b">
                     <th className="text-left font-medium p-3">用户</th>
-                    <th className="text-left font-medium p-3 w-32">权限</th>
                     <th className="text-left font-medium p-3 w-32">角色</th>
+                    <th className="text-left font-medium p-3 w-32">权限</th>
                     <th className="p-3 w-12"></th>
                   </tr>
                 </thead>
@@ -208,7 +221,32 @@ export function WorkspaceSettingsDialog({
                           </div>
                         </td>
                         <td className="p-3">
-                          {canEdit && !isMemberOwner ? (
+                          {canEdit && !isMemberOwner && isOwner ? (
+                            <Select
+                              value={member.role}
+                              onValueChange={(value) =>
+                                handleUpdateMember(member.userId, "role", value)
+                              }
+                              disabled={isUpdatingThis}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">管理员</SelectItem>
+                                <SelectItem value="member">成员</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              {getRoleLabel(member)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {canEdit &&
+                          !isMemberOwner &&
+                          member.role === "member" ? (
                             <Select
                               value={member.permission}
                               onValueChange={(value) =>
@@ -224,36 +262,13 @@ export function WorkspaceSettingsDialog({
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="view">可查看</SelectItem>
                                 <SelectItem value="edit">可修改</SelectItem>
+                                <SelectItem value="view">可查看</SelectItem>
                               </SelectContent>
                             </Select>
                           ) : (
                             <span className="text-muted-foreground">
-                              {getPermissionLabel(member.permission)}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {canEdit && !isMemberOwner && isOwner ? (
-                            <Select
-                              value={member.role}
-                              onValueChange={(value) =>
-                                handleUpdateMember(member.userId, "role", value)
-                              }
-                              disabled={isUpdatingThis}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="member">成员</SelectItem>
-                                <SelectItem value="admin">管理员</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {getRoleLabel(member)}
+                              {getMemberPermissionLabel(member)}
                             </span>
                           )}
                         </td>

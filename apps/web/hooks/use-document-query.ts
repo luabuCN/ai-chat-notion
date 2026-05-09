@@ -43,6 +43,22 @@ interface FetchDocumentError {
   statusCode: number;
 }
 
+type ApiMutationError = Error & {
+  code?: string;
+  statusCode?: number;
+};
+
+async function createApiMutationError(
+  response: Response,
+  fallbackMessage: string
+): Promise<ApiMutationError> {
+  const errorData = await response.json().catch(() => ({}));
+  const error = new Error(errorData.message || fallbackMessage) as ApiMutationError;
+  error.code = errorData.code;
+  error.statusCode = response.status;
+  return error;
+}
+
 async function fetchDocument(documentId: string): Promise<EditorDocument> {
   const response = await fetch(`/api/editor-documents/${documentId}`);
   if (!response.ok) {
@@ -109,8 +125,7 @@ async function updateDocument({
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "更新文档失败");
+    throw await createApiMutationError(response, "更新文档失败");
   }
 
   return response.json();
@@ -122,8 +137,7 @@ async function deleteDocument(documentId: string): Promise<void> {
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "删除文档失败");
+    throw await createApiMutationError(response, "删除文档失败");
   }
 }
 
@@ -139,8 +153,7 @@ async function publishDocument({
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "发布操作失败");
+    throw await createApiMutationError(response, "发布操作失败");
   }
 
   return response.json();
@@ -177,8 +190,7 @@ async function duplicateDocument(documentId: string): Promise<EditorDocument> {
   );
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "复制文档失败");
+    throw await createApiMutationError(response, "复制文档失败");
   }
 
   return response.json();
@@ -200,8 +212,7 @@ async function moveDocument({
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "移动文档失败");
+    throw await createApiMutationError(response, "移动文档失败");
   }
 
   return response.json();
@@ -336,6 +347,7 @@ export function useUpdateDocument() {
           return {
             ...updatedDoc,
             accessLevel: oldData.accessLevel,
+            canManage: oldData.canManage,
             hasCollaborators: oldData.hasCollaborators,
             hasWorkspaceCollaborators: oldData.hasWorkspaceCollaborators,
             isCurrentUserCollaborator: oldData.isCurrentUserCollaborator,
@@ -504,8 +516,7 @@ async function restoreDocument(documentId: string): Promise<EditorDocument> {
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Failed to restore document");
+    throw await createApiMutationError(response, "Failed to restore document");
   }
 
   return response.json();
@@ -520,9 +531,9 @@ async function permanentDeleteDocument(documentId: string): Promise<void> {
   );
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.message || "Failed to permanently delete document"
+    throw await createApiMutationError(
+      response,
+      "Failed to permanently delete document"
     );
   }
 }

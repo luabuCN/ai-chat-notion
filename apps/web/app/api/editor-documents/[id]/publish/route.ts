@@ -1,7 +1,11 @@
 import { getAuthFromRequest } from "@/lib/api-auth";
-import { publishEditorDocument, unpublishEditorDocument } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
-import { verifyDocumentAccess } from "@/lib/document-access";
+import {
+  assertDocumentCanManage,
+  isPermissionChangedError,
+  permissionChangedResponse,
+} from "@/lib/permission-assert";
+import { publishEditorDocument, unpublishEditorDocument } from "@repo/database";
 
 export async function POST(
   request: Request,
@@ -16,17 +20,15 @@ export async function POST(
   const { id } = await params;
 
   try {
-    // 验证文档访问权限 - 需要编辑权限才能发布
-    const { access } = await verifyDocumentAccess(id, user.id, user.email);
-
-    if (access !== "owner" && access !== "edit") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
+    await assertDocumentCanManage(id, user);
 
     const updatedDocument = await publishEditorDocument({ id });
 
     return Response.json(updatedDocument, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
@@ -50,17 +52,15 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    // 验证文档访问权限 - 需要编辑权限才能取消发布
-    const { access } = await verifyDocumentAccess(id, user.id, user.email);
-
-    if (access !== "owner" && access !== "edit") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
+    await assertDocumentCanManage(id, user);
 
     const updatedDocument = await unpublishEditorDocument({ id });
 
     return Response.json(updatedDocument, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }

@@ -31,6 +31,8 @@ interface UnifiedEditorClientProps {
   /** WebSocket 同步完成回调 */
   onWebSocketSynced?: () => void;
   onDisconnect?: () => void;
+  /** 权限变更导致连接被关闭 */
+  onPermissionRevoked?: () => void;
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   onUpdate?: (editor: any) => void;
@@ -48,6 +50,7 @@ export const UnifiedEditorClient = memo(
     placeholder,
     onWebSocketSynced,
     onDisconnect,
+    onPermissionRevoked,
     onConnectedUsersChange,
     onConnectionStatusChange,
     onUpdate,
@@ -100,6 +103,7 @@ export const UnifiedEditorClient = memo(
         navigate={navigate}
         onWebSocketSynced={handleWebSocketSynced}
         onDisconnect={handleDisconnect}
+        onPermissionRevoked={onPermissionRevoked}
         onConnectedUsersChange={onConnectedUsersChange}
         onConnectionStatusChange={onConnectionStatusChange}
         onUpdate={onUpdate}

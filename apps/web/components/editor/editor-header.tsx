@@ -52,6 +52,7 @@ interface EditorHeaderProps {
   isDeleted?: boolean;
   readonly?: boolean; // 只读模式，隐藏编辑相关按钮
   isOwner?: boolean;
+  canManage?: boolean;
   currentUserId?: string;
   currentUserName?: string;
   currentUserEmail?: string;
@@ -84,6 +85,7 @@ export function EditorHeader({
   isDeleted = false,
   readonly = false,
   isOwner = false,
+  canManage = isOwner,
   currentUserId,
   currentUserName,
   currentUserEmail,
@@ -269,8 +271,8 @@ export function EditorHeader({
           <Separator orientation="vertical" className="mx-2 h-6" />
         )}
 
-        {/* 分享按钮 - 仅文档所有者可见 */}
-        {!isDeleted && isOwner && (
+        {/* 分享按钮 - 文档所有者或空间管理员可见 */}
+        {!isDeleted && canManage && (
           <DocumentSharePopover
             documentId={documentId}
             workspaceId={workspaceId}
@@ -285,8 +287,8 @@ export function EditorHeader({
           />
         )}
 
-        {/* 发布按钮 - 仅文档所有者可见 */}
-        {!readonly && isOwner && (
+        {/* 发布按钮 - 文档所有者或空间管理员可见 */}
+        {!readonly && canManage && (
           <PublishPopover documentId={documentId} isPublished={isPublished} />
         )}
 
@@ -328,6 +330,7 @@ export function EditorHeader({
               documentId={documentId}
               title={documentTitle || "Untitled"}
               isOwner={isOwner}
+              canManage={canManage}
               sourcePdfUrl={sourcePdfUrl}
               sourcePageUrl={sourcePageUrl}
               isFullWidth={isFullWidth}

@@ -26,6 +26,7 @@ export async function createWorkspace({
           create: {
             userId: ownerId,
             role: "owner",
+            permission: "edit",
           },
         },
       },
@@ -206,14 +207,19 @@ export async function addWorkspaceMember({
   workspaceId,
   userId,
   role = "member",
+  permission,
 }: {
   workspaceId: string;
   userId: string;
   role?: string;
+  permission?: string;
 }) {
   try {
+    const memberPermission =
+      permission ?? (role === "admin" || role === "owner" ? "edit" : "view");
+
     return await prisma.workspaceMember.create({
-      data: { workspaceId, userId, role },
+      data: { workspaceId, userId, role, permission: memberPermission },
     });
   } catch (_error) {
     throw new ChatSDKError(

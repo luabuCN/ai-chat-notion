@@ -91,6 +91,7 @@ export function EditorHeaderWrapper({
   // 只读模式：accessLevel 为 view 时隐藏编辑按钮
   const isReadOnly = (document as any)?.accessLevel === "view";
   const isOwner = (document as any)?.accessLevel === "owner";
+  const canManage = (document as any)?.canManage ?? isOwner;
 
   return (
     <EditorHeader
@@ -106,6 +107,7 @@ export function EditorHeaderWrapper({
       isSaved={isSaved}
       readonly={isReadOnly}
       isOwner={isOwner}
+      canManage={canManage}
       conversionLocked={conversionLocked}
       sourcePdfUrl={document?.sourcePdfUrl ?? null}
       sourcePageUrl={document?.sourcePageUrl ?? null}

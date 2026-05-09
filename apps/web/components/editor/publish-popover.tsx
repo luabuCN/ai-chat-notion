@@ -7,6 +7,11 @@ import { Button } from "@repo/ui";
 import { Globe, Check, Copy, Send } from "lucide-react";
 import { toast } from "sonner";
 
+type PublishError = Error & {
+  code?: string;
+  statusCode?: number;
+};
+
 interface PublishPopoverProps {
   documentId: string;
   isPublished: boolean;
@@ -19,6 +24,21 @@ export function PublishPopover({
   const [copied, setCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const publishMutation = usePublishDocument();
+
+  const showPublishError = (error: unknown, fallbackMessage: string) => {
+    const publishError = error as PublishError;
+    if (
+      publishError.code === "permission_changed" ||
+      publishError.statusCode === 403
+    ) {
+      toast.error("权限已变更", {
+        description: "你的发布权限已被移除，当前操作无法继续",
+      });
+      return;
+    }
+
+    toast.error(fallbackMessage);
+  };
 
   const url = `${
     typeof window !== "undefined" ? window.location.origin : ""
@@ -33,9 +53,9 @@ export function PublishPopover({
           setIsSubmitting(false);
           toast.success("文档已公开发布");
         },
-        onError: () => {
+        onError: (error) => {
           setIsSubmitting(false);
-          toast.error("发布失败");
+          showPublishError(error, "发布失败");
         },
       }
     );
@@ -50,9 +70,9 @@ export function PublishPopover({
           setIsSubmitting(false);
           toast.success("文档已取消发布");
         },
-        onError: () => {
+        onError: (error) => {
           setIsSubmitting(false);
-          toast.error("取消发布失败");
+          showPublishError(error, "取消发布失败");
         },
       }
     );

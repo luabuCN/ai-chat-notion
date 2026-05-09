@@ -1,7 +1,11 @@
 import { getAuthFromRequest } from "@/lib/api-auth";
-import { restoreEditorDocument } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
-import { verifyDocumentAccess } from "@/lib/document-access";
+import {
+  assertDocumentCanManage,
+  isPermissionChangedError,
+  permissionChangedResponse,
+} from "@/lib/permission-assert";
+import { restoreEditorDocument } from "@repo/database";
 
 export async function POST(
   request: Request,
@@ -16,19 +20,15 @@ export async function POST(
   const { id } = await params;
 
   try {
-    // 验证文档访问权限 - 需要编辑权限才能恢复
-    const { access } = await verifyDocumentAccess(id, user.id, user.email, {
-      ignoreDeletedAt: true,
-    });
-
-    if (access !== "owner" && access !== "edit") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
+    await assertDocumentCanManage(id, user, { ignoreDeletedAt: true });
 
     const restoredDocument = await restoreEditorDocument({ id });
 
     return Response.json(restoredDocument, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }

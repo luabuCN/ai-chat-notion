@@ -6,6 +6,7 @@ import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
 import { EditorLoadingSkeleton, EditorBodyLoadingSkeleton } from "./editor-loading-skeleton";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -57,10 +58,12 @@ export function EditorContent({
   const { data: document, isLoading, error } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
   const { setConnectedUsers, setConnectionStatus } = useCollaboration();
+  const queryClient = useQueryClient();
 
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [permissionRevoked, setPermissionRevoked] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const contentDebounced = useDebounce(content, 1000);
@@ -70,6 +73,7 @@ export function EditorContent({
   // 只读模式：已删除的文档或只有查看权限
   const isReadOnly =
     !!document?.deletedAt || (document as any)?.accessLevel === "view";
+  const effectiveReadOnly = isReadOnly || permissionRevoked;
 
   // 判断是否是文档所有者
   const isOwner = (document as any)?.accessLevel === "owner";
@@ -78,6 +82,7 @@ export function EditorContent({
   // 新逻辑：根据文档状态判断是否需要连接，而不是切换编辑器
   const shouldConnectCollab = useMemo(() => {
     if (!document) return false;
+    if (permissionRevoked) return false;
     if (document.id !== documentId) return false;
 
     const accessLevel = (document as any)?.accessLevel;
@@ -114,7 +119,7 @@ export function EditorContent({
     }
 
     return false;
-  }, [document, documentId, userId]);
+  }, [document, documentId, permissionRevoked, userId]);
 
   // 协同编辑 token（仅在需要连接协同时获取）
   const { data: collabData, isLoading: isTokenLoading } = useCollabToken(
@@ -138,8 +143,11 @@ export function EditorContent({
 
   /** 文档或协同模式切换时需重新等待编辑器就绪 */
   const editorMountKey = useMemo(
-    () => `${documentId}:${collabConfig?.token ?? "local"}`,
-    [documentId, collabConfig?.token]
+    () =>
+      `${documentId}:${collabConfig?.token ?? "local"}:${
+        permissionRevoked ? "revoked" : "active"
+      }`,
+    [documentId, collabConfig?.token, permissionRevoked]
   );
 
   /** 供异步回调读取：关闭协同后仍可能收到「已断开」，此时不应再更新顶栏状态 */
@@ -163,6 +171,19 @@ export function EditorContent({
     },
     [setConnectionStatus]
   );
+
+  // 处理权限变更：重新拉取文档数据（获取最新 accessLevel），并提示用户
+  const handlePermissionRevoked = useCallback(() => {
+    setPermissionRevoked(true);
+    toast.error("权限已变更", {
+      description: "你的编辑权限已被移除，已切换为只读模式",
+    });
+    // 重新拉取文档数据，让 isReadOnly 和 shouldConnectCollab 根据最新 accessLevel 自动更新
+    queryClient.invalidateQueries({ queryKey: ["document", documentId] });
+    // 强制断开协同连接状态
+    setConnectionStatus("disconnected");
+    setConnectedUsers([]);
+  }, [queryClient, documentId, setConnectionStatus, setConnectedUsers]);
 
   // 用户信息
   const user = useMemo(() => {
@@ -231,6 +252,29 @@ export function EditorContent({
     }
   }, [document, documentId]);
 
+  useEffect(() => {
+    if (!permissionRevoked || !document || document.id !== documentId) {
+      return;
+    }
+
+    const latestTitle = document.title ?? "";
+    const latestIcon = document.icon ?? null;
+    const latestContent = document.content ?? "";
+
+    setTitle(latestTitle);
+    setIcon(latestIcon);
+    setContent(latestContent);
+
+    prevTitleRef.current = latestTitle;
+    prevIconRef.current = latestIcon;
+    prevContentRef.current = latestContent;
+    setDocumentSnapshotApplied(true);
+  }, [document, documentId, permissionRevoked]);
+
+  useEffect(() => {
+    setPermissionRevoked(false);
+  }, [documentId]);
+
   // 显示错误（仅在 EditorContent 内部渲染时的非致命错误）
   // 注意：致命错误（401/403/404）已在 EditorPageClient 中处理并显示错误页面
   useEffect(() => {
@@ -272,7 +316,7 @@ export function EditorContent({
       !isInitializedRef.current ||
       !documentId ||
       !document ||
-      isReadOnly ||
+      effectiveReadOnly ||
       titleDebounced === document.title ||
       titleDebounced === "" ||
       titleDebounced === prevTitleRef.current
@@ -300,6 +344,7 @@ export function EditorContent({
     titleDebounced,
     documentId,
     document?.title,
+    effectiveReadOnly,
     updateDocumentMutation.mutate,
   ]);
 
@@ -309,7 +354,7 @@ export function EditorContent({
       !isInitializedRef.current ||
       !documentId ||
       !document ||
-      isReadOnly ||
+      effectiveReadOnly ||
       iconDebounced === document.icon ||
       iconDebounced === prevIconRef.current
     )
@@ -336,6 +381,7 @@ export function EditorContent({
     iconDebounced,
     documentId,
     document?.icon,
+    effectiveReadOnly,
     updateDocumentMutation.mutate,
   ]);
 
@@ -346,7 +392,7 @@ export function EditorContent({
       !isInitializedRef.current ||
       !documentId ||
       !document ||
-      isReadOnly ||
+      effectiveReadOnly ||
       contentDebounced === document.content ||
       contentDebounced === prevContentRef.current
     )
@@ -374,6 +420,7 @@ export function EditorContent({
     documentId,
     document?.content,
     document?.deletedAt,
+    effectiveReadOnly,
     updateDocumentMutation.mutate,
     shouldConnectCollab,
   ]);
@@ -418,16 +465,23 @@ export function EditorContent({
   }, [documentId, conversionLocked]);
 
   const handleTitleChange = useCallback((newTitle: string) => {
+    if (effectiveReadOnly || conversionLocked) {
+      return;
+    }
     setTitle(newTitle);
-  }, []);
+  }, [conversionLocked, effectiveReadOnly]);
 
   const handleIconChange = useCallback((newIcon: string | null) => {
+    if (effectiveReadOnly || conversionLocked) {
+      return;
+    }
     setIcon(newIcon);
-  }, []);
+  }, [conversionLocked, effectiveReadOnly]);
 
   const handleCoverChange = useCallback(
     async (cover: string | null, coverImageType?: "color" | "url") => {
       if (!documentId) return;
+      if (effectiveReadOnly || conversionLocked) return;
 
       const type =
         coverImageType ||
@@ -452,12 +506,18 @@ export function EditorContent({
         }
       );
     },
-    [documentId, updateDocumentMutation.mutate]
+    [
+      conversionLocked,
+      documentId,
+      effectiveReadOnly,
+      updateDocumentMutation.mutate,
+    ]
   );
 
   const handleCoverPositionChange = useCallback(
     async (position: number) => {
       if (!documentId) return;
+      if (effectiveReadOnly || conversionLocked) return;
 
       updateDocumentMutation.mutate(
         {
@@ -476,16 +536,24 @@ export function EditorContent({
         }
       );
     },
-    [documentId, updateDocumentMutation.mutate]
+    [
+      conversionLocked,
+      documentId,
+      effectiveReadOnly,
+      updateDocumentMutation.mutate,
+    ]
   );
 
   // 编辑器内容变更回调（本地模式需要保存）
   const handleEditorUpdate = useCallback(
     (editor: any) => {
+      if (effectiveReadOnly || conversionLocked) {
+        return;
+      }
       const jsonContent = JSON.stringify(editor.getJSON());
       setContent(jsonContent);
     },
-    []
+    [conversionLocked, effectiveReadOnly]
   );
 
   // 等待文档加载完成，如果需要协同则等待 token
@@ -508,7 +576,7 @@ export function EditorContent({
         onIconChange={handleIconChange}
         onCoverChange={handleCoverChange}
         onCoverPositionChange={handleCoverPositionChange}
-        readonly={isReadOnly || conversionLocked}
+        readonly={effectiveReadOnly || conversionLocked}
         isOwner={isOwner}
         isLoggedIn={!!userId}
         isFullWidth={isFullWidth}
@@ -538,14 +606,15 @@ export function EditorContent({
               aria-hidden={!isEditorBodyReady}
             >
               <UnifiedEditorClient
-                key={documentId}
+                key={editorMountKey}
                 documentId={documentId}
                 initialContent={content}
                 user={user}
                 collabConfig={collabConfig}
-                readonly={isReadOnly || conversionLocked}
+                readonly={effectiveReadOnly || conversionLocked}
                 onConnectedUsersChange={setConnectedUsers}
                 onConnectionStatusChange={handleConnectionStatusChange}
+                onPermissionRevoked={handlePermissionRevoked}
                 onUpdate={shouldConnectCollab ? undefined : handleEditorUpdate}
                 onEditorReady={handleEditorReady}
               />

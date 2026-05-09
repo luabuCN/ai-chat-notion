@@ -34,7 +34,7 @@ const DocumentsList = ({
   /** 从他人文档 /editor/[id] 进入时 URL 无 slug，用当前工作区 slug */
   const effectiveWorkspaceSlug =
     workspaceSlug || currentWorkspace?.slug || "";
-  const { canEdit } = useWorkspacePermission();
+  const { canManageMembers } = useWorkspacePermission();
 
   const {
     data: documents,
@@ -128,7 +128,7 @@ const DocumentsList = ({
               onExpand={() => onExpand(document.id)}
               expanded={expanded[document.id]}
               documentIcon={document.icon}
-              canEdit={canEdit}
+              canEdit={canManageMembers}
               lastEditedByName={(document as any).lastEditedByName}
             />
             {expanded[document.id] && (

@@ -28,7 +28,9 @@ import {
   useDuplicateDocument,
   useMoveDocument,
   useArchive,
+  documentKeys,
 } from "@/hooks/use-document-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEditorExport } from "@repo/editor";
 import { DocumentSelectorDialog } from "./document-selector-dialog";
 import { toast } from "sonner";
@@ -36,10 +38,16 @@ import { getEditorListPathAfterLeavingDocument } from "@/lib/utils";
 
 const FULL_WIDTH_MIN_WIDTH = 980;
 
+type ActionError = Error & {
+  code?: string;
+  statusCode?: number;
+};
+
 interface DocumentActionsMenuProps {
   documentId: string;
   title: string;
   isOwner?: boolean; // 是否是文档所有者
+  canManage?: boolean;
   /** PDF 导入时保存的原文 URL，存在则显示「下载原文档」 */
   sourcePdfUrl?: string | null;
   /** 网页剪藏时保存的原站 URL，存在则显示「打开原网页」 */
@@ -54,12 +62,14 @@ export function DocumentActionsMenu({
   documentId,
   title,
   isOwner = false,
+  canManage = isOwner,
   sourcePdfUrl = null,
   sourcePageUrl = null,
   isFullWidth = false,
   onFullWidthChange,
 }: DocumentActionsMenuProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const params = useParams();
   const workspaceSlug =
@@ -102,6 +112,23 @@ export function DocumentActionsMenu({
     archiveMutation.isPending;
   const isFullWidthDisabled = !isFullWidth && !canEnterFullWidth;
 
+  const handleActionError = (error: unknown, fallbackMessage: string) => {
+    const actionError = error as ActionError;
+    if (
+      actionError.code === "permission_changed" ||
+      actionError.statusCode === 403
+    ) {
+      toast.error("权限已变更", {
+        description: "你的文档管理权限已被移除，当前操作无法继续",
+      });
+      queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
+      setIsMenuOpen(false);
+      return;
+    }
+
+    toast.error(fallbackMessage);
+  };
+
   const handleFullWidthToggle = () => {
     if (isFullWidthDisabled) {
       return;
@@ -118,7 +145,7 @@ export function DocumentActionsMenu({
       // Navigate to the new document
       router.push(`/${workspaceSlug}/editor/${newDoc.id}`);
     } catch (error) {
-      toast.error("复制文档失败");
+      handleActionError(error, "复制文档失败");
       console.error("Failed to duplicate document:", error);
     }
   };
@@ -131,7 +158,7 @@ export function DocumentActionsMenu({
       setIsMenuOpen(false);
       router.refresh();
     } catch (error) {
-      toast.error("移动文档失败");
+      handleActionError(error, "移动文档失败");
       console.error("Failed to move document:", error);
     }
   };
@@ -165,7 +192,7 @@ export function DocumentActionsMenu({
         getEditorListPathAfterLeavingDocument(pathNow, workspaceSlug)
       );
     } catch (error) {
-      toast.error("删除文档失败");
+      handleActionError(error, "删除文档失败");
       console.error("Failed to archive document:", error);
     }
   };
@@ -201,15 +228,15 @@ export function DocumentActionsMenu({
             {isFullWidth ? "退出全宽" : "全宽"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {/* 仅文档所有者可见：创建副本 */}
-          {isOwner && (
+          {/* 文档所有者或空间管理员可见：创建副本 */}
+          {canManage && (
             <DropdownMenuItem onClick={handleDuplicate}>
               <Copy className="mr-2 h-4 w-4" />
               创建副本
             </DropdownMenuItem>
           )}
-          {/* 仅文档所有者可见：移动 */}
-          {isOwner && (
+          {/* 文档所有者或空间管理员可见：移动 */}
+          {canManage && (
             <DropdownMenuItem
               onClick={(e) => {
                 e.preventDefault();
@@ -252,8 +279,8 @@ export function DocumentActionsMenu({
               </a>
             </DropdownMenuItem>
           ) : null}
-          {/* 仅文档所有者可见：移至垃圾箱 */}
-          {isOwner && (
+          {/* 文档所有者或空间管理员可见：移至垃圾箱 */}
+          {canManage && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem

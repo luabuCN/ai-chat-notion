@@ -1,7 +1,11 @@
 import { getAuthFromRequest } from "@/lib/api-auth";
-import { moveEditorDocument } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
-import { verifyDocumentAccess } from "@/lib/document-access";
+import {
+  assertDocumentCanManage,
+  isPermissionChangedError,
+  permissionChangedResponse,
+} from "@/lib/permission-assert";
+import { moveEditorDocument } from "@repo/database";
 
 export async function POST(
   request: Request,
@@ -16,25 +20,13 @@ export async function POST(
   const { id } = await params;
 
   try {
-    // 验证文档访问权限 - 需要编辑权限才能移动
-    const { access } = await verifyDocumentAccess(id, user.id);
+    await assertDocumentCanManage(id, user);
 
-    if (access !== "owner" && access !== "edit") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
+    const { parentDocumentId }: { parentDocumentId: string | null } =
+      await request.json();
 
-    const body = await request.json();
-    const { parentDocumentId }: { parentDocumentId: string | null } = body;
-
-    // 如果移动到某个父文档下，验证对父文档也有编辑权限
     if (parentDocumentId) {
-      const { access: parentAccess } = await verifyDocumentAccess(
-        parentDocumentId,
-        user.id
-      );
-      if (parentAccess !== "owner" && parentAccess !== "edit") {
-        return new ChatSDKError("forbidden:document").toResponse();
-      }
+      await assertDocumentCanManage(parentDocumentId, user);
     }
 
     const movedDocument = await moveEditorDocument({
@@ -44,6 +36,9 @@ export async function POST(
 
     return Response.json(movedDocument, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }

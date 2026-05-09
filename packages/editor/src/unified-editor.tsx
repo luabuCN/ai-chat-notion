@@ -72,6 +72,8 @@ export interface UnifiedEditorProps {
   onEditorReady?: () => void;
   onWebSocketSynced?: () => void;
   onDisconnect?: () => void;
+  /** 权限变更导致连接被关闭 */
+  onPermissionRevoked?: () => void;
   onConnectedUsersChange?: (users: CollaborativeUser[]) => void;
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   className?: string;
@@ -106,6 +108,7 @@ export function UnifiedEditor({
   onEditorReady,
   onWebSocketSynced,
   onDisconnect,
+  onPermissionRevoked,
   onConnectedUsersChange,
   onConnectionStatusChange,
   className = "",
@@ -135,6 +138,8 @@ export function UnifiedEditor({
   onWebSocketSyncedRef.current = onWebSocketSynced;
   const onDisconnectRef = useRef(onDisconnect);
   onDisconnectRef.current = onDisconnect;
+  const onPermissionRevokedRef = useRef(onPermissionRevoked);
+  onPermissionRevokedRef.current = onPermissionRevoked;
   const onConnectedUsersChangeRef = useRef(onConnectedUsersChange);
   onConnectedUsersChangeRef.current = onConnectedUsersChange;
   const onConnectionStatusChangeRef = useRef(onConnectionStatusChange);
@@ -268,6 +273,17 @@ export function UnifiedEditor({
           toast.error("认证失败", {
             description: reason || "无法连接到协同服务器",
           });
+        }, 0);
+      },
+      onClose: ({ event }) => {
+        setTimeout(() => {
+          if (!isMountedRef.current) return;
+          // 服务端自定义 close code 4003 = 权限变更
+          if (event?.code === 4003) {
+            // 停止自动重连
+            p.disconnect();
+            onPermissionRevokedRef.current?.();
+          }
         }, 0);
       },
     });

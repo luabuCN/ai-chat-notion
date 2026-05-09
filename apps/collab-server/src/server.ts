@@ -41,7 +41,7 @@ export async function startServer(port: number) {
     extensions,
 
     // 身份验证
-    async onAuthenticate({ token, documentName }) {
+    async onAuthenticate({ token, documentName, connectionConfig }) {
       console.log(`[Auth] Authenticating for document: ${documentName}`);
 
       // 验证 JWT token
@@ -59,6 +59,11 @@ export async function startServer(port: number) {
 
       if (access === "none") {
         throw new Error("You don't have access to this document");
+      }
+
+      // view 权限的用户标记为只读连接
+      if (access === "view") {
+        connectionConfig.readOnly = true;
       }
 
       // 返回用户信息，可在其他钩子中使用
@@ -104,10 +109,49 @@ export async function startServer(port: number) {
       }
     },
 
-    // 文档变更时
-    async onChange({ documentName, context }) {
-      // 可以在这里添加额外的变更处理逻辑
-      // 例如：通知其他服务、触发 webhook 等
+    // 文档变更时：二次校验写权限
+    async onChange({ documentName, context, transactionOrigin }) {
+      const user = context?.user;
+      if (!user?.id) {
+        return;
+      }
+
+      try {
+        const { access } = await verifyDocumentAccess(
+          documentName,
+          user.id,
+          user.email
+        );
+
+        if (access !== "owner" && access !== "edit") {
+          console.warn(
+            `[Auth] Permission revoked for user ${user.id} on document ${documentName} (now: ${access}), closing connection`
+          );
+          // 关闭该用户的 WebSocket 连接，客户端会收到 close 事件
+          // 使用自定义 code 4003 让客户端区分"权限变更"和普通断连
+          try {
+            if (
+              transactionOrigin &&
+              typeof transactionOrigin === "object" &&
+              transactionOrigin.webSocket &&
+              typeof transactionOrigin.webSocket.close === "function"
+            ) {
+              transactionOrigin.webSocket.close(4003, "permission_changed");
+            }
+          } catch (closeError) {
+            console.error(
+              `[Auth] Error closing connection for ${documentName}:`,
+              closeError
+            );
+          }
+        }
+      } catch (error) {
+        // 校验错误（如数据库超时）不立即断开，仅记录日志
+        console.error(
+          `[Auth] Error verifying permission for ${documentName}:`,
+          error
+        );
+      }
     },
 
     // 存储文档时（在数据库扩展之后）

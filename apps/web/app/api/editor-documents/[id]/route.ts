@@ -6,6 +6,12 @@ import {
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 import { verifyDocumentAccess } from "@/lib/document-access";
+import {
+  assertDocumentCanEdit,
+  assertDocumentCanManage,
+  isPermissionChangedError,
+  permissionChangedResponse,
+} from "@/lib/permission-assert";
 
 export async function GET(
   request: Request,
@@ -18,6 +24,7 @@ export async function GET(
     const {
       access,
       document,
+      canManage,
       hasCollaborators,
       hasWorkspaceCollaborators,
       isCurrentUserCollaborator,
@@ -34,6 +41,7 @@ export async function GET(
       {
         ...document,
         accessLevel: access,
+        canManage,
         hasCollaborators,
         hasWorkspaceCollaborators,
         isCurrentUserCollaborator,
@@ -64,11 +72,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const { access } = await verifyDocumentAccess(id, user.id, user.email);
-
-    if (access !== "owner" && access !== "edit") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
+    await assertDocumentCanEdit(id, user);
 
     const body = await request.json();
     const {
@@ -113,6 +117,9 @@ export async function PATCH(
 
     return Response.json(updatedDocument, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
@@ -138,13 +145,9 @@ export async function DELETE(
   const permanent = searchParams.get("permanent") === "true";
 
   try {
-    const { access } = await verifyDocumentAccess(id, user.id, user.email, {
+    await assertDocumentCanManage(id, user, {
       ignoreDeletedAt: permanent,
     });
-
-    if (access !== "owner" && access !== "edit") {
-      return new ChatSDKError("forbidden:document").toResponse();
-    }
 
     if (permanent) {
       await deleteEditorDocument({ id });
@@ -154,6 +157,9 @@ export async function DELETE(
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse(error.message);
+    }
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }

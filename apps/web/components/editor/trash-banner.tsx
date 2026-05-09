@@ -5,9 +5,16 @@ import { Button } from "@repo/ui";
 import {
   useRestoreDocument,
   usePermanentDeleteDocument,
+  documentKeys,
 } from "@/hooks/use-document-query";
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+
+type TrashActionError = Error & {
+  code?: string;
+  statusCode?: number;
+};
 
 interface TrashBannerProps {
   documentId: string;
@@ -15,6 +22,7 @@ interface TrashBannerProps {
 
 export function TrashBanner({ documentId }: TrashBannerProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams();
   const workspaceSlug =
     typeof params.slug === "string"
@@ -25,13 +33,29 @@ export function TrashBanner({ documentId }: TrashBannerProps) {
   const restoreMutation = useRestoreDocument();
   const permanentDeleteMutation = usePermanentDeleteDocument();
 
+  const handleTrashActionError = (error: unknown, fallbackMessage: string) => {
+    const actionError = error as TrashActionError;
+    if (
+      actionError.code === "permission_changed" ||
+      actionError.statusCode === 403
+    ) {
+      toast.error("权限已变更", {
+        description: "你的文档管理权限已被移除，当前操作无法继续",
+      });
+      queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
+      return;
+    }
+
+    toast.error(fallbackMessage);
+  };
+
   const handleRestore = async () => {
     try {
       await restoreMutation.mutateAsync(documentId);
       toast.success("文档已还原");
       router.push(`/${workspaceSlug}/editor/${documentId}`);
     } catch (error) {
-      toast.error("还原文档失败");
+      handleTrashActionError(error, "还原文档失败");
     }
   };
 
@@ -42,7 +66,7 @@ export function TrashBanner({ documentId }: TrashBannerProps) {
         toast.success("文档已永久删除");
         router.push(`/${workspaceSlug}/editor`); // Redirect to home/editor list
       } catch (error) {
-        toast.error("永久删除失败");
+        handleTrashActionError(error, "永久删除失败");
       }
     }
   };

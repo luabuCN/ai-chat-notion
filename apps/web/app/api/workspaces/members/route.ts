@@ -9,6 +9,11 @@ import {
 } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 import { NextResponse } from "next/server";
+import {
+  assertWorkspaceCanManage,
+  isPermissionChangedError,
+  permissionChangedResponse,
+} from "@/lib/permission-assert";
 
 // GET /api/workspaces/members?workspaceId=xxx - 获取空间成员
 export async function GET(request: Request) {
@@ -62,7 +67,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { workspaceId, userId, role = "member" } = await request.json();
+    const { workspaceId, userId, role = "member", permission } =
+      await request.json();
 
     if (!workspaceId || !userId) {
       return new ChatSDKError(
@@ -71,25 +77,27 @@ export async function POST(request: Request) {
       ).toResponse();
     }
 
-    // 检查当前用户是否是管理员或所有者
-    const workspace = await getWorkspaceById({ id: workspaceId });
-    if (!workspace) {
-      return new ChatSDKError(
-        "bad_request:api",
-        "Workspace not found"
-      ).toResponse();
+    // 校验当前用户是否有管理权限（owner/admin）
+    try {
+      await assertWorkspaceCanManage(workspaceId, user.id);
+    } catch (error) {
+      if (isPermissionChangedError(error)) {
+        return permissionChangedResponse();
+      }
+      throw error;
     }
 
-    if (workspace.ownerId !== user.id) {
-      return new ChatSDKError(
-        "unauthorized:chat",
-        "Only owner can add members"
-      ).toResponse();
-    }
-
-    const member = await addWorkspaceMember({ workspaceId, userId, role });
+    const member = await addWorkspaceMember({
+      workspaceId,
+      userId,
+      role,
+      permission: role === "admin" ? "edit" : permission,
+    });
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse();
+    }
     console.error("Failed to add member:", error);
     return new ChatSDKError(
       "bad_request:api",
@@ -123,25 +131,13 @@ export async function PATCH(request: Request) {
       ).toResponse();
     }
 
+    // 校验当前用户是否有管理权限（owner/admin），权限不足直接抛出
+    const callerInfo = await assertWorkspaceCanManage(workspaceId, user.id);
     const workspace = await getWorkspaceById({ id: workspaceId });
-    if (!workspace) {
-      return new ChatSDKError(
-        "bad_request:api",
-        "Workspace not found"
-      ).toResponse();
-    }
-
-    const isOwner = workspace.ownerId === user.id;
-
-    // 获取当前用户在此空间的角色
-    const currentUserMembers = await getWorkspaceMembers({ workspaceId });
-    const currentUserMember = currentUserMembers.find(
-      (m) => m.userId === user.id
-    );
-    const isAdmin = currentUserMember?.role === "admin";
 
     // 获取被操作用户的角色
-    const targetMember = currentUserMembers.find((m) => m.userId === userId);
+    const members = await getWorkspaceMembers({ workspaceId });
+    const targetMember = members.find((m) => m.userId === userId);
     if (!targetMember) {
       return new ChatSDKError(
         "bad_request:api",
@@ -149,34 +145,32 @@ export async function PATCH(request: Request) {
       ).toResponse();
     }
 
-    // 权限检查
-    // 1. 所有者可以操作任何人（除了修改自己的角色为非owner）
-    // 2. 管理员只能操作普通成员
-    if (!isOwner) {
-      if (!isAdmin) {
-        return new ChatSDKError(
-          "unauthorized:chat",
-          "Only owner or admin can update members"
-        ).toResponse();
-      }
-      // 管理员不能操作其他管理员或所有者
-      if (
-        targetMember.role === "admin" ||
+    // 管理员不能操作其他管理员或所有者
+    if (
+      !callerInfo.isOwner &&
+      (targetMember.role === "admin" ||
         targetMember.role === "owner" ||
-        targetMember.userId === workspace.ownerId
-      ) {
-        return new ChatSDKError(
-          "unauthorized:chat",
-          "Admin can only update regular members"
-        ).toResponse();
-      }
+        targetMember.userId === workspace?.ownerId)
+    ) {
+      return new ChatSDKError(
+        "unauthorized:chat",
+        "Admin can only update regular members"
+      ).toResponse();
     }
 
-    // 不允许修改所有者的角色
-    if (userId === workspace.ownerId && role && role !== "owner") {
+    // 不允许修改所有者的角色或权限
+    if (userId === workspace?.ownerId) {
       return new ChatSDKError(
         "bad_request:api",
-        "Cannot change owner's role"
+        "Cannot change workspace owner"
+      ).toResponse();
+    }
+
+    const nextRole = role ?? targetMember.role;
+    if (nextRole === "admin" && permission === "view") {
+      return new ChatSDKError(
+        "bad_request:api",
+        "Admin must have edit permission"
       ).toResponse();
     }
 
@@ -184,10 +178,13 @@ export async function PATCH(request: Request) {
       workspaceId,
       userId,
       role,
-      permission,
+      permission: nextRole === "admin" ? "edit" : permission,
     });
     return NextResponse.json(member);
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse();
+    }
     console.error("Failed to update member:", error);
     return new ChatSDKError(
       "bad_request:api",
@@ -216,6 +213,7 @@ export async function DELETE(request: Request) {
       ).toResponse();
     }
 
+    // 不能移除所有者
     const workspace = await getWorkspaceById({ id: workspaceId });
     if (!workspace) {
       return new ChatSDKError(
@@ -224,15 +222,6 @@ export async function DELETE(request: Request) {
       ).toResponse();
     }
 
-    // 只有所有者可以移除成员，或者成员可以移除自己
-    if (workspace.ownerId !== user.id && userId !== user.id) {
-      return new ChatSDKError(
-        "unauthorized:chat",
-        "Permission denied"
-      ).toResponse();
-    }
-
-    // 不能移除所有者
     if (userId === workspace.ownerId) {
       return new ChatSDKError(
         "bad_request:api",
@@ -240,9 +229,28 @@ export async function DELETE(request: Request) {
       ).toResponse();
     }
 
+    // 成员自己退出，不需要管理权限
+    if (userId === user.id) {
+      await removeWorkspaceMember({ workspaceId, userId });
+      return NextResponse.json({ success: true });
+    }
+
+    // 管理员移除其他成员，需要校验管理权限
+    try {
+      await assertWorkspaceCanManage(workspaceId, user.id);
+    } catch (error) {
+      if (isPermissionChangedError(error)) {
+        return permissionChangedResponse();
+      }
+      throw error;
+    }
+
     await removeWorkspaceMember({ workspaceId, userId });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse();
+    }
     console.error("Failed to remove member:", error);
     return new ChatSDKError(
       "bad_request:api",

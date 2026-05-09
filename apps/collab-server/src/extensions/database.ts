@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import * as Y from "yjs";
 import { TiptapTransformer } from "@hocuspocus/transformer";
 import { StarterKit } from "@tiptap/starter-kit";
+import { verifyDocumentAccess } from "../auth.js";
 import { Heading } from "@tiptap/extension-heading";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
@@ -214,9 +215,36 @@ export const databaseExtension = new Database({
 
   /**
    * 保存文档到数据库
+   *
+   * 持久化前兜底校验：只有 owner/edit 权限的用户才能触发写入
    */
   store: async ({ documentName, state, context }) => {
     console.log(`[Database] Storing document: ${documentName}`);
+
+    // 兜底校验：确认当前用户仍有写权限
+    const user = context?.user;
+    if (user?.id) {
+      try {
+        const { access } = await verifyDocumentAccess(
+          documentName,
+          user.id,
+          user.email
+        );
+
+        if (access !== "owner" && access !== "edit") {
+          console.warn(
+            `[Database] Skipping persist for ${documentName}: user ${user.id} no longer has write permission (now: ${access})`
+          );
+          return;
+        }
+      } catch (error) {
+        console.error(
+          `[Database] Permission check failed for ${documentName}, skipping persist:`,
+          error
+        );
+        return;
+      }
+    }
 
     try {
       // 1. 恢复 YDoc

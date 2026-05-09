@@ -171,7 +171,7 @@ export function SidebarSharedDocuments() {
                           onExpand={() => {}}
                           expanded={false}
                           documentIcon={document.icon}
-                          canEdit={document.permission === "edit"}
+                          canEdit={false}
                           lastEditedByName={document.lastEditedByName}
                         />
                       </div>

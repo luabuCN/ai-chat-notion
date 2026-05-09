@@ -39,10 +39,12 @@ import {
   useTrashDocuments,
   useRestoreDocument,
   usePermanentDeleteDocument,
+  documentKeys,
 } from "@/hooks/use-document-query";
 import { toast } from "sonner";
 import { EditorDocument } from "@repo/database";
 import { useParams, usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "./workspace-provider";
 import {
   cn,
@@ -50,8 +52,14 @@ import {
   isPathnameEditorDocument,
 } from "@/lib/utils";
 
+type TrashActionError = Error & {
+  code?: string;
+  statusCode?: number;
+};
+
 export function SidebarTrash() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const params = useParams();
   const workspaceSlug =
@@ -101,6 +109,27 @@ export function SidebarTrash() {
   const restoreMutation = useRestoreDocument();
   const permanentDeleteMutation = usePermanentDeleteDocument();
 
+  const handleTrashActionError = (
+    error: unknown,
+    documentId: string,
+    fallbackMessage: string
+  ) => {
+    const actionError = error as TrashActionError;
+    if (
+      actionError.code === "permission_changed" ||
+      actionError.statusCode === 403
+    ) {
+      toast.error("权限已变更", {
+        description: "你的文档管理权限已被移除，当前操作无法继续",
+      });
+      queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
+      queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
+      return;
+    }
+
+    toast.error(fallbackMessage);
+  };
+
   // Filter documents based on search query
   const filteredDocuments = trashDocuments?.filter((doc) =>
     doc.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -119,7 +148,7 @@ export function SidebarTrash() {
           : `/editor/${doc.id}`
       );
     } catch (error) {
-      toast.error("还原文档失败");
+      handleTrashActionError(error, doc.id, "还原文档失败");
     } finally {
       setRestoringId(null);
     }
@@ -139,8 +168,8 @@ export function SidebarTrash() {
           getEditorListPathAfterLeavingDocument(pathNow, effectiveWorkspaceSlug)
         );
       }
-    } catch {
-      toast.error("永久删除失败");
+    } catch (error) {
+      handleTrashActionError(error, doc.id, "永久删除失败");
     }
   };
 
@@ -151,9 +180,19 @@ export function SidebarTrash() {
       const results = await Promise.allSettled(
         trashDocuments.map((doc) => permanentDeleteMutation.mutateAsync(doc.id))
       );
-      const failed = results.filter((r) => r.status === "rejected").length;
+      const rejectedResults = results.filter((r) => r.status === "rejected");
+      const permissionFailed = rejectedResults.some((result) => {
+        const reason = result.reason as TrashActionError;
+        return reason.code === "permission_changed" || reason.statusCode === 403;
+      });
+      const failed = rejectedResults.length;
       const succeeded = results.length - failed;
-      if (failed === 0) {
+      if (permissionFailed) {
+        toast.error("权限已变更", {
+          description: "你的文档管理权限已被移除，当前操作无法继续",
+        });
+        queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
+      } else if (failed === 0) {
         toast.success(`已永久删除 ${succeeded} 个文档`);
       } else {
         toast.warning(`${succeeded} 个成功，${failed} 个失败`);
