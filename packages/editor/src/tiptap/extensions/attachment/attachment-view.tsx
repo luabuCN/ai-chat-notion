@@ -1,9 +1,11 @@
+import { Button } from "@repo/ui/button";
+import { cn } from "../../../lib/utils";
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import {
-  DownloadIcon,
   FileIcon,
   FileTextIcon,
   ImageIcon,
+  Trash2Icon,
   VideoIcon,
 } from "lucide-react";
 
@@ -21,15 +23,13 @@ const getFileIcon = (fileType?: string) => {
   return FileIcon;
 };
 
-const formatFileSize = (bytes?: number) => {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-export function AttachmentView({ node, selected }: NodeViewProps) {
-  const { url, fileName, fileSize, fileType } = node.attrs;
+export function AttachmentView({
+  node,
+  selected,
+  editor,
+  deleteNode,
+}: NodeViewProps) {
+  const { url, fileName, fileType } = node.attrs;
   const Icon = getFileIcon(fileType);
 
   const handleDownload = () => {
@@ -37,34 +37,54 @@ export function AttachmentView({ node, selected }: NodeViewProps) {
     link.href = url;
     link.download = fileName;
     link.target = "_blank";
+    link.rel = "noopener noreferrer";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  const handleDelete = () => {
+    deleteNode();
+  };
+
   return (
-    <NodeViewWrapper>
-      <div
+    <NodeViewWrapper className="attachment-node group relative">
+      <button
+        type="button"
         onClick={handleDownload}
-        className={`
-          flex items-center gap-3 p-3 my-2 rounded-lg border bg-muted/50 
-          hover:bg-muted cursor-pointer transition-colors group
-          ${selected ? "ring-2 ring-primary" : ""}
-        `}
+        title={`下载 ${fileName}`}
+        className={cn(
+          "flex w-full max-w-full items-center gap-2 rounded-md px-2 py-1.5 pr-10 text-left text-sm transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          selected
+            ? "bg-muted/40 ring-2 ring-primary ring-offset-2 ring-offset-background"
+            : ""
+        )}
       >
-        <div className="flex items-center justify-center size-10 rounded-lg bg-background border">
-          <Icon className="size-5 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{fileName}</p>
-          {fileSize && (
-            <p className="text-xs text-muted-foreground">
-              {formatFileSize(fileSize)}
-            </p>
+        <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-medium">{fileName}</span>
+      </button>
+      {editor.isEditable ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="删除附件"
+          className={cn(
+            "absolute right-1 top-1/2 size-8 -translate-y-1/2 text-muted-foreground transition-opacity hover:text-destructive",
+            "opacity-0 pointer-events-none",
+            "group-hover:pointer-events-auto group-hover:opacity-100",
+            "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+            selected && "pointer-events-auto opacity-100"
           )}
-        </div>
-        <DownloadIcon className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-      </div>
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleDelete();
+          }}
+        >
+          <Trash2Icon className="size-4" aria-hidden />
+        </Button>
+      ) : null}
     </NodeViewWrapper>
   );
 }

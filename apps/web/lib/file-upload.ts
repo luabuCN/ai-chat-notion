@@ -9,12 +9,23 @@ export type FileUploadResult = {
 
 const UPLOAD_FAILED_MESSAGE = "Failed to upload file, please try again!";
 
+/** 与 `apps/web/app/api/files/upload/route.ts` 约定：仅文档编辑器内上传传入，服务端跳过 MIME 白名单 */
+export type UploadFileToApiOptions = {
+  relaxMimeTypes?: boolean;
+};
+
 /**
  * 将单个文件上传到 Blob 存储，失败时抛出带服务端文案的 Error。
  */
-export async function uploadFileToApi(file: File): Promise<FileUploadResult> {
+export async function uploadFileToApi(
+  file: File,
+  options?: UploadFileToApiOptions
+): Promise<FileUploadResult> {
   const formData = new FormData();
   formData.append("file", file);
+  if (options?.relaxMimeTypes) {
+    formData.append("relaxMimeTypes", "true");
+  }
 
   const response = await fetch("/api/files/upload", {
     method: "POST",

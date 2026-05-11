@@ -6,22 +6,33 @@ import {
   DialogTitle,
 } from "@repo/ui/dialog";
 import { Input } from "@repo/ui/input";
-import { Editor } from "@tiptap/core";
+import type { Editor } from "@tiptap/core";
 import { BubbleMenu } from "@tiptap/react/menus";
+import { useEditorState } from "@tiptap/react";
 import { LinkIcon, Trash2Icon, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 import { useState } from "react";
 import { useAIPanelStore } from "../../components/ai-panel/ai-panel-store";
 
-export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
+function MediaBubbleMenuInner({ editor }: { editor: Editor }) {
   const isThinking = useAIPanelStore((state) => state.isThinking);
   const isStreaming = useAIPanelStore((state) => state.isStreaming);
   const [urlDialogOpen, setUrlDialogOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
-  const [mediaType, setMediaType] = useState<"image" | "attachment">("image");
 
-  if (!editor) {
-    return null;
-  }
+  const currentAlignment = useEditorState({
+    editor,
+    selector: ({ editor: ed }) => {
+      if (!ed.isActive("image")) {
+        return "center";
+      }
+      const alignment = ed.getAttributes("image").alignment as
+        | "left"
+        | "center"
+        | "right"
+        | undefined;
+      return alignment ?? "center";
+    },
+  });
 
   const handleDelete = () => {
     editor.chain().focus().deleteSelection().run();
@@ -31,39 +42,15 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
     editor.chain().focus().updateAttributes("image", { alignment: align }).run();
   };
 
-  const currentAlignment = editor.isActive("image") ? editor.getAttributes("image").alignment || "center" : "center";
-
   const openReplaceDialog = () => {
-    if (editor.isActive("image")) {
-      setMediaType("image");
-      setNewUrl(editor.getAttributes("image").src || "");
-    } else if (editor.isActive("attachment")) {
-      setMediaType("attachment");
-      setNewUrl(editor.getAttributes("attachment").url || "");
-    }
+    setNewUrl(editor.getAttributes("image").src || "");
     setUrlDialogOpen(true);
   };
 
   const handleReplaceUrl = () => {
     if (!newUrl.trim()) return;
 
-    if (mediaType === "image") {
-      editor.chain().focus().setImage({ src: newUrl }).run();
-    } else {
-      const currentAttrs = editor.getAttributes("attachment");
-      editor
-        .chain()
-        .focus()
-        .deleteSelection()
-        .setAttachment({
-          url: newUrl,
-          fileName:
-            currentAttrs.fileName || newUrl.split("/").pop() || "attachment",
-          fileSize: currentAttrs.fileSize,
-          fileType: currentAttrs.fileType,
-        })
-        .run();
-    }
+    editor.chain().focus().setImage({ src: newUrl }).run();
 
     setUrlDialogOpen(false);
     setNewUrl("");
@@ -80,9 +67,7 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
         }}
         shouldShow={({ editor }) => {
           return (
-            (editor.isActive("image") || editor.isActive("attachment")) &&
-            !isThinking &&
-            !isStreaming
+            editor.isActive("image") && !isThinking && !isStreaming
           );
         }}
       >
@@ -142,9 +127,7 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
       <Dialog open={urlDialogOpen} onOpenChange={setUrlDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {mediaType === "image" ? "Replace Image URL" : "Replace File URL"}
-            </DialogTitle>
+            <DialogTitle>Replace Image URL</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <Input
@@ -170,4 +153,11 @@ export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
       </Dialog>
     </>
   );
+}
+
+export const MediaBubbleMenu = ({ editor }: { editor: Editor | null }) => {
+  if (!editor) {
+    return null;
+  }
+  return <MediaBubbleMenuInner editor={editor} />;
 };

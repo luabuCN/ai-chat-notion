@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import * as Y from "yjs";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { DocumentLink } from "./tiptap/extensions/document-link";
+import { AttachmentUploadPlaceholder } from "./tiptap/extensions/attachment-upload-placeholder/attachment-upload-placeholder";
+import { ImageUploadPlaceholder } from "./tiptap/extensions/image-upload-placeholder/image-upload-placeholder";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import {
   TIPTAP_IMAGE_PREVIEW_EVENT,
@@ -319,6 +321,12 @@ export function UnifiedEditor({
   const extensions = useMemo(() => {
     const exts = [
       ...defaultExtensions,
+      ImageUploadPlaceholder.configure({
+        uploadFile: stableUploadFile,
+      }),
+      AttachmentUploadPlaceholder.configure({
+        uploadFile: stableUploadFile,
+      }),
       DocumentLink.configure({ navigate: stableNavigate }),
       Placeholder.configure({
         placeholder: placeholder ?? "Type / for commands, or press Space for AI...",

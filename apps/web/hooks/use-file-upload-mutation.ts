@@ -1,13 +1,36 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { uploadFileToApi } from "@/lib/file-upload";
+import {
+  type UploadFileToApiOptions,
+  uploadFileToApi,
+} from "@/lib/file-upload";
 
 const FILE_UPLOAD_MUTATION_KEY = ["file-upload"] as const;
+
+export type FileUploadMutationInput =
+  | File
+  | { file: File; relaxMimeTypes?: boolean };
+
+function normalizeUploadInput(input: FileUploadMutationInput): {
+  file: File;
+  options: UploadFileToApiOptions;
+} {
+  if (input instanceof File) {
+    return { file: input, options: {} };
+  }
+  return {
+    file: input.file,
+    options: { relaxMimeTypes: Boolean(input.relaxMimeTypes) },
+  };
+}
 
 export function useFileUploadMutation() {
   return useMutation({
     mutationKey: FILE_UPLOAD_MUTATION_KEY,
-    mutationFn: uploadFileToApi,
+    mutationFn: (input: FileUploadMutationInput) => {
+      const { file, options } = normalizeUploadInput(input);
+      return uploadFileToApi(file, options);
+    },
     onError: (error: unknown) => {
       const message =
         error instanceof Error

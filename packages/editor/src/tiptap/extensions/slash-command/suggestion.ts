@@ -301,7 +301,14 @@ const uploadItems: CommandSuggestionItem[] = [
     description: "Upload an image or embed from URL.",
     keywords: ["image", "picture", "photo", "upload"],
     icon: ImageIcon,
-    command: () => {}, // Handled by suggestion-list dialog
+    command: ({ editor, range }) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setImageUploadPlaceholder()
+        .run();
+    },
   },
   {
     id: "attachment",
@@ -310,7 +317,14 @@ const uploadItems: CommandSuggestionItem[] = [
     description: "Upload a file or embed from URL.",
     keywords: ["attachment", "file", "upload", "document"],
     icon: PaperclipIcon,
-    command: () => {}, // Handled by suggestion-list dialog
+    command: ({ editor, range }) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setAttachmentUploadPlaceholder()
+        .run();
+    },
   },
 ];
 

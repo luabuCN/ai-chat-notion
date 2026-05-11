@@ -1,12 +1,19 @@
 import { Editor, Content } from "@tiptap/react";
 import { defaultExtensions } from "../tiptap/default-extensions";
 import { DocumentLink } from "../tiptap/extensions/document-link";
+import { AttachmentUploadPlaceholder } from "../tiptap/extensions/attachment-upload-placeholder/attachment-upload-placeholder";
+import { ImageUploadPlaceholder } from "../tiptap/extensions/image-upload-placeholder/image-upload-placeholder";
 
 export function useEditorExport() {
   const exportDocument = async (content: Content, fileName: string) => {
     // 创建临时 Editor 实例来加载内容并转换为 Markdown
     const tempEditor = new Editor({
-      extensions: [...defaultExtensions, DocumentLink.configure({ navigate: null })],
+      extensions: [
+        ...defaultExtensions,
+        ImageUploadPlaceholder.configure({}),
+        AttachmentUploadPlaceholder.configure({}),
+        DocumentLink.configure({ navigate: null }),
+      ],
       content: content,
     });
 

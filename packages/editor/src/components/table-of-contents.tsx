@@ -1,9 +1,9 @@
 "use client";
 
-import { Editor } from "@tiptap/react";
+import type { Editor } from "@tiptap/react";
 import { List } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn, slugify } from "../lib/utils";
+import { cn } from "../lib/utils";
 
 interface TableOfContentsProps {
   editor: Editor | null;
@@ -11,14 +11,42 @@ interface TableOfContentsProps {
 }
 
 interface TocItem {
-  id: string;
   text: string;
   level: number;
+  pos: number;
+}
+
+const HEADING_SELECTOR = "h1,h2,h3";
+
+function closestHeading(node: globalThis.Node | null): HTMLElement | null {
+  if (node instanceof HTMLElement) {
+    if (node.matches(HEADING_SELECTOR)) {
+      return node;
+    }
+    return node.closest(HEADING_SELECTOR);
+  }
+
+  if (node instanceof Text) {
+    return node.parentElement?.closest(HEADING_SELECTOR) ?? null;
+  }
+
+  return null;
+}
+
+function getHeadingElement(editor: Editor, pos: number): HTMLElement | null {
+  const node = editor.view.nodeDOM(pos);
+  const heading = closestHeading(node);
+
+  if (heading) {
+    return heading;
+  }
+
+  return closestHeading(editor.view.domAtPos(pos + 1).node);
 }
 
 export function TableOfContents({ editor, className }: TableOfContentsProps) {
   const [items, setItems] = useState<TocItem[]>([]);
-  const [activeId, setActiveId] = useState<string>("");
+  const [activePos, setActivePos] = useState<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
@@ -27,25 +55,14 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
     const updateToc = () => {
       const newItems: TocItem[] = [];
       const doc = editor.state.doc;
-      const idCounts: Record<string, number> = {};
 
-      doc.descendants((node) => {
+      doc.descendants((node, pos) => {
         // 识别所有标题级别 (1, 2, 3)
         if (node.type.name === "heading" && node.attrs.level <= 3) {
-          let id = slugify(node.textContent);
-
-          // 处理重复 ID
-          if (idCounts[id]) {
-            idCounts[id]++;
-            id = `${id}-${idCounts[id]}`;
-          } else {
-            idCounts[id] = 1;
-          }
-
           newItems.push({
-            id,
             text: node.textContent,
             level: node.attrs.level,
+            pos,
           });
         }
       });
@@ -63,28 +80,35 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
   }, [editor]);
 
   useEffect(() => {
+    if (!editor) return;
+
+    const observedPositions = new Map<Element, number>();
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
+        for (const entry of entries) {
           if (entry.isIntersecting) {
-            setActiveId(entry.target.id);
+            const pos = observedPositions.get(entry.target);
+            if (pos !== undefined) {
+              setActivePos(pos);
+            }
           }
-        });
+        }
       },
       { rootMargin: "-40% 0px -40% 0px" }
     );
 
-    items.forEach((item) => {
-      const element = document.getElementById(item.id);
+    for (const item of items) {
+      const element = getHeadingElement(editor, item.pos);
       if (element) {
+        observedPositions.set(element, item.pos);
         observer.observe(element);
       }
-    });
+    }
 
     return () => observer.disconnect();
-  }, [items]);
+  }, [editor, items]);
 
-  if (items.length === 0) return null;
+  if (!editor || items.length === 0) return null;
 
   // 找到最小的标题级别作为基准（例如只有 H2 和 H3，则 H2 是基准）
   const minLevel = Math.min(...items.map((item) => item.level));
@@ -126,21 +150,22 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
           )}
         >
           <div className="flex flex-col gap-0.5 px-2">
-            {items.map((item, index) => {
+            {items.map((item) => {
               // 根据标题级别计算缩进（相对于最小级别）
               const indent = (item.level - minLevel) * 12;
 
               return (
                 <button
-                  key={index}
+                  key={item.pos}
+                  type="button"
                   onClick={() => {
-                    const element = document.getElementById(item.id);
+                    const element = getHeadingElement(editor, item.pos);
                     if (element) {
                       element.scrollIntoView({
                         behavior: "smooth",
                         block: "center",
                       });
-                      setActiveId(item.id);
+                      setActivePos(item.pos);
                     }
                   }}
                   style={{ paddingLeft: `${12 + indent}px` }}
@@ -150,7 +175,7 @@ export function TableOfContents({ editor, className }: TableOfContentsProps) {
                     item.level === 1 && "text-sm font-medium",
                     item.level === 2 && "text-xs font-medium",
                     item.level === 3 && "text-xs",
-                    activeId === item.id
+                    activePos === item.pos
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}

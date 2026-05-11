@@ -65,7 +65,10 @@ export const UnifiedEditorClient = memo(
 
     const uploadFile = useCallback(
       async (file: File) => {
-        const result = await uploadFileMutation(file);
+        const result = await uploadFileMutation({
+          file,
+          relaxMimeTypes: true,
+        });
         return result.url;
       },
       [uploadFileMutation]

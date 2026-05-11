@@ -10,36 +10,39 @@ const utapi = new UTApi();
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 const MAX_OTHER_BYTES = 5 * 1024 * 1024;
 
-const FileSchema = z.object({
-  file: z
-    .instanceof(Blob)
-    .refine(
-      (file) =>
-        file.size <=
-        (file.type === "application/pdf" ? MAX_PDF_BYTES : MAX_OTHER_BYTES),
-      {
-        message:
-          "File size exceeds limit (PDF up to 20MB, other files up to 5MB)",
-      }
-    )
-    // Update the file type based on the kind of files you want to accept
-    .refine(
-      (file) =>
-        [
-          "image/png",
-          "image/jpeg",
-          "text/plain",
-          "text/markdown",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/pdf",
-        ].includes(file.type),
-      {
-        message:
-          "File type should be one of: PNG, JPEG, TXT, Markdown (.md), Word (.doc or .docx), PDF (.pdf)",
-      },
-    )
-});
+const ALLOWED_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "text/plain",
+  "text/markdown",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/pdf",
+] as const;
+
+const MIME_DENY_MESSAGE =
+  "File type should be one of: PNG, JPEG, TXT, Markdown (.md), Word (.doc or .docx), PDF (.pdf)";
+
+const sizeRefinement = (file: Blob) =>
+  file.size <=
+  (file.type === "application/pdf" ? MAX_PDF_BYTES : MAX_OTHER_BYTES);
+
+const sizeRefinementMessage = {
+  message:
+    "File size exceeds limit (PDF up to 20MB, other files up to 5MB)",
+} as const;
+
+function buildUploadSchema(relaxMimeTypes: boolean) {
+  const base = z.instanceof(Blob).refine(sizeRefinement, sizeRefinementMessage);
+
+  const fileSchema = relaxMimeTypes
+    ? base
+    : base.refine((file) => ALLOWED_MIME_TYPES.includes(file.type as (typeof ALLOWED_MIME_TYPES)[number]), {
+        message: MIME_DENY_MESSAGE,
+      });
+
+  return z.object({ file: fileSchema });
+}
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -60,7 +63,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const validatedFile = FileSchema.safeParse({ file });
+    const relaxMimeTypesRaw = formData.get("relaxMimeTypes");
+    const relaxMimeTypes =
+      relaxMimeTypesRaw === "true" || relaxMimeTypesRaw === "1";
+
+    const validatedFile = buildUploadSchema(relaxMimeTypes).safeParse({
+      file,
+    });
 
     if (!validatedFile.success) {
       const errorMessage = validatedFile.error.errors

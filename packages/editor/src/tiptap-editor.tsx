@@ -5,6 +5,8 @@ import { ImagePreviewControlled } from "@repo/ui";
 import { toast } from "sonner";
 import { defaultExtensions } from "./tiptap/default-extensions";
 import { DocumentLink } from "./tiptap/extensions/document-link";
+import { AttachmentUploadPlaceholder } from "./tiptap/extensions/attachment-upload-placeholder/attachment-upload-placeholder";
+import { ImageUploadPlaceholder } from "./tiptap/extensions/image-upload-placeholder/image-upload-placeholder";
 import { getSuggestion, SlashCommand } from "./tiptap/extensions/slash-command";
 import {
   TIPTAP_IMAGE_PREVIEW_EVENT,
@@ -97,6 +99,12 @@ export function TiptapEditor({
   const extensions = useMemo(() => {
     return [
       ...defaultExtensions,
+      ImageUploadPlaceholder.configure({
+        uploadFile: stableUploadFile,
+      }),
+      AttachmentUploadPlaceholder.configure({
+        uploadFile: stableUploadFile,
+      }),
       DocumentLink.configure({ navigate: stableNavigate }),
       Placeholder.configure({
         placeholder: placeholder ?? "Type  /  for commands...",
