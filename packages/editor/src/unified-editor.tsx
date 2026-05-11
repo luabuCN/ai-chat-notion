@@ -25,6 +25,7 @@ import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
+import { SearchReplacePanel } from "./components/search-replace-panel";
 
 /** 监听图片预览自定义事件，用受控模式展示全屏预览（与 tiptap-editor 一致） */
 function ImagePreviewPortal() {
@@ -485,6 +486,7 @@ export function UnifiedEditor({
         />
         <TableOfContents editor={editor} />
         <ImagePreviewPortal />
+        <SearchReplacePanel editor={editor} readonly />
       </div>
     );
   }
@@ -510,6 +512,7 @@ export function UnifiedEditor({
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
           <AIPanel editor={editor} />
+          <SearchReplacePanel editor={editor} readonly={readonly} />
         </>
       )}
     </div>

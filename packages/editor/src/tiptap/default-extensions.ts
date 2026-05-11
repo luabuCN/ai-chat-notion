@@ -16,6 +16,7 @@ import { MarkdownPaste } from "./extensions/markdown-paste";
 import { Mermaid } from "./extensions/mermaid";
 import { Chart } from "./extensions/chart";
 import { Attachment } from "./extensions/attachment";
+import { SearchReplace } from "./extensions/search-replace/search-replace";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 
 const TiptapStarterKit = StarterKit.configure({
@@ -290,4 +291,5 @@ export const defaultExtensions = [
   mermaid,
   chart,
   attachment,
+  SearchReplace,
 ];

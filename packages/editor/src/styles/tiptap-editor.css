@@ -143,6 +143,16 @@
 .tiptap.ProseMirror:not(.readonly):not(.ProseMirror-hideselection) ::selection {
   background-color: oklch(from var(--primary) l c h/0.2);
 }
+.tiptap .tiptap-search-result {
+  background-color: color-mix(in oklab, var(--primary) 22%, transparent);
+  border-radius: 0.2rem;
+  box-decoration-break: clone;
+  outline: 1px solid color-mix(in oklab, var(--primary) 20%, transparent);
+}
+.tiptap .tiptap-search-result-current {
+  background-color: color-mix(in oklab, var(--primary) 45%, transparent);
+  outline: 2px solid color-mix(in oklab, var(--primary) 72%, transparent);
+}
 .tiptap.ProseMirror img {
   transition: filter 0.1s ease-in-out;
 }

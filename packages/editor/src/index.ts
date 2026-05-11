@@ -18,6 +18,12 @@ export {
   type InsertDocumentLinkDetail,
   type DocumentLinkOptions,
 } from "./tiptap/extensions/document-link";
+export {
+  SearchReplace,
+  getSearchReplaceState,
+  type SearchReplaceMatch,
+  type SearchReplacePluginState,
+} from "./tiptap/extensions/search-replace/search-replace";
 export * from "./tiptap/content-renderer";
 export * from "./tiptap/constants";
 export * from "./tiptap/default-extensions";

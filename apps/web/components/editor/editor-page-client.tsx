@@ -13,6 +13,7 @@ import {
   isConvertTaskPipelineBusy,
 } from "@/lib/pdf/convert-store";
 import { EditorScrollNav } from "./editor-scroll-nav";
+import { useEditorPageShortcuts } from "@/lib/use-editor-page-shortcuts";
 import { FileQuestion, ShieldAlert, LogIn } from "lucide-react";
 import Link from "next/link";
 
@@ -41,6 +42,10 @@ export function EditorPageClient({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEditorPageShortcuts({
+    enabled: !isDocumentPending && error == null,
+  });
 
   // 计算头部的 left 位置
   // 在客户端 hydration 完成前，使用 CSS 变量让浏览器自动处理

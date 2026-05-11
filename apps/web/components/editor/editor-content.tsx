@@ -24,6 +24,7 @@ import {
   getConvertTask,
   isConvertTaskPipelineBusy,
 } from "@/lib/pdf/convert-store";
+import { EDITOR_PAGE_REQUEST_SAVE } from "@/lib/use-editor-page-shortcuts";
 
 interface EditorContentProps {
   locale: string;
@@ -432,6 +433,84 @@ export function EditorContent({
       }
     };
   }, []);
+
+  const flushDocumentSave = useCallback(() => {
+    if (!documentId || !document || !isInitializedRef.current) {
+      return;
+    }
+    if (effectiveReadOnly || conversionLocked) {
+      return;
+    }
+
+    const updates: {
+      title?: string;
+      icon?: string | null;
+      content?: string;
+    } = {};
+
+    if (title.trim() !== "" && title !== document.title) {
+      updates.title = title;
+    }
+    if (icon !== document.icon) {
+      updates.icon = icon;
+    }
+    if (!shouldConnectCollab && content !== document.content) {
+      updates.content = content;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      if (shouldConnectCollab) {
+        toast.success("正文已通过协同实时同步");
+      } else {
+        toast.info("没有需要保存的更改");
+      }
+      return;
+    }
+
+    if (updates.title !== undefined) {
+      prevTitleRef.current = updates.title;
+    }
+    if ("icon" in updates) {
+      prevIconRef.current = updates.icon ?? null;
+    }
+    if (updates.content !== undefined) {
+      prevContentRef.current = updates.content;
+    }
+
+    updateDocumentMutation.mutate(
+      { documentId, updates },
+      {
+        onSuccess: () => {
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+          }
+        },
+        onError: (saveError) => {
+          toast.error(saveError.message || "保存失败");
+        },
+      }
+    );
+  }, [
+    content,
+    conversionLocked,
+    document,
+    documentId,
+    effectiveReadOnly,
+    icon,
+    shouldConnectCollab,
+    title,
+    updateDocumentMutation.mutate,
+  ]);
+
+  useEffect(() => {
+    const onRequestSave = () => {
+      flushDocumentSave();
+    };
+    window.addEventListener(EDITOR_PAGE_REQUEST_SAVE, onRequestSave);
+    return () => {
+      window.removeEventListener(EDITOR_PAGE_REQUEST_SAVE, onRequestSave);
+    };
+  }, [flushDocumentSave]);
 
   // PDF 转换锁定处理
   useEffect(() => {
