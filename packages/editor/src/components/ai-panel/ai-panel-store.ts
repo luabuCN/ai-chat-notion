@@ -9,7 +9,7 @@ import {
   getEditorSelectedContent,
 } from "./util";
 import { AIStreamRequest } from "./types";
-import scrollIntoView from "scroll-into-view-if-needed";
+
 
 const AI_COMPLETION_ENDPOINT = "/api/ai/openai";
 
@@ -130,11 +130,12 @@ function findNearestVerticalScrollParent(from: HTMLElement | null): HTMLElement 
     const style = window.getComputedStyle(node);
     const overflowY = style.overflowY;
 
+    // 只检查 overflow 属性，不检查实际滚动尺寸
+    // 因为在流式输出过程中 scrollHeight 可能在临界状态波动
     if (
-      (overflowY === "auto" ||
-        overflowY === "scroll" ||
-        overflowY === "overlay") &&
-      node.scrollHeight > node.clientHeight + 1
+      overflowY === "auto" ||
+      overflowY === "scroll" ||
+      overflowY === "overlay"
     ) {
       return node;
     }
@@ -184,13 +185,6 @@ const scrollCaretIntoReadableView = (editor: Editor) => {
       behavior: "auto",
     });
   }
-
-  scrollIntoView(dom, {
-    scrollMode: "if-needed",
-    block: "nearest",
-    behavior: "auto",
-    skipOverflowHiddenElements: true,
-  });
 };
 
 // 触发来源模式
@@ -478,8 +472,7 @@ export const store = create<AIPanelState>()((set, get) => ({
       setTimeout(() => {
         const confirmButtons = document.getElementById("ai-confirm-buttons");
         if (confirmButtons) {
-          scrollIntoView(confirmButtons, {
-            scrollMode: "if-needed",
+          confirmButtons.scrollIntoView({
             block: "nearest",
             behavior: "smooth",
           });
