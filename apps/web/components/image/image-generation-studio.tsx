@@ -64,6 +64,7 @@ export function ImageGenerationStudio({
   }
 
   function applyTemplate(template: string) {
+    setPrompt("");
     setPrompt((current) =>
       current.trim() ? `${current}，${template}` : template
     );
@@ -183,11 +184,11 @@ export function ImageGenerationStudio({
           >
             <div className="px-5 py-4 md:px-6">
               <TabsList>
-                <TabsTrigger value="result">
+                <TabsTrigger value="result" className="py-1">
                   <ImageIcon />
                   {"生成结果"}
                 </TabsTrigger>
-                <TabsTrigger value="history">
+                <TabsTrigger value="history" className="py-1">
                   <HistoryIcon />
                   {"历史记录"}
                 </TabsTrigger>

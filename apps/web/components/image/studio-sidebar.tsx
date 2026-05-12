@@ -20,7 +20,6 @@ import {
 import {
   Camera,
   Loader2,
-  PanelLeft,
   Sparkles,
   Sun,
   Eraser,
@@ -28,6 +27,7 @@ import {
   Palette,
   Image as ImageIcon,
   Settings2,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOptimizePrompt } from "./actions";
@@ -111,301 +111,278 @@ export function StudioSidebar({
     useOptimizePrompt();
 
   return (
-    <aside className="flex h-full w-full flex-col border-b border-zinc-200 bg-white xl:w-[480px] xl:border-b-0 xl:border-r">
-      <div className="p-5 pb-0 md:p-6 md:pb-0">
-        <section className="rounded-2xl border border-zinc-200 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50">
-              <Sparkles className="size-4 text-zinc-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-zinc-950">
-                {"AI 创作工坊"}
-              </p>
-              <p className="text-xs text-zinc-500">
-                {currentWorkspaceName
-                  ? `当前空间：${currentWorkspaceName}`
-                  : "为当前空间生成可追踪的视觉素材"}
-              </p>
-            </div>
+    <aside className="flex h-full w-full flex-col border-b border-zinc-100 bg-white xl:w-[380px] xl:border-b-0 xl:border-r">
+      {/* 顶部 header */}
+      <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+            <Sparkles className="size-3.5 text-primary" />
           </div>
-        </section>
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">{"AI 创作工坊"}</p>
+            <p className="text-xs text-zinc-400">
+              {currentWorkspaceName
+                ? `当前空间：${currentWorkspaceName}`
+                : "为当前空间生成可追踪的视觉素材"}
+            </p>
+          </div>
+        </div>
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onReset}
+              className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-blue-50 hover:text-primary"
+            >
+              <Eraser className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>{"清空所有设置和提示词"}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
-      <div className="min-h-0 flex-1">
-        <div className="space-y-4 p-5 md:p-6">
-          {/* 描述 + 模型 + 图片比例 + 增强提示词（合并为一个区域） */}
-          <section className="space-y-3.5 rounded-[28px] border border-zinc-200 bg-white p-5 shadow-sm">
-            {/* AI 模型选择器 */}
-            <div className="space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-zinc-950">
-                    {"AI 模型"}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {"选择适合当前视觉风格的出图引擎"}
-                  </p>
-                </div>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={onReset}
-                      className="rounded-full p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-                    >
-                      <Eraser className="size-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>{"清空所有设置和提示词"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <Select value={model} onValueChange={onModelChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="选择模型" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MODELS.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{item.name}</span>
-                        <Badge className="border border-zinc-200 bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-200">
-                          {item.badge}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* 描述输入 */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-zinc-950">
-                    {"描述你想生成的图片"}
-                  </p>
-                </div>
-                <span className="text-xs text-zinc-400">
-                  {prompt.length}/4000
-                </span>
-              </div>
-              <div className="flex flex-col rounded-xl border border-zinc-200 bg-zinc-50 shadow-sm transition-colors focus-within:border-zinc-400 focus-within:ring-1 focus-within:ring-zinc-400">
-                <textarea
-                  value={prompt}
-                  onChange={(event) => onPromptChange(event.target.value)}
-                  placeholder="例如：高端咖啡品牌包装，暖调电影灯光，桌面细节清晰..."
-                  className="min-h-[140px] w-full resize-none border-0 bg-transparent px-3 py-3 text-sm text-zinc-950 placeholder:text-zinc-400 outline-none focus:outline-none focus:ring-0"
-                  style={{ boxShadow: "none" }}
-                  maxLength={4000}
-                />
-                <div className="flex justify-end p-2 pt-0 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (prompt.trim()) {
-                        optimizePrompt({ prompt, onUpdate: onPromptChange });
-                      }
-                    }}
-                    disabled={isOptimizing || !prompt.trim()}
-                    className="flex items-center gap-1.5 rounded-full bg-zinc-900/5 px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-900/10 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-50"
-                    title="AI 优化提示词"
-                  >
-                    {isOptimizing ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Wand2 className="size-3.5" />
-                    )}
-                    {"AI 优化"}
-                  </button>
-                </div>
-              </div>
-            </div>
+      {/* 主内容区 - 可滚动 */}
+      <div className="min-h-0 flex-1 ">
+        <div className="space-y-6 px-5 pb-4">
 
-            {/* 图片比例（嵌入在描述下方） */}
-            <div className="space-y-2">
-              <div>
-                <p className="text-sm font-medium text-zinc-950">
-                  {"图片比例"}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {"根据内容场景选择输出画幅"}
-                </p>
-              </div>
-              <div className="grid grid-cols-4 gap-2.5">
-                {SIZES.map((item) => {
-                  const shape = RATIO_SHAPES[item.name] ?? { w: 22, h: 22 };
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => onSizeChange(item.id)}
-                      className={cn(
-                        "flex flex-col items-center justify-center gap-1.5 rounded-xl border py-3 transition-all",
-                        size === item.id
-                          ? "border-zinc-400 bg-zinc-100 text-zinc-950"
-                          : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
-                      )}
-                    >
-                      {/* 比例矩形图标 */}
-                      <div
-                        className={cn(
-                          "rounded-[3px] border-[1.5px]",
-                          size === item.id
-                            ? "border-zinc-700"
-                            : "border-zinc-400"
-                        )}
-                        style={{ width: shape.w, height: shape.h }}
-                      />
-                      <span className="text-xs font-semibold">{item.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 灵感模板 */}
-            <div className="space-y-2">
-              <div>
-                <p className="text-sm font-medium text-zinc-950">
-                  {"灵感模板"}
-                </p>
-              </div>
-              <div className="space-y-2">
-                {PROMPT_TEMPLATES.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => onApplyTemplate(item)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs leading-5 text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-100"
-                  >
-                    <span className="line-clamp-1">{item}</span>
-                  </button>
+          {/* AI 模型 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-zinc-800">{"AI 模型"}</p>
+            <p className="text-xs text-zinc-400">{"选择适合当前视觉风格的出图引擎"}</p>
+            <Select value={model} onValueChange={onModelChange}>
+              <SelectTrigger className="w-full border-zinc-200 bg-zinc-50 text-sm hover:bg-zinc-100">
+                <SelectValue placeholder="选择模型" />
+              </SelectTrigger>
+              <SelectContent>
+                {MODELS.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{item.name}</span>
+                      <Badge className="border-0 bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500">
+                        {item.badge}
+                      </Badge>
+                    </div>
+                  </SelectItem>
                 ))}
-              </div>
-            </div>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* 高级设置弹窗 */}
-            <Dialog>
-              <DialogTrigger asChild>
+          {/* 描述输入 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-zinc-800">{"描述你想生成的图片"}</p>
+              <span className="text-xs text-zinc-400">{prompt.length}/4000</span>
+            </div>
+            <div className="relative rounded-xl border border-zinc-200 bg-zinc-50 transition-colors focus-within:border-primary/40 focus-within:bg-white focus-within:ring-1 focus-within:ring-primary/20">
+              <textarea
+                value={prompt}
+                onChange={(event) => onPromptChange(event.target.value)}
+                placeholder="例如：高端咖啡品牌包装，暖调电影灯光，桌面细节清晰..."
+                className="min-h-[130px] w-full resize-none bg-transparent px-3 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:outline-none focus:ring-0"
+                style={{ boxShadow: "none" }}
+                maxLength={4000}
+              />
+              <div className="flex justify-end px-2 pb-2">
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-lg px-1 py-1 text-zinc-500 transition hover:text-zinc-700"
+                  onClick={() => {
+                    if (prompt.trim()) {
+                      optimizePrompt({ prompt, onUpdate: onPromptChange });
+                    }
+                  }}
+                  disabled={isOptimizing || !prompt.trim()}
+                  className="flex items-center gap-1 rounded-full px-2 py-1 text-xs text-zinc-400 transition-colors hover:bg-blue-50 hover:text-primary disabled:pointer-events-none disabled:opacity-40"
                 >
-                  <Settings2 className="size-4" />
-                  <span className="text-xs text-zinc-400">
-                    {"高级设置：增强提示词 · 负向提示词"}
-                  </span>
+                  {isOptimizing ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <Wand2 className="size-3" />
+                  )}
+                  {"优化描述"}
                 </button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{"高级设置"}</DialogTitle>
-                  <DialogDescription>
-                    {"增强提示词与负向提示词"}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-6 py-2">
-                  {/* 增强提示词 */}
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-zinc-950">
-                      {"增强提示词"}
-                    </p>
-                    <div className="space-y-3">
-                      {PROMPT_LIBRARY.map((group) => {
-                        const GroupIcon =
-                          PROMPT_GROUP_ICONS[group.key] ?? Sparkles;
-                        return (
-                          <div
-                            key={group.title}
-                            className="rounded-2xl bg-zinc-50 p-4"
-                          >
-                            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-950">
-                              <GroupIcon className="size-4 text-zinc-700" />
-                              {group.title}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {group.items.map((item) => (
-                                <button
-                                  key={item}
-                                  type="button"
-                                  onClick={() =>
-                                    onTogglePromptOption(group.key, item)
-                                  }
-                                  className={cn(
-                                    "rounded-full border px-3 py-1.5 text-xs transition",
-                                    promptOptions[group.key].includes(item)
-                                      ? "border-zinc-400 bg-zinc-200 text-zinc-900"
-                                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100"
-                                  )}
-                                >
-                                  {item}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+              </div>
+            </div>
+          </div>
 
-                  {/* 负向提示词 */}
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-zinc-950">
-                      {"负向提示词"}
-                    </p>
-                    <Textarea
-                      value={negativePrompt}
-                      onChange={(event) =>
-                        onNegativePromptChange(event.target.value)
-                      }
-                      placeholder="例如：模糊、低清晰度、杂乱背景、畸形手部、文字水印"
-                      className="min-h-[80px] border-zinc-200 bg-zinc-50 text-zinc-950 placeholder:text-zinc-400"
+          {/* 图片比例 */}
+          <div className="space-y-2.5">
+            <div>
+              <p className="text-sm font-medium text-zinc-800">{"图片比例"}</p>
+              <p className="mt-0.5 text-xs text-zinc-400">{"根据内容场景选择输出画幅"}</p>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {SIZES.map((item) => {
+                const shape = RATIO_SHAPES[item.name] ?? { w: 22, h: 22 };
+                const isSelected = size === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onSizeChange(item.id)}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 transition-all",
+                      isSelected
+                        ? "bg-blue-50 text-primary"
+                        : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700"
+                    )}
+                  >
+                    {/* 比例矩形图标 */}
+                    <div
+                      className={cn(
+                        "rounded-[3px] border-[1.5px]",
+                        isSelected ? "border-primary" : "border-zinc-400"
+                      )}
+                      style={{ width: shape.w, height: shape.h }}
                     />
-                    <div className="flex flex-wrap gap-2">
-                      {NEGATIVE_OPTIONS.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() =>
-                            onTogglePromptOption("negatives", item, "negative")
-                          }
-                          className={cn(
-                            "rounded-full border px-3 py-1.5 text-xs transition",
-                            promptOptions.negatives.includes(item)
-                              ? "border-zinc-400 bg-zinc-200 text-zinc-900"
-                              : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100"
-                          )}
+                    <span className="text-[11px] font-medium">{item.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 灵感模板 */}
+          <div className="space-y-2.5">
+            <div>
+              <p className="text-sm font-medium text-zinc-800">{"灵感模板"}</p>
+              <p className="mt-0.5 text-xs text-zinc-400">{"点击后填充可填充词语"}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {PROMPT_TEMPLATES.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => onApplyTemplate(item)}
+                  className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 text-left transition hover:bg-blue-50 hover:text-primary"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 高级设置 */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-xs text-zinc-400 transition hover:text-primary"
+              >
+                <Settings2 className="size-3.5" />
+                {"高级设置"}
+                <ChevronDown className="size-3" />
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{"高级设置"}</DialogTitle>
+                <DialogDescription>
+                  {"增强提示词与负向提示词"}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-2">
+                {/* 增强提示词 */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-zinc-950">
+                    {"增强提示词"}
+                  </p>
+                  <div className="space-y-3">
+                    {PROMPT_LIBRARY.map((group) => {
+                      const GroupIcon =
+                        PROMPT_GROUP_ICONS[group.key] ?? Sparkles;
+                      return (
+                        <div
+                          key={group.title}
+                          className="rounded-2xl bg-zinc-50 p-4"
                         >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
+                          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-950">
+                            <GroupIcon className="size-4 text-zinc-700" />
+                            {group.title}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {group.items.map((item) => (
+                              <button
+                                key={item}
+                                type="button"
+                                onClick={() =>
+                                  onTogglePromptOption(group.key, item)
+                                }
+                                className={cn(
+                                  "rounded-full border px-3 py-1.5 text-xs transition",
+                                  promptOptions[group.key].includes(item)
+                                    ? "border-primary/30 bg-blue-50 text-primary"
+                                    : "border-zinc-200 bg-white text-zinc-700 hover:border-primary/20 hover:bg-blue-50 hover:text-primary"
+                                )}
+                              >
+                                {item}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </section>
+
+                {/* 负向提示词 */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-zinc-950">
+                    {"负向提示词"}
+                  </p>
+                  <Textarea
+                    value={negativePrompt}
+                    onChange={(event) =>
+                      onNegativePromptChange(event.target.value)
+                    }
+                    placeholder="例如：模糊、低清晰度、杂乱背景、畸形手部、文字水印"
+                    className="min-h-[80px] border-zinc-200 bg-zinc-50 text-zinc-950 placeholder:text-zinc-400"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {NEGATIVE_OPTIONS.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() =>
+                          onTogglePromptOption("negatives", item, "negative")
+                        }
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs transition",
+                          promptOptions.negatives.includes(item)
+                            ? "border-primary/30 bg-blue-50 text-primary"
+                            : "border-zinc-200 bg-white text-zinc-700 hover:border-primary/20 hover:bg-blue-50 hover:text-primary"
+                        )}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
         </div>
       </div>
 
-      <div className="p-5 pt-0 md:p-6 md:pt-0">
+      {/* 底部生成按钮 */}
+      <div className="px-5 py-4">
         <Button
           type="button"
           onClick={onGenerate}
           disabled={isGenerating || !prompt.trim() || !canCreate}
-          className="h-14 w-full rounded-2xl bg-zinc-950 text-base font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-zinc-400"
+          className="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-zinc-300"
         >
           {isGenerating ? (
             <span className="flex items-center gap-2">
-              <Loader2 className="size-5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               {"正在生成并上传素材..."}
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              <Sparkles className="size-5" />
+              <Sparkles className="size-4" />
               {"开始创作"}
             </span>
           )}
