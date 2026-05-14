@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 
 import { BotIcon, ClockRewind, ImageIcon } from "@/components/icons";
+import { FileText } from "lucide-react";
 import { SidebarHistory } from "@/components/sidebar-history";
 import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarSharedDocuments } from "@/components/sidebar-shared-documents";
@@ -113,6 +114,22 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   >
                     <ImageIcon />
                     <span>AI 创作工坊</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => {
+                      setOpenMobile(false);
+                      if (currentWorkspace) {
+                        router.push(`/${currentWorkspace.slug}/documents`);
+                      } else if (workspaces.length > 0) {
+                        router.push(`/${workspaces[0].slug}/documents`);
+                      }
+                      router.refresh();
+                    }}
+                  >
+                    <FileText className="size-4" />
+                    <span>所有文档</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

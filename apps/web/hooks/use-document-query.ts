@@ -13,6 +13,9 @@ export const documentKeys = {
   trashes: () => [...documentKeys.all, "trash"] as const,
   trash: (workspaceId?: string) =>
     [...documentKeys.trashes(), { workspaceId }] as const,
+  allDocs: () => [...documentKeys.all, "all-docs"] as const,
+  allDocsList: (workspaceId?: string, parentDocumentId?: string) =>
+    [...documentKeys.allDocs(), { workspaceId, parentDocumentId }] as const,
 };
 
 // API Functions
@@ -268,6 +271,7 @@ export function useCreateDocument() {
 
       // 不 await：让 invalidation 后台进行，不阻塞组件的 onSuccess 回调
       queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
     },
   });
 }
@@ -354,6 +358,7 @@ export function useUpdateDocument() {
           };
         }
       );
+      queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
     },
 
     // 失败时: 回滚到之前的数据
@@ -385,6 +390,7 @@ export function useArchive() {
       queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
       // 刷新文档详情缓存，确保从回收站打开时能正确显示删除状态
       queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
+      queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
     },
   });
 }
@@ -453,6 +459,7 @@ export function useDuplicateDocument() {
     onSuccess: async (newDoc) => {
       // 刷新所有列表以显示新复制的文档
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
       // 如果复制的是子文档,也刷新父文档的列表
       if (newDoc.parentDocumentId) {
         await queryClient.invalidateQueries({
@@ -471,6 +478,7 @@ export function useMoveDocument() {
     onSuccess: async () => {
       // 移动后刷新所有列表
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
     },
   });
 }
@@ -559,6 +567,7 @@ export function useRestoreDocument() {
       queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
       // Refresh main lists as document reappears
       queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
     },
   });
 }
@@ -571,6 +580,53 @@ export function usePermanentDeleteDocument() {
     onSuccess: async () => {
       // Refresh trash list
       await queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
+      await queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
     },
+  });
+}
+
+// === 所有文档（聚合） ===
+
+export interface AllDocumentItem {
+  id: string;
+  title: string;
+  icon: string | null;
+  parentDocumentId: string | null;
+  source: "workspace" | "shared" | "trash";
+  permission: string | null;
+  ownerName: string | null;
+  updatedAt: string;
+  deletedAt: string | null;
+  hasChildren: boolean;
+  isFavorite: boolean;
+}
+
+async function fetchAllDocuments(
+  workspaceId?: string,
+  parentDocumentId?: string
+): Promise<AllDocumentItem[]> {
+  const params = new URLSearchParams();
+  if (workspaceId) {
+    params.append("workspaceId", workspaceId);
+  }
+  if (parentDocumentId) {
+    params.append("parentDocumentId", parentDocumentId);
+  }
+  const response = await fetch(`/api/editor-documents/all?${params.toString()}`);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "获取所有文档失败");
+  }
+  return response.json();
+}
+
+export function useAllDocuments(
+  workspaceId?: string,
+  parentDocumentId?: string
+) {
+  return useQuery({
+    queryKey: documentKeys.allDocsList(workspaceId, parentDocumentId),
+    queryFn: () => fetchAllDocuments(workspaceId, parentDocumentId),
+    enabled: !!workspaceId,
   });
 }

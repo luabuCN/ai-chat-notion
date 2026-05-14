@@ -1,13 +1,14 @@
 "use client";
 
 import {
+  Button,
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenu,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Skeleton,
 } from "@repo/ui";
-import { Skeleton } from "@repo/ui";
 import {
   cn,
   getEditorListPathAfterLeavingDocument,
@@ -115,7 +116,7 @@ const Item = ({
     onExpand?.();
   };
 
-  const onCreate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const onCreate = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (!id) return;
 
@@ -227,19 +228,15 @@ const Item = ({
         >
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <div
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }
-                }}
-                className="h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600"
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                aria-label="更多操作"
               >
                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-              </div>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               className=" w-60"
@@ -248,7 +245,7 @@ const Item = ({
             >
               <DropdownMenuItem onClick={onArchive}>
                 <Trash className="h-4 w-4 mr-2" />
-                删除
+                移到回收站
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <div className=" text-xs text-muted-foreground p-2">
@@ -256,22 +253,16 @@ const Item = ({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          <div
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onCreate(
-                  e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>
-                );
-              }
-            }}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0"
             onClick={onCreate}
-            className="h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600"
+            aria-label="新建子文档"
           >
             <Plus className="h-4 w-4 text-muted-foreground" />
-          </div>
+          </Button>
         </div>
       )}
     </div>
