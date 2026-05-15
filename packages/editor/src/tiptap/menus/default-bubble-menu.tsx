@@ -9,6 +9,7 @@ import {
   TextButtons,
 } from "./selectors";
 
+import { CommentBubbleMenuItem } from "./comment-bubble-menu-item";
 import { Separator } from "@repo/ui/separator";
 import { useAIPanelStore } from "../../components/ai-panel/ai-panel-store";
 
@@ -94,6 +95,8 @@ export const DefaultBubbleMenu = ({ editor }: { editor: Editor | null }) => {
           <AiSelector editor={editor} />
           <Separator orientation="vertical" />
           <NodeSelector editor={editor} />
+          <Separator orientation="vertical" />
+          <CommentBubbleMenuItem editor={editor} />
           <Separator orientation="vertical" />
           <MathSelector editor={editor} />
           <Separator orientation="vertical" />

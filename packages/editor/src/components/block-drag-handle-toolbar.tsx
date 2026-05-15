@@ -32,12 +32,12 @@ export function BlockDragHandleToolbar({
       <div className="flex items-center gap-1 -ml-2">
         <button
           type="button"
-          className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors border shadow-sm"
+          className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-pointer transition-colors "
           onClick={onAddClick}
         >
           <Plus className="size-3.5 text-muted-foreground" />
         </button>
-        <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors border shadow-sm">
+        <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-background hover:bg-muted cursor-grab transition-colors ">
           <GripVerticalIcon className="size-3.5 text-muted-foreground" />
         </div>
       </div>

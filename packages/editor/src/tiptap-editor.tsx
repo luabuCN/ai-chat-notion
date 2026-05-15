@@ -15,6 +15,7 @@ import {
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
+import { CommentBlockMarginTrigger } from "./components/comment-prototype/comment-block-margin-trigger";
 import { BlockDragHandleToolbar } from "./components/block-drag-handle-toolbar";
 import AIPanel from "./components/ai-panel";
 import { TableOfContents } from "./components/table-of-contents";
@@ -188,6 +189,7 @@ export function TiptapEditor({
       <ImagePreviewPortal />
       {editor && (
         <>
+          <CommentBlockMarginTrigger editor={editor} />
           <BlockDragHandleToolbar
             editor={editor}
             onAddClick={handleSlashCommand}

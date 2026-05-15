@@ -19,6 +19,7 @@ import {
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
+import { CommentBlockMarginTrigger } from "./components/comment-prototype/comment-block-margin-trigger";
 import { BlockDragHandleToolbar } from "./components/block-drag-handle-toolbar";
 import AIPanel from "./components/ai-panel";
 import { TableOfContents } from "./components/table-of-contents";
@@ -497,6 +498,7 @@ export function UnifiedEditor({
       {/* 编辑器主体 */}
       {editor && (
         <>
+          <CommentBlockMarginTrigger editor={editor} />
           <BlockDragHandleToolbar
             editor={editor}
             onAddClick={handleSlashCommand}
