@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useParams } from "next/navigation";
 import { CollaborationProvider } from "./collaboration-context";
 import { EditorHeaderWrapper } from "./editor-header-wrapper";
 import { EditorContent } from "./editor-content";
 import { EditorLoadingSkeleton } from "./editor-loading-skeleton";
+import { DocumentSearchPalette } from "./document-search-palette";
 import { useGetDocument } from "@/hooks/use-document-query";
+import { useWorkspace } from "@/components/workspace-provider";
 import { useSidebar } from "@repo/ui";
 import { useLocalStorage } from "usehooks-ts";
 import {
@@ -32,12 +35,47 @@ export function EditorPageClient({
   userName,
   userEmail,
 }: EditorPageClientProps) {
-  const { isPending: isDocumentPending, error } = useGetDocument(documentId);
+  const { data: document, isPending: isDocumentPending, error } =
+    useGetDocument(documentId);
+  const { currentWorkspace } = useWorkspace();
+  const params = useParams();
   const { state, isMobile } = useSidebar();
   const [mounted, setMounted] = useState(false);
   const [isFullWidth, setIsFullWidth] = useLocalStorage("editor-full-width", false);
   const convertTask = useConvertTask(documentId);
   const conversionLocked = isConvertTaskPipelineBusy(convertTask);
+  const [documentSearchOpen, setDocumentSearchOpen] = useState(false);
+
+  const accessLevel = (document as { accessLevel?: string } | undefined)?.accessLevel;
+  const isDocumentEditable =
+    Boolean(document) &&
+    !isDocumentPending &&
+    error == null &&
+    document?.deletedAt == null &&
+    accessLevel !== "view" &&
+    !conversionLocked;
+
+  const slugParam = params.slug;
+  let workspaceSlugFromParams = "";
+  if (typeof slugParam === "string") {
+    workspaceSlugFromParams = slugParam;
+  } else if (Array.isArray(slugParam) && slugParam[0]) {
+    workspaceSlugFromParams = slugParam[0];
+  }
+  const workspaceSlug = workspaceSlugFromParams || currentWorkspace?.slug || "";
+  const listWorkspaceId = document?.workspaceId ?? currentWorkspace?.id;
+
+  const toggleDocumentSearch = useCallback(() => {
+    setDocumentSearchOpen((prev) => !prev);
+  }, []);
+
+  const documentSearchShortcut = useMemo(
+    () => ({
+      enabled: isDocumentEditable,
+      onToggleOpen: toggleDocumentSearch,
+    }),
+    [isDocumentEditable, toggleDocumentSearch]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -45,6 +83,7 @@ export function EditorPageClient({
 
   useEditorPageShortcuts({
     enabled: !isDocumentPending && error == null,
+    documentSearch: documentSearchShortcut,
   });
 
   // 计算头部的 left 位置
@@ -165,6 +204,12 @@ export function EditorPageClient({
               />
             </div>
             <EditorScrollNav />
+            <DocumentSearchPalette
+              open={documentSearchOpen}
+              onOpenChange={setDocumentSearchOpen}
+              workspaceId={listWorkspaceId ?? undefined}
+              workspaceSlug={workspaceSlug}
+            />
           </>
         )}
       </div>

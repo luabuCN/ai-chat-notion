@@ -30,7 +30,7 @@ export type EditorShortcutDef =
       alternativeKeys: readonly [readonly KbdSegment[], readonly KbdSegment[]];
     };
 
-/** 编辑器页快捷键说明列表（与 `useEditorPageShortcuts` 中拦截的按键一致处会标注） */
+/** 编辑器页快捷键说明列表（与 `useEditorPageShortcuts` 中 Cmd/Ctrl+S、Cmd/Ctrl+K 等行为一致处对应） */
 export const EDITOR_SHORTCUT_ITEMS: readonly EditorShortcutDef[] = [
   {
     id: "undo",

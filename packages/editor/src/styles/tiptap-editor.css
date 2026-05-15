@@ -150,8 +150,8 @@
   outline: 1px solid color-mix(in oklab, var(--primary) 20%, transparent);
 }
 .tiptap .tiptap-search-result-current {
-  background-color: color-mix(in oklab, var(--primary) 45%, transparent);
-  outline: 2px solid color-mix(in oklab, var(--primary) 72%, transparent);
+  background-color: color-mix(in oklab, var(--primary) 55%, transparent);
+  outline: 1px solid color-mix(in oklab, var(--primary) 22%, transparent);
 }
 .tiptap.ProseMirror img {
   transition: filter 0.1s ease-in-out;

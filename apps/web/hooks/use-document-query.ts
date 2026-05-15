@@ -14,8 +14,12 @@ export const documentKeys = {
   trash: (workspaceId?: string) =>
     [...documentKeys.trashes(), { workspaceId }] as const,
   allDocs: () => [...documentKeys.all, "all-docs"] as const,
-  allDocsList: (workspaceId?: string, parentDocumentId?: string) =>
-    [...documentKeys.allDocs(), { workspaceId, parentDocumentId }] as const,
+  allDocsList: (
+    workspaceId?: string,
+    parentDocumentId?: string,
+    flat?: boolean
+  ) =>
+    [...documentKeys.allDocs(), { workspaceId, parentDocumentId, flat }] as const,
 };
 
 // API Functions
@@ -603,7 +607,8 @@ export interface AllDocumentItem {
 
 async function fetchAllDocuments(
   workspaceId?: string,
-  parentDocumentId?: string
+  parentDocumentId?: string,
+  flat?: boolean
 ): Promise<AllDocumentItem[]> {
   const params = new URLSearchParams();
   if (workspaceId) {
@@ -611,6 +616,9 @@ async function fetchAllDocuments(
   }
   if (parentDocumentId) {
     params.append("parentDocumentId", parentDocumentId);
+  }
+  if (flat) {
+    params.append("flat", "true");
   }
   const response = await fetch(`/api/editor-documents/all?${params.toString()}`);
   if (!response.ok) {
@@ -622,11 +630,15 @@ async function fetchAllDocuments(
 
 export function useAllDocuments(
   workspaceId?: string,
-  parentDocumentId?: string
+  parentDocumentId?: string,
+  options?: { flat?: boolean; enabled?: boolean }
 ) {
+  const flat = options?.flat ?? false;
+  const queryEnabled =
+    options?.enabled !== undefined ? options.enabled : Boolean(workspaceId);
   return useQuery({
-    queryKey: documentKeys.allDocsList(workspaceId, parentDocumentId),
-    queryFn: () => fetchAllDocuments(workspaceId, parentDocumentId),
-    enabled: !!workspaceId,
+    queryKey: documentKeys.allDocsList(workspaceId, parentDocumentId, flat),
+    queryFn: () => fetchAllDocuments(workspaceId, parentDocumentId, flat),
+    enabled: queryEnabled,
   });
 }

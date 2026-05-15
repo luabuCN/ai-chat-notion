@@ -27,6 +27,7 @@ export interface AllDocumentItem {
  * GET /api/editor-documents/all
  * 聚合当前空间文档、他人分享文档、回收站文档，返回统一结构
  * 支持 ?workspaceId=xxx 和 ?parentDocumentId=xxx（用于懒加载子文档）
+ * ?flat=true 且带 workspaceId 时返回该空间内全部未删除文档（含子页面），用于搜索/快速打开
  */
 export async function GET(request: Request) {
   const { user } = getAuthFromRequest(request);
@@ -38,6 +39,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const workspaceId = searchParams.get("workspaceId");
   const parentDocumentId = searchParams.get("parentDocumentId");
+  const wantFlat =
+    searchParams.get("flat") === "true" || searchParams.get("flat") === "1";
 
   // 如果指定了 workspaceId，验证访问权限
   if (workspaceId) {
@@ -99,45 +102,98 @@ export async function GET(request: Request) {
 
     // === 顶层查询：聚合三个数据源 ===
 
-    // 1. 空间文档（顶层，未删除）
-    const workspaceDocs = await getEditorDocumentsByUserId({
-      userId: user.id,
-      workspaceId: workspaceId ?? undefined,
-      parentDocumentId: null,
-      includeDeleted: false,
-      onlyDeleted: false,
-    });
-
-    // 批量查询这些文档是否有子文档
-    const workspaceDocIds = workspaceDocs.map((d) => d.id);
-    const childrenCountsForWorkspace = workspaceDocIds.length > 0
-      ? await prisma.editorDocument.groupBy({
-          by: ["parentDocumentId"],
-          where: {
-            parentDocumentId: { in: workspaceDocIds },
-            deletedAt: null,
-          },
-          _count: true,
-        })
-      : [];
-    const wsHasChildrenMap = new Map(
-      childrenCountsForWorkspace.map((c) => [c.parentDocumentId, c._count > 0])
-    );
-
-    for (const doc of workspaceDocs) {
-      result.push({
-        id: doc.id,
-        title: doc.title,
-        icon: doc.icon,
-        parentDocumentId: doc.parentDocumentId,
-        source: "workspace",
-        permission: "edit",
-        ownerName: null,
-        updatedAt: new Date(doc.updatedAt).toISOString(),
-        deletedAt: null,
-        hasChildren: wsHasChildrenMap.get(doc.id) ?? false,
-        isFavorite: doc.isFavorite,
+    // 1. 空间文档
+    if (wantFlat && workspaceId) {
+      const workspaceDocsFlat = await prisma.editorDocument.findMany({
+        where: {
+          workspaceId,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          title: true,
+          icon: true,
+          parentDocumentId: true,
+          updatedAt: true,
+          isFavorite: true,
+        },
+        orderBy: { updatedAt: "desc" },
       });
+
+      const flatIds = workspaceDocsFlat.map((d) => d.id);
+      const childrenCountsFlat =
+        flatIds.length > 0
+          ? await prisma.editorDocument.groupBy({
+              by: ["parentDocumentId"],
+              where: {
+                parentDocumentId: { in: flatIds },
+                deletedAt: null,
+              },
+              _count: true,
+            })
+          : [];
+      const flatHasChildrenMap = new Map(
+        childrenCountsFlat.map((c) => [c.parentDocumentId, c._count > 0])
+      );
+
+      for (const doc of workspaceDocsFlat) {
+        result.push({
+          id: doc.id,
+          title: doc.title,
+          icon: doc.icon,
+          parentDocumentId: doc.parentDocumentId,
+          source: "workspace",
+          permission: "edit",
+          ownerName: null,
+          updatedAt: new Date(doc.updatedAt).toISOString(),
+          deletedAt: null,
+          hasChildren: flatHasChildrenMap.get(doc.id) ?? false,
+          isFavorite: doc.isFavorite,
+        });
+      }
+    } else {
+      const workspaceDocs = await getEditorDocumentsByUserId({
+        userId: user.id,
+        workspaceId: workspaceId ?? undefined,
+        parentDocumentId: null,
+        includeDeleted: false,
+        onlyDeleted: false,
+      });
+
+      const workspaceDocIds = workspaceDocs.map((d) => d.id);
+      const childrenCountsForWorkspace =
+        workspaceDocIds.length > 0
+          ? await prisma.editorDocument.groupBy({
+              by: ["parentDocumentId"],
+              where: {
+                parentDocumentId: { in: workspaceDocIds },
+                deletedAt: null,
+              },
+              _count: true,
+            })
+          : [];
+      const wsHasChildrenMap = new Map(
+        childrenCountsForWorkspace.map((c) => [
+          c.parentDocumentId,
+          c._count > 0,
+        ])
+      );
+
+      for (const doc of workspaceDocs) {
+        result.push({
+          id: doc.id,
+          title: doc.title,
+          icon: doc.icon,
+          parentDocumentId: doc.parentDocumentId,
+          source: "workspace",
+          permission: "edit",
+          ownerName: null,
+          updatedAt: new Date(doc.updatedAt).toISOString(),
+          deletedAt: null,
+          hasChildren: wsHasChildrenMap.get(doc.id) ?? false,
+          isFavorite: doc.isFavorite,
+        });
+      }
     }
 
     // 2. 他人分享的文档
