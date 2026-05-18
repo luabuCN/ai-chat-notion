@@ -26,6 +26,21 @@ import {
 } from "@/lib/pdf/convert-store";
 import { EDITOR_PAGE_REQUEST_SAVE } from "@/lib/use-editor-page-shortcuts";
 
+/**
+ * 浏览器侧 Uint8Array → base64：分块走 `btoa`，避免大文档触发栈溢出 / `Maximum call stack`.
+ * 32KB 是常见的安全阈值（`btoa` 接受任意字符串，无字符上限，但 `String.fromCharCode(...arr)`
+ * 的展开参数会受栈大小限制）。
+ */
+function encodeYjsStateToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return globalThis.btoa(binary);
+}
+
 interface EditorContentProps {
   locale: string;
   documentId: string;
@@ -67,12 +82,18 @@ export function EditorContent({
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  /**
+   * 本地模式下从 UnifiedEditor 收到的 Yjs 二进制快照（base64）。
+   * 包含正文与评论 CRDT；与 content 并行落库，防止评论丢失。
+   */
+  const [localYjsStateB64, setLocalYjsStateB64] = useState<string | null>(null);
   const [permissionRevoked, setPermissionRevoked] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const contentDebounced = useDebounce(content, 1000);
   const titleDebounced = useDebounce(title, 500);
   const iconDebounced = useDebounce(icon, 500);
+  const localYjsStateB64Debounced = useDebounce(localYjsStateB64, 1000);
 
   // 只读模式：已删除的文档或只有查看权限
   const isReadOnly =
@@ -280,6 +301,11 @@ export function EditorContent({
     setPermissionRevoked(false);
   }, [documentId]);
 
+  // 切换文档时清空 yjsState 缓冲，防止跨文档写入旧 doc 的状态
+  useEffect(() => {
+    setLocalYjsStateB64(null);
+  }, [documentId]);
+
   // 显示错误（仅在 EditorContent 内部渲染时的非致命错误）
   // 注意：致命错误（401/403/404）已在 EditorPageClient 中处理并显示错误页面
   useEffect(() => {
@@ -429,6 +455,49 @@ export function EditorContent({
     updateDocumentMutation.mutate,
     shouldConnectCollab,
   ]);
+
+  // 防抖保存本地 Yjs 二进制快照（仅本地模式）
+  // 与 content 路径并行：content 用于搜索/预览/老入口兼容，yjsState 是真相源
+  // （含评论 CRDT 等无法序列化到 ProseMirror JSON 的数据）。
+  const prevLocalYjsStateB64Ref = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      shouldConnectCollab || // 协同模式由 collab-server 持久化 yjsState
+      !isInitializedRef.current ||
+      !documentId ||
+      !document ||
+      effectiveReadOnly ||
+      localYjsStateB64Debounced === null ||
+      localYjsStateB64Debounced === prevLocalYjsStateB64Ref.current
+    ) {
+      return;
+    }
+
+    prevLocalYjsStateB64Ref.current = localYjsStateB64Debounced;
+    updateDocumentMutation.mutate(
+      {
+        documentId,
+        updates: { yjsState: localYjsStateB64Debounced },
+      },
+      {
+        onError: (error) => {
+          toast.error(error.message || "保存评论数据失败");
+        },
+      }
+    );
+  }, [
+    localYjsStateB64Debounced,
+    documentId,
+    document,
+    effectiveReadOnly,
+    shouldConnectCollab,
+    updateDocumentMutation.mutate,
+  ]);
+
+  // 文档切换时一并清空 yjsState 写入去重
+  useEffect(() => {
+    prevLocalYjsStateB64Ref.current = null;
+  }, [documentId]);
 
   useEffect(() => {
     return () => {
@@ -639,6 +708,17 @@ export function EditorContent({
     [conversionLocked, effectiveReadOnly]
   );
 
+  // 本地模式：每次 ydoc 变更上抛的二进制快照，转 base64 后由防抖 effect 落库
+  const handleLocalYjsState = useCallback(
+    (state: Uint8Array) => {
+      if (effectiveReadOnly || conversionLocked) {
+        return;
+      }
+      setLocalYjsStateB64(encodeYjsStateToBase64(state));
+    },
+    [conversionLocked, effectiveReadOnly]
+  );
+
   // 等待文档加载完成，如果需要协同则等待 token
   if (isLoading || (shouldConnectCollab && isTokenLoading)) {
     return <EditorLoadingSkeleton className="min-h-full pt-11" />;
@@ -699,6 +779,9 @@ export function EditorContent({
                 onConnectionStatusChange={handleConnectionStatusChange}
                 onPermissionRevoked={handlePermissionRevoked}
                 onUpdate={shouldConnectCollab ? undefined : handleEditorUpdate}
+                onLocalYjsState={
+                  shouldConnectCollab ? undefined : handleLocalYjsState
+                }
                 onEditorReady={handleEditorReady}
               />
             </div>

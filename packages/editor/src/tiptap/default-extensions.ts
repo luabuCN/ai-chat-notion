@@ -8,6 +8,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Youtube from "@tiptap/extension-youtube";
 import { CharacterCount } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
+import { UniqueID } from "@tiptap/extension-unique-id";
 import { all, createLowlight } from "lowlight";
 import { Mathematics } from "./extensions/mathematics";
 import { CustomTable } from "./extensions/table";
@@ -272,8 +273,28 @@ const attachment = Attachment.configure({
   HTMLAttributes: {},
 });
 
+/**
+ * 给「可评论」的块级节点附加稳定 id，作为评论锚点。
+ *
+ * - 仅覆盖会出现评论按钮的块类型（与 comment-margin-utils 的锚点策略对齐）。
+ * - 属性名固定为 `id`，会被序列化进 Tiptap JSON 与 Yjs，所以 collab-server 也必须启用同名扩展。
+ */
+const blockUniqueId = UniqueID.configure({
+  types: [
+    "paragraph",
+    "heading",
+    "blockquote",
+    "codeBlock",
+    "table",
+    "listItem",
+    "taskItem",
+  ],
+  attributeName: "id",
+});
+
 export const defaultExtensions = [
   TiptapStarterKit,
+  blockUniqueId,
   TiptapHeading,
   TiptapTextAlign,
   TiptapTable,

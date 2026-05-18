@@ -59,6 +59,9 @@ importers:
       '@tiptap/extension-task-list':
         specifier: ^3.15.3
         version: 3.15.3(@tiptap/extension-list@3.13.0(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))(@tiptap/pm@3.13.0))
+      '@tiptap/extension-unique-id':
+        specifier: ^3.15.3
+        version: 3.23.4(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))(@tiptap/pm@3.13.0)
       '@tiptap/starter-kit':
         specifier: ^3.10.4
         version: 3.13.0
@@ -3660,6 +3663,12 @@ packages:
     resolution: {integrity: sha512-VDQi+UYw0tFnfghpthJTFmtJ3yx90kXeDwFvhmT8G+O+si5VmP05xYDBYBmYCix5jqKigJxEASiBL0gYOgMDEg==}
     peerDependencies:
       '@tiptap/core': ^3.13.0
+
+  '@tiptap/extension-unique-id@3.23.4':
+    resolution: {integrity: sha512-am+sQPtzdbQsZ6rmRZkl36q3wFc3bFl/CpdKldTehkwgk5xFkjTovcXqvOnNAlwOcrRoQPkzHCxKlzulrxzlnA==}
+    peerDependencies:
+      '@tiptap/core': 3.23.4
+      '@tiptap/pm': 3.23.4
 
   '@tiptap/extension-youtube@3.13.0':
     resolution: {integrity: sha512-KG6NtdpK9VheacN4imjhDJ8G1V2tJZd/LRr+QID8dYEMQe9vKbqIXgA0kO91t+f+iH8NwgNPmi3a/BQogvoqJg==}
@@ -7512,6 +7521,10 @@ packages:
     resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
     hasBin: true
 
+  uuid@14.0.0:
+    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
+    hasBin: true
+
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
     hasBin: true
@@ -11103,6 +11116,12 @@ snapshots:
   '@tiptap/extension-underline@3.13.0(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))':
     dependencies:
       '@tiptap/core': 3.13.0(@tiptap/pm@3.13.0)
+
+  '@tiptap/extension-unique-id@3.23.4(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))(@tiptap/pm@3.13.0)':
+    dependencies:
+      '@tiptap/core': 3.13.0(@tiptap/pm@3.13.0)
+      '@tiptap/pm': 3.13.0
+      uuid: 14.0.0
 
   '@tiptap/extension-youtube@3.13.0(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))':
     dependencies:
@@ -15790,6 +15809,8 @@ snapshots:
       base64-arraybuffer: 1.0.2
 
   uuid@11.1.0: {}
+
+  uuid@14.0.0: {}
 
   uuid@8.3.2: {}
 

@@ -36,6 +36,7 @@ export function getCommentAnchorFromPos(
   pos: number
 ): {
   anchorPos: number;
+  blockId: string | null;
   rect: DOMRect | null;
 } | null {
   const { doc } = view.state;
@@ -69,7 +70,14 @@ export function getCommentAnchorFromPos(
     return null;
   }
 
-  return { anchorPos, rect: element.getBoundingClientRect() };
+  const rawId = (anchorNode.attrs as { id?: unknown } | undefined)?.id;
+  const blockId = typeof rawId === "string" && rawId.length > 0 ? rawId : null;
+
+  return {
+    anchorPos,
+    blockId,
+    rect: element.getBoundingClientRect(),
+  };
 }
 
 /**
@@ -105,6 +113,7 @@ export function buildMarginCueGeomForPos(
   const bodyRect = view.dom.getBoundingClientRect();
   return {
     anchorPos: anchor.anchorPos,
+    blockId: anchor.blockId,
     iconLeftPx: bodyRect.right + gapPx,
     iconTopPx: anchor.rect.top,
     editorRightPx: bodyRect.right,
@@ -131,10 +140,70 @@ export function buildMarginCueGeomForAnchorPos(
   if (!(element instanceof HTMLElement)) {
     return null;
   }
+  let blockId: string | null = null;
+  try {
+    const node = doc.nodeAt(anchorPos);
+    const rawId = node?.attrs?.id;
+    if (typeof rawId === "string" && rawId.length > 0) {
+      blockId = rawId;
+    }
+  } catch {
+    blockId = null;
+  }
   const rect = element.getBoundingClientRect();
   const bodyRect = view.dom.getBoundingClientRect();
   return {
     anchorPos,
+    blockId,
+    editorRightPx: bodyRect.right,
+    iconLeftPx: bodyRect.right + gapPx,
+    iconTopPx: rect.top,
+  };
+}
+
+/**
+ * 按 stable blockId 查找节点并构造图标几何。
+ *
+ * 持久图标依赖此函数：评论以 blockId 为 key 持久化，渲染时再回到当前文档查找。
+ * 命中策略与 `findCommentAnchorDepth` 对齐：跳过表格单元格等中间结构，仅对
+ * 顶层 textblock / 整个 table 命中（哪个匹配先返回哪个）。
+ */
+export function buildMarginCueGeomForBlockId(
+  view: EditorView,
+  blockId: string,
+  gapPx = DEFAULT_MARGIN_GAP_PX
+): CommentMarginCueGeom | null {
+  if (!blockId) {
+    return null;
+  }
+  const { doc } = view.state;
+  let foundPos = -1;
+  doc.descendants((node, pos) => {
+    if (foundPos !== -1) {
+      return false;
+    }
+    if (SKIP_BLOCK_TYPES.has(node.type.name)) {
+      return false;
+    }
+    const rawId = node.attrs?.id;
+    if (typeof rawId === "string" && rawId === blockId) {
+      foundPos = pos;
+      return false;
+    }
+    return true;
+  });
+  if (foundPos < 0) {
+    return null;
+  }
+  const element = view.nodeDOM(foundPos);
+  if (!(element instanceof HTMLElement)) {
+    return null;
+  }
+  const rect = element.getBoundingClientRect();
+  const bodyRect = view.dom.getBoundingClientRect();
+  return {
+    anchorPos: foundPos,
+    blockId,
     editorRightPx: bodyRect.right,
     iconLeftPx: bodyRect.right + gapPx,
     iconTopPx: rect.top,

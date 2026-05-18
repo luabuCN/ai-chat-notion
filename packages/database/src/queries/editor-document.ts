@@ -121,6 +121,7 @@ export async function updateEditorDocument({
   id,
   title,
   content,
+  yjsState,
   icon,
   coverImage,
   coverImageType,
@@ -135,6 +136,17 @@ export async function updateEditorDocument({
   id: string;
   title?: string;
   content?: string;
+  /**
+   * 非协同模式下由客户端上报的 Yjs 二进制快照（`Y.encodeStateAsUpdate(ydoc)`）。
+   *
+   * - `Buffer` → 覆盖 yjsState；
+   * - `null`   → 显式清空（例如某些「重建」场景）；
+   * - `undefined`（缺省） → 不动 yjsState 字段。
+   *
+   * 注意：评论 CRDT 与正文 CRDT 共存于同一份 ydoc。如果在 content 更新时无脑清空
+   * yjsState 会丢失评论，因此本方法不再隐式清空。
+   */
+  yjsState?: Buffer | null;
   icon?: string | null;
   coverImage?: string | null;
   coverImageType?: "color" | "url" | null;
@@ -151,9 +163,9 @@ export async function updateEditorDocument({
     if (title !== undefined) data.title = title;
     if (content !== undefined) {
       data.content = content;
-      // Non-collab saves update the JSON snapshot. Drop any older Yjs snapshot so
-      // the collab server rebuilds from the latest content on the next connect.
-      data.yjsState = null;
+    }
+    if (yjsState !== undefined) {
+      data.yjsState = yjsState;
     }
     if (icon !== undefined) data.icon = icon;
     if (coverImage !== undefined) data.coverImage = coverImage;

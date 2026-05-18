@@ -38,6 +38,11 @@ interface UnifiedEditorClientProps {
   onUpdate?: (editor: any) => void;
   /** UnifiedEditor 初始内容已应用并完成首帧绘制 */
   onEditorReady?: () => void;
+  /**
+   * 本地模式下 Yjs 文档每次变更后的二进制快照；协同模式下不会触发。
+   * 上层应防抖后转 base64 上报后端，作为评论 CRDT 等非 ProseMirror 数据的真相源。
+   */
+  onLocalYjsState?: (state: Uint8Array) => void;
 }
 
 export const UnifiedEditorClient = memo(
@@ -55,6 +60,7 @@ export const UnifiedEditorClient = memo(
     onConnectionStatusChange,
     onUpdate,
     onEditorReady,
+    onLocalYjsState,
   }: UnifiedEditorClientProps) {
     const router = useRouter();
     const navigate = useCallback(
@@ -111,6 +117,7 @@ export const UnifiedEditorClient = memo(
         onConnectionStatusChange={onConnectionStatusChange}
         onUpdate={onUpdate}
         onEditorReady={onEditorReady}
+        onLocalYjsState={onLocalYjsState}
       />
     );
   }

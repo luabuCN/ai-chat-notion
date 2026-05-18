@@ -113,6 +113,11 @@ async function updateDocument({
   updates: {
     title?: string;
     content?: string;
+    /**
+     * 本地模式下由编辑器把 `Y.encodeStateAsUpdate(ydoc)` 转 base64 后传上；
+     * 包含正文与评论 CRDT。`null` 表示显式清空。
+     */
+    yjsState?: string | null;
     icon?: string | null;
     coverImage?: string | null;
     coverImageType?: "color" | "url" | null;

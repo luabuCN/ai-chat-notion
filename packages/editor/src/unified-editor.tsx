@@ -91,6 +91,13 @@ export interface UnifiedEditorProps {
     serverUrl: string;
     token: string;
   } | null;
+  /**
+   * 仅在本地模式（`collabConfig == null`）下触发：每次本地 ydoc 变更后回调，
+   * 把 `Y.encodeStateAsUpdate(ydoc)` 上抛给宿主层。宿主负责防抖、序列化与落盘。
+   *
+   * 协同模式下持久化由 collab-server 接管，此回调不会触发。
+   */
+  onLocalYjsState?: (state: Uint8Array) => void;
 }
 
 /**
@@ -123,6 +130,7 @@ export function UnifiedEditor({
   navigate,
   user,
   collabConfig,
+  onLocalYjsState,
 }: UnifiedEditorProps) {
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
@@ -152,6 +160,8 @@ export function UnifiedEditor({
   onUpdateRef.current = onUpdate;
   const onEditorReadyRef = useRef(onEditorReady);
   onEditorReadyRef.current = onEditorReady;
+  const onLocalYjsStateRef = useRef(onLocalYjsState);
+  onLocalYjsStateRef.current = onLocalYjsState;
   const userRef = useRef(user);
   userRef.current = user;
 
@@ -474,6 +484,40 @@ export function UnifiedEditor({
     };
   }, [ydoc]);
 
+  /**
+   * 本地模式下把 ydoc 的二进制状态吐给宿主层，便于落库。
+   *
+   * - 协同模式下 collab-server 自己写 `yjsState`，跳过；
+   * - 这里不做防抖：每次 ydoc 事务都会回调，由宿主按业务节奏防抖再发起 HTTP。
+   * - 监听 `update`（增量 + 全量都会触发）；只在不是远端来源时回调，避免初始化阶段
+   *   把 setContent 触发的内部 transaction 也上报（initialContentAppliedRef 已经处理
+   *   首次 setContent，但订阅在 effect 注册后也会立刻收到一次，宿主负责忽略首帧）。
+   */
+  useEffect(() => {
+    if (collabConfig) {
+      return;
+    }
+    const handleUpdate = (
+      _update: Uint8Array,
+      _origin: unknown,
+      _doc: Y.Doc
+    ) => {
+      const cb = onLocalYjsStateRef.current;
+      if (!cb) {
+        return;
+      }
+      try {
+        cb(Y.encodeStateAsUpdate(ydoc));
+      } catch {
+        // 单次序列化失败不应阻断后续编辑
+      }
+    };
+    ydoc.on("update", handleUpdate);
+    return () => {
+      ydoc.off("update", handleUpdate);
+    };
+  }, [collabConfig, ydoc]);
+
   // 更新编辑器的可编辑状态
   useEffect(() => {
     if (editor) {
@@ -505,7 +549,11 @@ export function UnifiedEditor({
       {/* 编辑器主体 */}
       {editor && (
         <>
-          <CommentBlockMarginTrigger currentUser={user} editor={editor} />
+          <CommentBlockMarginTrigger
+            currentUser={user}
+            editor={editor}
+            ydoc={ydoc}
+          />
           <BlockDragHandleToolbar
             editor={editor}
             onAddClick={handleSlashCommand}

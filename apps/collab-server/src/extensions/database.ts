@@ -12,6 +12,7 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { Image } from "@tiptap/extension-image";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
+import { UniqueID } from "@tiptap/extension-unique-id";
 import { gzipSync, gunzipSync } from "zlib";
 
 // 直接创建 Prisma 客户端
@@ -81,6 +82,22 @@ const ServerTableCell = TableCell.extend({
   },
 });
 
+// 与客户端 `default-extensions.ts` 对齐：评论锚点依赖块级 stable id；
+// 缺失这条扩展时 `TiptapTransformer.fromYdoc` 会丢掉 `id` 属性，
+// 导致非协同模式回到本地后丢失评论锚点。
+const ServerBlockUniqueId = UniqueID.configure({
+  types: [
+    "paragraph",
+    "heading",
+    "blockquote",
+    "codeBlock",
+    "table",
+    "listItem",
+    "taskItem",
+  ],
+  attributeName: "id",
+});
+
 // 定义转换器使用的 Extensions
 const transformerExtensions = [
   StarterKit.configure({
@@ -88,6 +105,7 @@ const transformerExtensions = [
     // @ts-ignore: history option might be missing in type definition
     history: false, // 服务端不需要历史记录
   }),
+  ServerBlockUniqueId,
   ServerHeading,
   ServerTable,
   TableRow,

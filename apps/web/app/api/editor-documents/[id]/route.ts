@@ -78,6 +78,7 @@ export async function PATCH(
     const {
       title,
       content,
+      yjsState: yjsStateB64,
       icon,
       coverImage,
       coverImageType,
@@ -89,6 +90,8 @@ export async function PATCH(
     }: {
       title?: string;
       content?: string;
+      /** base64 编码的 Yjs 状态快照；显式 `null` 表示清空 */
+      yjsState?: string | null;
       icon?: string | null;
       coverImage?: string | null;
       coverImageType?: "color" | "url" | null;
@@ -99,10 +102,26 @@ export async function PATCH(
       sourcePageUrl?: string | null;
     } = body;
 
+    // 仅在传入字段时才解码：避免 undefined 被当成「清空」
+    let yjsState: Buffer | null | undefined;
+    if (yjsStateB64 === null) {
+      yjsState = null;
+    } else if (typeof yjsStateB64 === "string") {
+      try {
+        yjsState = Buffer.from(yjsStateB64, "base64");
+      } catch {
+        return new ChatSDKError(
+          "bad_request:api",
+          "yjsState must be a valid base64 string"
+        ).toResponse();
+      }
+    }
+
     const updatedDocument = await updateEditorDocument({
       id,
       title,
       content,
+      yjsState,
       icon,
       coverImage,
       coverImageType,

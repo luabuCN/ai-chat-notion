@@ -10,12 +10,13 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import type * as Y from "yjs";
 import { Button } from "@repo/ui/button";
 import { cn } from "../../lib/utils";
 import { useAIPanelStore } from "../ai-panel/ai-panel-store";
 import type { CommentMarginCueGeom } from "./comment-margin-types";
 import {
-  buildMarginCueGeomForAnchorPos,
+  buildMarginCueGeomForBlockId,
   COMMENT_MARGIN_GAP_PX,
   getCommentAnchorFromPos,
   shouldShowTrailingCommentCue,
@@ -25,6 +26,11 @@ import {
   type CommentPrototypeEntry,
 } from "./comment-prototype-form";
 import { useCommentSelectionHandoffStore } from "./comment-selection-handoff-store";
+import {
+  addCommentToBlock,
+  deleteCommentFromBlock,
+  useCommentThreadsByBlockId,
+} from "./comment-store-yjs";
 
 export type { CommentMarginCueGeom } from "./comment-margin-types";
 
@@ -37,6 +43,11 @@ type CommentPrototypeUser = {
 
 type CommentBlockMarginTriggerProps = {
   editor: Editor;
+  /**
+   * 与正文共享的 Yjs 文档；评论 CRDT 写入此 doc，与协同正文同生命周期。
+   * 缺省时退化为只读 UI（hover 触发器可见，但禁止落地评论），便于纯本地预览/旧入口。
+   */
+  ydoc?: Y.Doc | null;
   /** 用作评论作者占位 */
   currentUser?: CommentPrototypeUser;
 };
@@ -51,9 +62,9 @@ function buildSig(geom: CommentMarginCueGeom | null) {
   if (!geom) {
     return "";
   }
-  return `${geom.anchorPos}|${geom.iconLeftPx.toFixed(0)}|${geom.iconTopPx.toFixed(
+  return `${geom.blockId ?? "?"}|${geom.iconLeftPx.toFixed(
     0
-  )}`;
+  )}|${geom.iconTopPx.toFixed(0)}`;
 }
 
 function clampPanelLeft(rawLeft: number, panelWidth: number) {
@@ -70,6 +81,7 @@ function clampPanelLeft(rawLeft: number, panelWidth: number) {
 
 function CommentBlockMarginTriggerInner({
   editor,
+  ydoc,
   currentUser,
 }: CommentBlockMarginTriggerProps) {
   const isAiBusy = useAIPanelStore(
@@ -94,10 +106,10 @@ function CommentBlockMarginTriggerInner({
     null
   );
 
-  const [threadsByAnchor, setThreadsByAnchor] = useState<
-    Record<number, CommentPrototypeEntry[]>
-  >({});
-  const [pinnedAnchorPos, setPinnedAnchorPos] = useState<number | null>(null);
+  /** 当前固定打开的块 id（来自持久图标点击）；与 frozenCue 互斥 */
+  const [pinnedBlockId, setPinnedBlockId] = useState<string | null>(null);
+
+  const threadsByBlockId = useCommentThreadsByBlockId(ydoc);
 
   const layoutBumpRafRef = useRef<number | undefined>(undefined);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
@@ -114,71 +126,71 @@ function CommentBlockMarginTriggerInner({
 
   const effectivePanelOpen = handoffGeom
     ? handoffPanelOpen
-    : open || pinnedAnchorPos !== null;
+    : open || pinnedBlockId !== null;
 
-  const commentedAnchorPositions = useMemo(() => {
-    const result: number[] = [];
-    for (const key of Object.keys(threadsByAnchor)) {
-      const pos = Number(key);
-      if ((threadsByAnchor[pos] ?? []).length > 0) {
-        result.push(pos);
+  const commentedBlockIds = useMemo(() => {
+    const result: string[] = [];
+    for (const key of Object.keys(threadsByBlockId)) {
+      if ((threadsByBlockId[key] ?? []).length > 0) {
+        result.push(key);
       }
     }
     return result;
-  }, [threadsByAnchor]);
+  }, [threadsByBlockId]);
 
-  const commentedAnchorSet = useMemo(
-    () => new Set(commentedAnchorPositions),
-    [commentedAnchorPositions]
+  const commentedBlockIdSet = useMemo(
+    () => new Set(commentedBlockIds),
+    [commentedBlockIds]
   );
 
   const persistentGeoms = useMemo(() => {
-    const out: { anchorPos: number; geom: CommentMarginCueGeom }[] = [];
-    for (const pos of commentedAnchorPositions) {
-      const g = buildMarginCueGeomForAnchorPos(
+    const out: { blockId: string; geom: CommentMarginCueGeom }[] = [];
+    for (const blockId of commentedBlockIds) {
+      const g = buildMarginCueGeomForBlockId(
         editor.view,
-        pos,
+        blockId,
         COMMENT_MARGIN_GAP_PX
       );
       if (g) {
-        out.push({ anchorPos: pos, geom: g });
+        out.push({ blockId, geom: g });
       }
     }
     return out;
     // layoutEpoch 让滚动/transaction 都能触发位置重算
-  }, [commentedAnchorPositions, editor, layoutEpoch]);
+  }, [commentedBlockIds, editor, layoutEpoch]);
 
-  const activeAnchorPos: number | null = handoffGeom
-    ? handoffGeom.anchorPos
-    : pinnedAnchorPos !== null
-    ? pinnedAnchorPos
+  /** 当前活跃锚定块的 id（优先级：handoff → pinned → 浮动 hover/open） */
+  const activeBlockId: string | null = handoffGeom
+    ? handoffGeom.blockId
+    : pinnedBlockId !== null
+    ? pinnedBlockId
     : open
-    ? frozenCue?.anchorPos ?? liveCue?.anchorPos ?? null
+    ? frozenCue?.blockId ?? liveCue?.blockId ?? null
     : null;
 
-  const activeAnchorGeom = useMemo(() => {
-    if (activeAnchorPos === null) {
+  const activeAnchorGeom = useMemo<CommentMarginCueGeom | null>(() => {
+    if (!activeBlockId) {
       return null;
     }
-    const fresh = buildMarginCueGeomForAnchorPos(
+    const fresh = buildMarginCueGeomForBlockId(
       editor.view,
-      activeAnchorPos,
+      activeBlockId,
       COMMENT_MARGIN_GAP_PX
     );
     if (fresh) {
       return fresh;
     }
-    if (handoffGeom?.anchorPos === activeAnchorPos) {
+    if (handoffGeom?.blockId === activeBlockId) {
       return handoffGeom;
     }
-    if (frozenCue?.anchorPos === activeAnchorPos) {
+    if (frozenCue?.blockId === activeBlockId) {
       return frozenCue;
     }
-    if (liveCue?.anchorPos === activeAnchorPos) {
+    if (liveCue?.blockId === activeBlockId) {
       return liveCue;
     }
     return null;
-  }, [activeAnchorPos, editor, frozenCue, handoffGeom, layoutEpoch, liveCue]);
+  }, [activeBlockId, editor, frozenCue, handoffGeom, layoutEpoch, liveCue]);
 
   const hoverPreviewGeom = useMemo(() => {
     if (effectivePanelOpen) {
@@ -187,28 +199,34 @@ function CommentBlockMarginTriggerInner({
     if (!liveCue) {
       return null;
     }
-    if (commentedAnchorSet.has(liveCue.anchorPos)) {
+    if (liveCue.blockId && commentedBlockIdSet.has(liveCue.blockId)) {
       return null;
     }
-    const fresh = buildMarginCueGeomForAnchorPos(
-      editor.view,
-      liveCue.anchorPos,
-      COMMENT_MARGIN_GAP_PX
-    );
-    return fresh ?? liveCue;
-  }, [commentedAnchorSet, editor, effectivePanelOpen, layoutEpoch, liveCue]);
+    // 用 blockId 重算最新位置；blockId 缺失时仅保留原始 cue（按坐标渲染）
+    if (liveCue.blockId) {
+      const fresh = buildMarginCueGeomForBlockId(
+        editor.view,
+        liveCue.blockId,
+        COMMENT_MARGIN_GAP_PX
+      );
+      return fresh ?? liveCue;
+    }
+    return liveCue;
+  }, [commentedBlockIdSet, editor, effectivePanelOpen, layoutEpoch, liveCue]);
 
   /** 与 useLayoutEffect 中的 schedule 联动，保留旧名以最小化下游 diff */
   const displayGeom = activeAnchorGeom ?? hoverPreviewGeom;
 
-  const activeComments =
-    activeAnchorPos !== null ? threadsByAnchor[activeAnchorPos] ?? [] : [];
+  const activeComments: CommentPrototypeEntry[] =
+    activeBlockId !== null
+      ? threadsByBlockId[activeBlockId] ?? []
+      : [];
 
   const isActiveAnchorCommented =
-    activeAnchorPos !== null && commentedAnchorSet.has(activeAnchorPos);
+    activeBlockId !== null && commentedBlockIdSet.has(activeBlockId);
 
-  const activeAnchorPosRef = useRef<number | null>(activeAnchorPos);
-  activeAnchorPosRef.current = activeAnchorPos;
+  const activeBlockIdRef = useRef<string | null>(activeBlockId);
+  activeBlockIdRef.current = activeBlockId;
 
   const rafRef = useRef<number | undefined>(undefined);
   const sigRef = useRef("");
@@ -260,7 +278,7 @@ function CommentBlockMarginTriggerInner({
       if (!next) {
         dismissHandoff();
         setFrozenCue(null);
-        setPinnedAnchorPos(null);
+        setPinnedBlockId(null);
         return;
       }
       if (liveCueRef.current !== null && !handoffGeom) {
@@ -281,64 +299,56 @@ function CommentBlockMarginTriggerInner({
       if (!nextOpen) {
         setFrozenCue(null);
         dismissHandoff();
-        setPinnedAnchorPos(null);
+        setPinnedBlockId(null);
       }
       return nextOpen;
     });
   }, [dismissHandoff]);
 
   const handlePersistentClick = useCallback(
-    (anchorPos: number) => {
-      if (pinnedAnchorPos === anchorPos) {
+    (blockId: string) => {
+      if (pinnedBlockId === blockId) {
         handleOpenChange(false);
         return;
       }
       dismissHandoff();
       setFrozenCue(null);
       setOpen(false);
-      setPinnedAnchorPos(anchorPos);
+      setPinnedBlockId(blockId);
     },
-    [dismissHandoff, handleOpenChange, pinnedAnchorPos]
+    [dismissHandoff, handleOpenChange, pinnedBlockId]
   );
 
   const handlePrototypeAdd = useCallback(
     (body: string) => {
-      const pos = activeAnchorPosRef.current;
-      if (pos === null) {
+      const blockId = activeBlockIdRef.current;
+      if (!blockId || !ydoc) {
         return;
       }
-      setThreadsByAnchor((prev) => ({
-        ...prev,
-        [pos]: [
-          ...(prev[pos] ?? []),
-          {
-            authorAvatar: currentUser?.avatar,
-            authorColor: currentUser?.color,
-            authorName: currentUser?.name ?? "原型用户",
-            body,
-            createdAtMs: Date.now(),
-            id: crypto.randomUUID(),
-          },
-        ],
-      }));
+      addCommentToBlock(ydoc, blockId, {
+        authorAvatar: currentUser?.avatar,
+        authorColor: currentUser?.color,
+        authorName: currentUser?.name ?? "原型用户",
+        body,
+        createdAtMs: Date.now(),
+        id: globalThis.crypto?.randomUUID
+          ? globalThis.crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      });
     },
-    [currentUser?.avatar, currentUser?.color, currentUser?.name]
+    [currentUser?.avatar, currentUser?.color, currentUser?.name, ydoc]
   );
 
-  const handlePrototypeDelete = useCallback((commentId: string) => {
-    const pos = activeAnchorPosRef.current;
-    if (pos === null) {
-      return;
-    }
-    setThreadsByAnchor((prev) => {
-      const list = (prev[pos] ?? []).filter((c) => c.id !== commentId);
-      if (list.length === 0) {
-        const { [pos]: _removed, ...rest } = prev;
-        return rest;
+  const handlePrototypeDelete = useCallback(
+    (commentId: string) => {
+      const blockId = activeBlockIdRef.current;
+      if (!blockId || !ydoc) {
+        return;
       }
-      return { ...prev, [pos]: list };
-    });
-  }, []);
+      deleteCommentFromBlock(ydoc, blockId, commentId);
+    },
+    [ydoc]
+  );
 
   useEffect(() => {
     openRef.current = effectivePanelOpen;
@@ -349,10 +359,10 @@ function CommentBlockMarginTriggerInner({
       dismissHandoff();
       setOpen(false);
       setFrozenCue(null);
-      setPinnedAnchorPos(null);
+      setPinnedBlockId(null);
       return;
     }
-    if (pinnedAnchorPos !== null) {
+    if (pinnedBlockId !== null) {
       handleOpenChange(false);
       return;
     }
@@ -362,7 +372,7 @@ function CommentBlockMarginTriggerInner({
     handleOpenChange,
     handleOpenToggle,
     handoffGeom,
-    pinnedAnchorPos,
+    pinnedBlockId,
   ]);
 
   useEffect(() => {
@@ -405,6 +415,7 @@ function CommentBlockMarginTriggerInner({
 
       return {
         anchorPos: anchorInfo.anchorPos,
+        blockId: anchorInfo.blockId,
         iconLeftPx: bodyRect.right + COMMENT_MARGIN_GAP_PX,
         iconTopPx: anchorInfo.rect.top,
         editorRightPx: bodyRect.right,
@@ -443,9 +454,9 @@ function CommentBlockMarginTriggerInner({
     };
   }, [cancelScheduledHideLiveCue, editor, isAiBusy, scheduleHideLiveCue]);
 
-  /** 滚动、视口缩放、编辑器布局变化后按 anchorPos 重算图标/面板位置 */
+  /** 滚动、视口缩放、编辑器布局变化后按 blockId 重算图标/面板位置 */
   useLayoutEffect(() => {
-    if (!(displayGeom || commentedAnchorPositions.length > 0)) {
+    if (!(displayGeom || commentedBlockIds.length > 0)) {
       return;
     }
     const view = editor.view;
@@ -492,7 +503,7 @@ function CommentBlockMarginTriggerInner({
       editor.off("transaction", scheduleLayoutBump);
     };
   }, [
-    commentedAnchorPositions.length,
+    commentedBlockIds.length,
     displayGeom,
     editor,
     scheduleLayoutBump,
@@ -580,6 +591,9 @@ function CommentBlockMarginTriggerInner({
   const showHoverButton =
     !effectivePanelOpen && hoverPreviewGeom !== null;
 
+  /** ydoc 缺失时禁止落地评论，仅展示 hover 触发器，UI 仍可见以保证组件嵌入位置一致 */
+  const canPersistComments = Boolean(ydoc);
+
   return createPortal(
     <>
       {bridgeGeom && (
@@ -601,15 +615,15 @@ function CommentBlockMarginTriggerInner({
       {/* 已有评论的节点：始终常驻一个主题色图标，不依赖 hover */}
       <div ref={persistentLayerRef}>
         {persistentGeoms
-          .filter(({ anchorPos }) => anchorPos !== activeAnchorPos)
-          .map(({ anchorPos, geom }) => (
+          .filter(({ blockId }) => blockId !== activeBlockId)
+          .map(({ blockId, geom }) => (
             <Button
               aria-haspopup="dialog"
               aria-label="查看本块评论（原型占位）"
               className="fixed z-[130] size-7 bg-background/90 text-primary backdrop-blur-sm [&_svg]:size-4 [&_svg]:text-primary"
-              key={anchorPos}
+              key={blockId}
               onClick={() => {
-                handlePersistentClick(anchorPos);
+                handlePersistentClick(blockId);
               }}
               onPointerEnter={handleFloatingUiPointerEnter}
               onPointerLeave={handleFloatingUiPointerLeave}
@@ -686,7 +700,7 @@ function CommentBlockMarginTriggerInner({
         </Button>
       )}
 
-      {effectivePanelOpen && activeAnchorGeom && (
+      {effectivePanelOpen && activeAnchorGeom && canPersistComments && (
         <div
           aria-label="发表评论"
           className="fixed z-[132] w-[min(20rem,calc(100vw-2rem))] outline-none"
