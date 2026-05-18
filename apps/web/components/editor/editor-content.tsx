@@ -34,6 +34,8 @@ interface EditorContentProps {
   userId?: string;
   userName?: string;
   userEmail?: string;
+  /** Session.user.avatarUrl，写入协同 awareness 与评论作者头像 */
+  userAvatarUrl?: string;
   /** 全宽模式 */
   isFullWidth?: boolean;
 }
@@ -54,6 +56,7 @@ export function EditorContent({
   userId,
   userName,
   userEmail,
+  userAvatarUrl,
   isFullWidth = false,
 }: EditorContentProps) {
   const { data: document, isLoading, error } = useGetDocument(documentId);
@@ -192,8 +195,9 @@ export function EditorContent({
     return {
       name: userName || userEmail?.split("@")[0] || "Anonymous",
       color: generateUserColor(userId),
+      ...(userAvatarUrl ? { avatar: userAvatarUrl } : {}),
     };
-  }, [userId, userName, userEmail]);
+  }, [userId, userName, userEmail, userAvatarUrl]);
 
   // 从 query 数据同步到本地 state
   const prevDocumentIdRef = useRef<string | null>(null);

@@ -4,6 +4,8 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,14 +15,31 @@ import { cn } from "../../lib/utils";
 import { useAIPanelStore } from "../ai-panel/ai-panel-store";
 import type { CommentMarginCueGeom } from "./comment-margin-types";
 import {
+  buildMarginCueGeomForAnchorPos,
   COMMENT_MARGIN_GAP_PX,
   getCommentAnchorFromPos,
   shouldShowTrailingCommentCue,
 } from "./comment-margin-utils";
-import { CommentPrototypeForm } from "./comment-prototype-form";
+import {
+  CommentPrototypeForm,
+  type CommentPrototypeEntry,
+} from "./comment-prototype-form";
 import { useCommentSelectionHandoffStore } from "./comment-selection-handoff-store";
 
 export type { CommentMarginCueGeom } from "./comment-margin-types";
+
+/** 与 `CollaborativeUser` 同构，避免循环 import */
+type CommentPrototypeUser = {
+  name: string;
+  color: string;
+  avatar?: string;
+};
+
+type CommentBlockMarginTriggerProps = {
+  editor: Editor;
+  /** 用作评论作者占位 */
+  currentUser?: CommentPrototypeUser;
+};
 
 const PANEL_WIDTH_PX = 320;
 const PANEL_GAP_BELOW_BUTTON_PX = 6;
@@ -49,7 +68,10 @@ function clampPanelLeft(rawLeft: number, panelWidth: number) {
   );
 }
 
-function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
+function CommentBlockMarginTriggerInner({
+  editor,
+  currentUser,
+}: CommentBlockMarginTriggerProps) {
   const isAiBusy = useAIPanelStore(
     (state) =>
       state.isVisible || state.isThinking || state.isStreaming
@@ -72,13 +94,121 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
     null
   );
 
-  const pointerGeom =
-    open && !handoffGeom ? frozenCue ?? liveCue : liveCue;
-  const displayGeom = handoffGeom ?? pointerGeom;
+  const [threadsByAnchor, setThreadsByAnchor] = useState<
+    Record<number, CommentPrototypeEntry[]>
+  >({});
+  const [pinnedAnchorPos, setPinnedAnchorPos] = useState<number | null>(null);
+
+  const layoutBumpRafRef = useRef<number | undefined>(undefined);
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
+
+  const scheduleLayoutBump = useCallback(() => {
+    if (layoutBumpRafRef.current !== undefined) {
+      return;
+    }
+    layoutBumpRafRef.current = requestAnimationFrame(() => {
+      layoutBumpRafRef.current = undefined;
+      setLayoutEpoch((n) => n + 1);
+    });
+  }, []);
 
   const effectivePanelOpen = handoffGeom
     ? handoffPanelOpen
-    : open;
+    : open || pinnedAnchorPos !== null;
+
+  const commentedAnchorPositions = useMemo(() => {
+    const result: number[] = [];
+    for (const key of Object.keys(threadsByAnchor)) {
+      const pos = Number(key);
+      if ((threadsByAnchor[pos] ?? []).length > 0) {
+        result.push(pos);
+      }
+    }
+    return result;
+  }, [threadsByAnchor]);
+
+  const commentedAnchorSet = useMemo(
+    () => new Set(commentedAnchorPositions),
+    [commentedAnchorPositions]
+  );
+
+  const persistentGeoms = useMemo(() => {
+    const out: { anchorPos: number; geom: CommentMarginCueGeom }[] = [];
+    for (const pos of commentedAnchorPositions) {
+      const g = buildMarginCueGeomForAnchorPos(
+        editor.view,
+        pos,
+        COMMENT_MARGIN_GAP_PX
+      );
+      if (g) {
+        out.push({ anchorPos: pos, geom: g });
+      }
+    }
+    return out;
+    // layoutEpoch 让滚动/transaction 都能触发位置重算
+  }, [commentedAnchorPositions, editor, layoutEpoch]);
+
+  const activeAnchorPos: number | null = handoffGeom
+    ? handoffGeom.anchorPos
+    : pinnedAnchorPos !== null
+    ? pinnedAnchorPos
+    : open
+    ? frozenCue?.anchorPos ?? liveCue?.anchorPos ?? null
+    : null;
+
+  const activeAnchorGeom = useMemo(() => {
+    if (activeAnchorPos === null) {
+      return null;
+    }
+    const fresh = buildMarginCueGeomForAnchorPos(
+      editor.view,
+      activeAnchorPos,
+      COMMENT_MARGIN_GAP_PX
+    );
+    if (fresh) {
+      return fresh;
+    }
+    if (handoffGeom?.anchorPos === activeAnchorPos) {
+      return handoffGeom;
+    }
+    if (frozenCue?.anchorPos === activeAnchorPos) {
+      return frozenCue;
+    }
+    if (liveCue?.anchorPos === activeAnchorPos) {
+      return liveCue;
+    }
+    return null;
+  }, [activeAnchorPos, editor, frozenCue, handoffGeom, layoutEpoch, liveCue]);
+
+  const hoverPreviewGeom = useMemo(() => {
+    if (effectivePanelOpen) {
+      return null;
+    }
+    if (!liveCue) {
+      return null;
+    }
+    if (commentedAnchorSet.has(liveCue.anchorPos)) {
+      return null;
+    }
+    const fresh = buildMarginCueGeomForAnchorPos(
+      editor.view,
+      liveCue.anchorPos,
+      COMMENT_MARGIN_GAP_PX
+    );
+    return fresh ?? liveCue;
+  }, [commentedAnchorSet, editor, effectivePanelOpen, layoutEpoch, liveCue]);
+
+  /** 与 useLayoutEffect 中的 schedule 联动，保留旧名以最小化下游 diff */
+  const displayGeom = activeAnchorGeom ?? hoverPreviewGeom;
+
+  const activeComments =
+    activeAnchorPos !== null ? threadsByAnchor[activeAnchorPos] ?? [] : [];
+
+  const isActiveAnchorCommented =
+    activeAnchorPos !== null && commentedAnchorSet.has(activeAnchorPos);
+
+  const activeAnchorPosRef = useRef<number | null>(activeAnchorPos);
+  activeAnchorPosRef.current = activeAnchorPos;
 
   const rafRef = useRef<number | undefined>(undefined);
   const sigRef = useRef("");
@@ -88,6 +218,7 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const bridgeRef = useRef<HTMLDivElement | null>(null);
+  const persistentLayerRef = useRef<HTMLDivElement | null>(null);
   const hideLiveCueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -129,6 +260,7 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
       if (!next) {
         dismissHandoff();
         setFrozenCue(null);
+        setPinnedAnchorPos(null);
         return;
       }
       if (liveCueRef.current !== null && !handoffGeom) {
@@ -149,10 +281,64 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
       if (!nextOpen) {
         setFrozenCue(null);
         dismissHandoff();
+        setPinnedAnchorPos(null);
       }
       return nextOpen;
     });
   }, [dismissHandoff]);
+
+  const handlePersistentClick = useCallback(
+    (anchorPos: number) => {
+      if (pinnedAnchorPos === anchorPos) {
+        handleOpenChange(false);
+        return;
+      }
+      dismissHandoff();
+      setFrozenCue(null);
+      setOpen(false);
+      setPinnedAnchorPos(anchorPos);
+    },
+    [dismissHandoff, handleOpenChange, pinnedAnchorPos]
+  );
+
+  const handlePrototypeAdd = useCallback(
+    (body: string) => {
+      const pos = activeAnchorPosRef.current;
+      if (pos === null) {
+        return;
+      }
+      setThreadsByAnchor((prev) => ({
+        ...prev,
+        [pos]: [
+          ...(prev[pos] ?? []),
+          {
+            authorAvatar: currentUser?.avatar,
+            authorColor: currentUser?.color,
+            authorName: currentUser?.name ?? "原型用户",
+            body,
+            createdAtMs: Date.now(),
+            id: crypto.randomUUID(),
+          },
+        ],
+      }));
+    },
+    [currentUser?.avatar, currentUser?.color, currentUser?.name]
+  );
+
+  const handlePrototypeDelete = useCallback((commentId: string) => {
+    const pos = activeAnchorPosRef.current;
+    if (pos === null) {
+      return;
+    }
+    setThreadsByAnchor((prev) => {
+      const list = (prev[pos] ?? []).filter((c) => c.id !== commentId);
+      if (list.length === 0) {
+        const { [pos]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [pos]: list };
+    });
+  }, []);
 
   useEffect(() => {
     openRef.current = effectivePanelOpen;
@@ -163,10 +349,21 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
       dismissHandoff();
       setOpen(false);
       setFrozenCue(null);
+      setPinnedAnchorPos(null);
+      return;
+    }
+    if (pinnedAnchorPos !== null) {
+      handleOpenChange(false);
       return;
     }
     handleOpenToggle();
-  }, [dismissHandoff, handleOpenToggle, handoffGeom]);
+  }, [
+    dismissHandoff,
+    handleOpenChange,
+    handleOpenToggle,
+    handoffGeom,
+    pinnedAnchorPos,
+  ]);
 
   useEffect(() => {
     setMounted(true);
@@ -209,10 +406,7 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
       return {
         anchorPos: anchorInfo.anchorPos,
         iconLeftPx: bodyRect.right + COMMENT_MARGIN_GAP_PX,
-        iconTopPx:
-          anchorInfo.rect.top +
-          anchorInfo.rect.height * 0.5 -
-          12,
+        iconTopPx: anchorInfo.rect.top,
         editorRightPx: bodyRect.right,
       } satisfies CommentMarginCueGeom;
     };
@@ -249,6 +443,61 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
     };
   }, [cancelScheduledHideLiveCue, editor, isAiBusy, scheduleHideLiveCue]);
 
+  /** 滚动、视口缩放、编辑器布局变化后按 anchorPos 重算图标/面板位置 */
+  useLayoutEffect(() => {
+    if (!(displayGeom || commentedAnchorPositions.length > 0)) {
+      return;
+    }
+    const view = editor.view;
+    const root = view.dom;
+    scheduleLayoutBump();
+
+    const scrollParents: Element[] = [];
+    let el: HTMLElement | null = root;
+    while (el) {
+      const { overflowX, overflowY } = window.getComputedStyle(el);
+      if (
+        /(auto|scroll|overlay)/.test(overflowX) ||
+        /(auto|scroll|overlay)/.test(overflowY)
+      ) {
+        scrollParents.push(el);
+      }
+      el = el.parentElement;
+    }
+
+    window.addEventListener("scroll", scheduleLayoutBump, true);
+    window.addEventListener("resize", scheduleLayoutBump);
+    for (const p of scrollParents) {
+      p.addEventListener("scroll", scheduleLayoutBump, { passive: true });
+    }
+
+    const ro = new ResizeObserver(() => {
+      scheduleLayoutBump();
+    });
+    ro.observe(root);
+
+    editor.on("transaction", scheduleLayoutBump);
+
+    return () => {
+      if (layoutBumpRafRef.current !== undefined) {
+        cancelAnimationFrame(layoutBumpRafRef.current);
+        layoutBumpRafRef.current = undefined;
+      }
+      window.removeEventListener("scroll", scheduleLayoutBump, true);
+      window.removeEventListener("resize", scheduleLayoutBump);
+      for (const p of scrollParents) {
+        p.removeEventListener("scroll", scheduleLayoutBump);
+      }
+      ro.disconnect();
+      editor.off("transaction", scheduleLayoutBump);
+    };
+  }, [
+    commentedAnchorPositions.length,
+    displayGeom,
+    editor,
+    scheduleLayoutBump,
+  ]);
+
   useEffect(() => {
     if (!effectivePanelOpen) {
       return;
@@ -281,7 +530,10 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
       const inBridge =
         bridgeRef.current !== null &&
         bridgeRef.current.contains(targetNode);
-      if (inAnchor || inPanel || inBridge) {
+      const inPersistent =
+        persistentLayerRef.current !== null &&
+        persistentLayerRef.current.contains(targetNode);
+      if (inAnchor || inPanel || inBridge || inPersistent) {
         return;
       }
       handleOpenChange(false);
@@ -305,78 +557,154 @@ function CommentBlockMarginTriggerInner({ editor }: { editor: Editor }) {
     return null;
   }
 
-  if (!displayGeom) {
-    return null;
-  }
-
   const BUTTON_SIZE_PX = 28;
-  const bridgeLeft = displayGeom.editorRightPx;
-  const bridgeRight = displayGeom.iconLeftPx + BRIDGE_EXTEND_RIGHT_PX;
+
+  /** 桥接区只跟随当前 active 的图标，避免把无关持久图标一起圈进 hover 范围 */
+  const bridgeGeom = activeAnchorGeom ?? hoverPreviewGeom;
+  const bridgeLeft = bridgeGeom?.editorRightPx ?? 0;
+  const bridgeRight =
+    (bridgeGeom?.iconLeftPx ?? 0) + BRIDGE_EXTEND_RIGHT_PX;
   const bridgeWidth = Math.max(0, bridgeRight - bridgeLeft);
-  const bridgeTop = displayGeom.iconTopPx - BRIDGE_PAD_Y_PX;
+  const bridgeTop = (bridgeGeom?.iconTopPx ?? 0) - BRIDGE_PAD_Y_PX;
   const bridgeHeight = BUTTON_SIZE_PX + BRIDGE_PAD_Y_PX * 2;
 
   const panelTop =
-    displayGeom.iconTopPx +
+    (activeAnchorGeom?.iconTopPx ?? 0) +
     BUTTON_SIZE_PX +
     PANEL_GAP_BELOW_BUTTON_PX;
-  const panelLeft = clampPanelLeft(displayGeom.iconLeftPx, PANEL_WIDTH_PX);
+  const panelLeft = clampPanelLeft(
+    activeAnchorGeom?.iconLeftPx ?? 0,
+    PANEL_WIDTH_PX
+  );
+
+  const showHoverButton =
+    !effectivePanelOpen && hoverPreviewGeom !== null;
 
   return createPortal(
     <>
-      <div
-        ref={bridgeRef}
-        aria-hidden
-        className="fixed z-[120] bg-transparent"
-        style={{
-          left: `${bridgeLeft}px`,
-          top: `${bridgeTop}px`,
-          width: `${bridgeWidth}px`,
-          height: `${bridgeHeight}px`,
-        }}
-        onPointerEnter={handleFloatingUiPointerEnter}
-        onPointerLeave={handleFloatingUiPointerLeave}
-      />
-      <Button
-        ref={anchorRef}
-        type="button"
-        variant="ghost"
-        size="icon"
-        title="在当前块发表评论（原型）"
-        className={cn(
-          "fixed size-7 bg-background/90 backdrop-blur-sm [&_svg]:size-4",
-          effectivePanelOpen
-            ? "z-[131] opacity-100"
-            : "z-[131] opacity-70 hover:opacity-100"
-        )}
-        aria-label="评论当前块（原型占位）"
-        aria-expanded={effectivePanelOpen}
-        aria-haspopup="dialog"
-        style={{
-          top: `${displayGeom.iconTopPx}px`,
-          left: `${displayGeom.iconLeftPx}px`,
-        }}
-        onClick={handleAnchorClick}
-        onPointerEnter={handleFloatingUiPointerEnter}
-        onPointerLeave={handleFloatingUiPointerLeave}
-      >
-        <MessageSquareTextIcon className="text-muted-foreground" aria-hidden />
-      </Button>
-      {effectivePanelOpen && (
+      {bridgeGeom && (
         <div
-          ref={panelRef}
-          className="fixed z-[132] w-[min(20rem,calc(100vw-2rem))] outline-none"
-          style={{
-            top: `${panelTop}px`,
-            left: `${panelLeft}px`,
-          }}
-          role="dialog"
-          aria-label="发表评论"
-          tabIndex={-1}
+          aria-hidden
+          className="fixed z-[120] bg-transparent"
           onPointerEnter={handleFloatingUiPointerEnter}
           onPointerLeave={handleFloatingUiPointerLeave}
+          ref={bridgeRef}
+          style={{
+            height: `${bridgeHeight}px`,
+            left: `${bridgeLeft}px`,
+            top: `${bridgeTop}px`,
+            width: `${bridgeWidth}px`,
+          }}
+        />
+      )}
+
+      {/* 已有评论的节点：始终常驻一个主题色图标，不依赖 hover */}
+      <div ref={persistentLayerRef}>
+        {persistentGeoms
+          .filter(({ anchorPos }) => anchorPos !== activeAnchorPos)
+          .map(({ anchorPos, geom }) => (
+            <Button
+              aria-haspopup="dialog"
+              aria-label="查看本块评论（原型占位）"
+              className="fixed z-[130] size-7 bg-background/90 text-primary backdrop-blur-sm [&_svg]:size-4 [&_svg]:text-primary"
+              key={anchorPos}
+              onClick={() => {
+                handlePersistentClick(anchorPos);
+              }}
+              onPointerEnter={handleFloatingUiPointerEnter}
+              onPointerLeave={handleFloatingUiPointerLeave}
+              size="icon"
+              style={{
+                left: `${geom.iconLeftPx}px`,
+                top: `${geom.iconTopPx}px`,
+              }}
+              title="查看本块评论（原型）"
+              type="button"
+              variant="ghost"
+            >
+              <MessageSquareTextIcon aria-hidden className="text-primary" />
+            </Button>
+          ))}
+      </div>
+
+      {activeAnchorGeom && effectivePanelOpen && (
+        <Button
+          aria-expanded={effectivePanelOpen}
+          aria-haspopup="dialog"
+          aria-label={
+            isActiveAnchorCommented
+              ? "查看本块评论（原型占位）"
+              : "评论当前块（原型占位）"
+          }
+          className={cn(
+            "fixed z-[131] size-7 bg-background/90 backdrop-blur-sm [&_svg]:size-4",
+            isActiveAnchorCommented
+              ? "text-primary opacity-100 [&_svg]:text-primary"
+              : "text-muted-foreground opacity-100 [&_svg]:text-muted-foreground"
+          )}
+          onClick={handleAnchorClick}
+          onPointerEnter={handleFloatingUiPointerEnter}
+          onPointerLeave={handleFloatingUiPointerLeave}
+          ref={anchorRef}
+          size="icon"
+          style={{
+            left: `${activeAnchorGeom.iconLeftPx}px`,
+            top: `${activeAnchorGeom.iconTopPx}px`,
+          }}
+          title={
+            isActiveAnchorCommented
+              ? "查看本块评论（原型）"
+              : "在当前块发表评论（原型）"
+          }
+          type="button"
+          variant="ghost"
         >
-          <CommentPrototypeForm />
+          <MessageSquareTextIcon aria-hidden />
+        </Button>
+      )}
+
+      {showHoverButton && hoverPreviewGeom && (
+        <Button
+          aria-expanded={false}
+          aria-haspopup="dialog"
+          aria-label="评论当前块（原型占位）"
+          className="fixed z-[131] size-7 bg-background/90 text-muted-foreground opacity-70 backdrop-blur-sm hover:opacity-100 [&_svg]:size-4 [&_svg]:text-muted-foreground"
+          onClick={handleAnchorClick}
+          onPointerEnter={handleFloatingUiPointerEnter}
+          onPointerLeave={handleFloatingUiPointerLeave}
+          ref={anchorRef}
+          size="icon"
+          style={{
+            left: `${hoverPreviewGeom.iconLeftPx}px`,
+            top: `${hoverPreviewGeom.iconTopPx}px`,
+          }}
+          title="在当前块发表评论（原型）"
+          type="button"
+          variant="ghost"
+        >
+          <MessageSquareTextIcon aria-hidden />
+        </Button>
+      )}
+
+      {effectivePanelOpen && activeAnchorGeom && (
+        <div
+          aria-label="发表评论"
+          className="fixed z-[132] w-[min(20rem,calc(100vw-2rem))] outline-none"
+          onPointerEnter={handleFloatingUiPointerEnter}
+          onPointerLeave={handleFloatingUiPointerLeave}
+          ref={panelRef}
+          role="dialog"
+          style={{
+            left: `${panelLeft}px`,
+            top: `${panelTop}px`,
+          }}
+          tabIndex={-1}
+        >
+          <CommentPrototypeForm
+            comments={activeComments}
+            onAddComment={handlePrototypeAdd}
+            onDeleteComment={handlePrototypeDelete}
+          />
         </div>
       )}
     </>,

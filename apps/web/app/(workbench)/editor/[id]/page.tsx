@@ -44,6 +44,7 @@ export default async function Page({
       userId={session?.user?.id}
       userName={session?.user?.name || undefined}
       userEmail={session?.user?.email || undefined}
+      userAvatarUrl={session?.user?.avatarUrl ?? undefined}
     />
   );
 }

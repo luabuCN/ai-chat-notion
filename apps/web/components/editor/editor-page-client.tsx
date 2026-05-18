@@ -26,6 +26,8 @@ interface EditorPageClientProps {
   userId?: string;
   userName?: string;
   userEmail?: string;
+  /** 与 NextAuth Session.user.avatarUrl 对齐，供协同与评论原型展示头像 */
+  userAvatarUrl?: string;
 }
 
 export function EditorPageClient({
@@ -34,6 +36,7 @@ export function EditorPageClient({
   userId,
   userName,
   userEmail,
+  userAvatarUrl,
 }: EditorPageClientProps) {
   const { data: document, isPending: isDocumentPending, error } =
     useGetDocument(documentId);
@@ -200,6 +203,7 @@ export function EditorPageClient({
                 userId={userId}
                 userName={userName}
                 userEmail={userEmail}
+                userAvatarUrl={userAvatarUrl}
                 isFullWidth={isFullWidth}
               />
             </div>

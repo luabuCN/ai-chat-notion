@@ -498,7 +498,7 @@ export function UnifiedEditor({
       {/* 编辑器主体 */}
       {editor && (
         <>
-          <CommentBlockMarginTrigger editor={editor} />
+          <CommentBlockMarginTrigger currentUser={user} editor={editor} />
           <BlockDragHandleToolbar
             editor={editor}
             onAddClick={handleSlashCommand}
