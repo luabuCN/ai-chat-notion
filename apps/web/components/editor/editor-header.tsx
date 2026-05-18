@@ -56,6 +56,8 @@ interface EditorHeaderProps {
   currentUserId?: string;
   currentUserName?: string;
   currentUserEmail?: string;
+  /** 当前用户头像（与协同 awareness 一致） */
+  currentUserAvatarUrl?: string;
   documentOwnerId?: string;
   hasCollaborators?: boolean; // 是否有协作者
   publicShareToken?: string | null; // 公开分享链接 token
@@ -89,6 +91,7 @@ export function EditorHeader({
   currentUserId,
   currentUserName,
   currentUserEmail,
+  currentUserAvatarUrl,
   documentOwnerId,
   hasCollaborators = false,
   publicShareToken,
@@ -113,24 +116,43 @@ export function EditorHeader({
     return {
       name,
       color: generateUserColor(currentUserId),
+      ...(currentUserAvatarUrl ? { avatar: currentUserAvatarUrl } : {}),
     };
-  }, [currentUserId, currentUserName, currentUserEmail]);
+  }, [currentUserId, currentUserName, currentUserEmail, currentUserAvatarUrl]);
 
-  /** 与分享弹窗一致：awareness 为空时用当前用户兜底，并合并进列表 */
+  /**
+   * 与分享弹窗一致：awareness 为空时用当前用户兜底，并合并进列表。
+   * 去重 key 只看 `name|color`（color 由 userId 派生稳定），
+   * 否则同一用户在「带 avatar / 不带 avatar」两种 awareness 间会被算成两人。
+   */
   const headerOnlineUsers = useMemo(() => {
-    if (!viewerAsCollaborator) {
-      return connectedUsers;
+    const userKey = (u: CollaborativeUser) => `${u.name}|${u.color}`;
+    const merged = new Map<string, CollaborativeUser>();
+    for (const u of connectedUsers) {
+      const k = userKey(u);
+      const prev = merged.get(k);
+      if (!prev) {
+        merged.set(k, u);
+        continue;
+      }
+      if (!prev.avatar && typeof u.avatar === "string" && u.avatar) {
+        merged.set(k, u);
+      }
     }
-    const userKey = (u: CollaborativeUser) =>
-      `${u.name}|${u.color}|${typeof u.avatar === "string" ? u.avatar : ""}`;
-    const existing = new Set(connectedUsers.map(userKey));
-    if (connectedUsers.length === 0) {
-      return [viewerAsCollaborator];
+    if (viewerAsCollaborator) {
+      const k = userKey(viewerAsCollaborator);
+      const prev = merged.get(k);
+      if (!prev) {
+        merged.set(k, viewerAsCollaborator);
+      } else if (
+        !prev.avatar &&
+        typeof viewerAsCollaborator.avatar === "string" &&
+        viewerAsCollaborator.avatar
+      ) {
+        merged.set(k, viewerAsCollaborator);
+      }
     }
-    if (existing.has(userKey(viewerAsCollaborator))) {
-      return connectedUsers;
-    }
-    return [...connectedUsers, viewerAsCollaborator];
+    return Array.from(merged.values());
   }, [connectedUsers, viewerAsCollaborator]);
 
   const toggleFavorite = () => {
@@ -219,9 +241,8 @@ export function EditorHeader({
                   <Avatar
                     key={`${user.name}-${user.color}-${index}`}
                     className="h-7 w-7 border-2 border-background"
-                    style={{ backgroundColor: user.color }}
                   >
-                    <AvatarImage src={user.avatar} />
+                    <AvatarImage alt={user.name} src={user.avatar} />
                     <AvatarFallback
                       className="text-[10px] font-medium text-white"
                       style={{ backgroundColor: user.color }}

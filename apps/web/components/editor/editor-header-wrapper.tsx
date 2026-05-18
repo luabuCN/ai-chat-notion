@@ -14,6 +14,8 @@ interface EditorHeaderWrapperProps {
   currentUserId?: string;
   currentUserName?: string;
   currentUserEmail?: string;
+  /** 与协同 awareness 一致的当前用户头像，用于兜底渲染 viewer 自己 */
+  currentUserAvatarUrl?: string;
   /** 全宽模式 */
   isFullWidth?: boolean;
   /** 全宽模式切换 */
@@ -27,6 +29,7 @@ export function EditorHeaderWrapper({
   currentUserId,
   currentUserName,
   currentUserEmail,
+  currentUserAvatarUrl,
   isFullWidth = false,
   onFullWidthChange,
 }: EditorHeaderWrapperProps) {
@@ -114,6 +117,7 @@ export function EditorHeaderWrapper({
       currentUserId={currentUserId}
       currentUserName={currentUserName}
       currentUserEmail={currentUserEmail}
+      currentUserAvatarUrl={currentUserAvatarUrl}
       documentOwnerId={document?.userId}
       hasCollaborators={(document as any)?.hasCollaborators ?? false}
       publicShareToken={(document as any)?.publicShareToken ?? null}

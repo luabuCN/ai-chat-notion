@@ -187,6 +187,7 @@ export function EditorPageClient({
                 currentUserId={userId}
                 currentUserName={userName}
                 currentUserEmail={userEmail}
+                currentUserAvatarUrl={userAvatarUrl}
                 isFullWidth={isFullWidth}
                 onFullWidthChange={setIsFullWidth}
               />

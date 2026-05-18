@@ -243,13 +243,20 @@ export function UnifiedEditor({
                 state.user as CollaborativeUser
             );
 
-          /** 同一用户可能对应多个 awareness 客户端（多标签、热更新、短暂重连），展示层按人合并 */
+          /**
+           * 同一用户可能对应多个 awareness 客户端（多标签、热更新、短暂重连、补头像 awareness 重发）。
+           * `color` 由 `userId` 稳定派生，按 `name|color` 即可识别同一人；
+           * 保留首条有头像的 awareness 作为展示值，避免无头像 awareness 抹掉真实头像。
+           */
           const byKey = new Map<string, CollaborativeUser>();
           for (const u of raw) {
-            const key = `${u.name}|${u.color}|${
-              typeof u.avatar === "string" ? u.avatar : ""
-            }`;
-            if (!byKey.has(key)) {
+            const key = `${u.name}|${u.color}`;
+            const prev = byKey.get(key);
+            if (!prev) {
+              byKey.set(key, u);
+              continue;
+            }
+            if (!prev.avatar && typeof u.avatar === "string" && u.avatar) {
               byKey.set(key, u);
             }
           }
