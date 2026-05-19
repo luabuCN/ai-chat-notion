@@ -43,6 +43,8 @@ interface UnifiedEditorClientProps {
    * 上层应防抖后转 base64 上报后端，作为评论 CRDT 等非 ProseMirror 数据的真相源。
    */
   onLocalYjsState?: (state: Uint8Array) => void;
+  /** 协同断开时仍通过 HTTP 持久化 yjs 快照 */
+  enableHttpPersistence?: boolean;
 }
 
 export const UnifiedEditorClient = memo(
@@ -61,6 +63,7 @@ export const UnifiedEditorClient = memo(
     onUpdate,
     onEditorReady,
     onLocalYjsState,
+    enableHttpPersistence,
   }: UnifiedEditorClientProps) {
     const router = useRouter();
     const navigate = useCallback(
@@ -118,6 +121,7 @@ export const UnifiedEditorClient = memo(
         onUpdate={onUpdate}
         onEditorReady={onEditorReady}
         onLocalYjsState={onLocalYjsState}
+        enableHttpPersistence={enableHttpPersistence}
       />
     );
   }

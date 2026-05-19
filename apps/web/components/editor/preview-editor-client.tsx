@@ -5,8 +5,8 @@ import { EditorBodyLoadingSkeleton } from "@/components/editor/editor-loading-sk
 
 export const PreviewEditorClient = dynamic(
   () =>
-    import("@/components/editor/unified-editor-client").then(
-      (m) => m.UnifiedEditorClient
+    import("@/components/editor/tiptap-editor-client").then(
+      (m) => m.TiptapEditorClient
     ),
   {
     ssr: false,

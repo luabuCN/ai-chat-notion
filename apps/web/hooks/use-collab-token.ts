@@ -33,7 +33,7 @@ export function useCollabToken(documentId: string | null | undefined) {
     enabled: !!documentId,
     staleTime: 1000 * 60 * 60, // 1 小时后过期重新获取
     gcTime: 1000 * 60 * 60 * 2, // 2 小时后清理缓存
-    retry: 2,
+    retry: false,
   });
 }
 

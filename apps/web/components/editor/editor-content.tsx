@@ -27,16 +27,17 @@ import {
 import { EDITOR_PAGE_REQUEST_SAVE } from "@/lib/use-editor-page-shortcuts";
 
 /**
- * 浏览器侧 Uint8Array → base64：分块走 `btoa`，避免大文档触发栈溢出 / `Maximum call stack`.
- * 32KB 是常见的安全阈值（`btoa` 接受任意字符串，无字符上限，但 `String.fromCharCode(...arr)`
- * 的展开参数会受栈大小限制）。
+ * 浏览器侧 Uint8Array → base64：逐字节拼接再 `btoa`。
+ * 禁止使用 `String.fromCharCode.apply(null, hugeArray)`——参数过多会触发 RangeError / 栈溢出。
  */
 function encodeYjsStateToBase64(bytes: Uint8Array): string {
   let binary = "";
-  const chunkSize = 0x8000;
+  const chunkSize = 8192;
   for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
+    const end = Math.min(i + chunkSize, bytes.length);
+    for (let j = i; j < end; j += 1) {
+      binary += String.fromCharCode(bytes[j]);
+    }
   }
   return globalThis.btoa(binary);
 }
@@ -44,6 +45,11 @@ function encodeYjsStateToBase64(bytes: Uint8Array): string {
 interface EditorContentProps {
   locale: string;
   documentId: string;
+  /**
+   * 强制「仅 HTTP 落库、不连协同 WS」（降级路径）。
+   * 预览只读页使用 `PreviewEditorClient`，不经此处；一般为 false。
+   */
+  forcePlainLocalPersistence?: boolean;
   /** PDF 转换流水线进行中：正文与页头编辑禁用 */
   conversionLocked?: boolean;
   userId?: string;
@@ -67,6 +73,7 @@ interface EditorContentProps {
 export function EditorContent({
   locale,
   documentId,
+  forcePlainLocalPersistence = false,
   conversionLocked = false,
   userId,
   userName,
@@ -87,7 +94,15 @@ export function EditorContent({
    * 包含正文与评论 CRDT；与 content 并行落库，防止评论丢失。
    */
   const [localYjsStateB64, setLocalYjsStateB64] = useState<string | null>(null);
+  /** 与 handleLocalYjsState 同步，供 Cmd+S 立即刷新时可读到最新快照 */
+  const latestYjsStateB64Ref = useRef<string | null>(null);
+  /** 本地 PATCH yjsState 去重：避免与服务端往返后与防抖快照误判重复写入 */
+  const prevLocalYjsStateB64Ref = useRef<string | null>(null);
   const [permissionRevoked, setPermissionRevoked] = useState(false);
+  /** 协同 WS 不可用时走 HTTP 落库（content + yjsState） */
+  const [collabPersistenceFallback, setCollabPersistenceFallback] =
+    useState(false);
+  const collabFallbackToastShownRef = useRef(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const contentDebounced = useDebounce(content, 1000);
@@ -103,9 +118,13 @@ export function EditorContent({
   // 判断是否是文档所有者
   const isOwner = (document as any)?.accessLevel === "owner";
 
-  // 判断是否需要连接协同 WebSocket
-  // 新逻辑：根据文档状态判断是否需要连接，而不是切换编辑器
+  /**
+   * 工作台编辑页：默认可编辑文档一律走协同 WS（持久化由 collab-server 写 yjsState）。
+   * 预览只读分享仍走 `PreviewEditorClient` + `content` JSON，不经此组件。
+   * `forcePlainLocalPersistence` 为极少数需强制 HTTP-only 的场景保留降级开关。
+   */
   const shouldConnectCollab = useMemo(() => {
+    if (forcePlainLocalPersistence) return false;
     if (!document) return false;
     if (permissionRevoked) return false;
     if (document.id !== documentId) return false;
@@ -113,43 +132,21 @@ export function EditorContent({
     const accessLevel = (document as any)?.accessLevel;
     if (!accessLevel) return false;
 
-    const isPubliclyEditable =
-      (document as any)?.isPubliclyEditable ?? false;
-    const hasCollaborators = (document as any)?.hasCollaborators;
-    const hasWorkspaceCollaborators = (document as any)
-      ?.hasWorkspaceCollaborators;
-    const isCurrentUserCollaborator = (document as any)
-      ?.isCurrentUserCollaborator;
-    const isDocumentOwner = (document as any)?.userId === userId;
+    // 只读权限：不建立协同连接（也无编辑保存）
+    if (accessLevel === "view") return false;
 
-    // Space documents are collaborative by default once the space has more
-    // than one user who can access documents in that space.
-    if (hasWorkspaceCollaborators) {
-      return true;
-    }
-
-    // 场景1：他人文档（非拥有者）- 需要连接以看到他人操作
-    if (!isDocumentOwner) {
-      return true;
-    }
-
-    // 场景2：我的文档，但已开启公开协作或有协作者
-    if (isPubliclyEditable || hasCollaborators) {
-      return true;
-    }
-
-    // 场景3：我是协作者
-    if (isCurrentUserCollaborator) {
-      return true;
-    }
-
-    return false;
-  }, [document, documentId, permissionRevoked, userId]);
+    return true;
+  }, [document, documentId, forcePlainLocalPersistence, permissionRevoked]);
 
   // 协同编辑 token（仅在需要连接协同时获取）
-  const { data: collabData, isLoading: isTokenLoading } = useCollabToken(
-    shouldConnectCollab ? documentId : null
-  );
+  const {
+    data: collabData,
+    isLoading: isTokenLoading,
+    isError: isCollabTokenError,
+  } = useCollabToken(shouldConnectCollab ? documentId : null);
+
+  const useHttpPersistence =
+    !shouldConnectCollab || collabPersistenceFallback || isCollabTokenError;
 
   // 协同服务器 URL
   const collabServerUrl =
@@ -166,13 +163,13 @@ export function EditorContent({
     };
   }, [shouldConnectCollab, collabData?.token, collabServerUrl]);
 
-  /** 文档或协同模式切换时需重新等待编辑器就绪 */
+  /** 文档或协同模式切换时需重新等待编辑器就绪（勿把 token 放进 key，避免 token 就绪后整页重挂载） */
   const editorMountKey = useMemo(
     () =>
-      `${documentId}:${collabConfig?.token ?? "local"}:${
+      `${documentId}:${shouldConnectCollab ? "collab" : "plain"}:${
         permissionRevoked ? "revoked" : "active"
       }`,
-    [documentId, collabConfig?.token, permissionRevoked]
+    [documentId, permissionRevoked, shouldConnectCollab]
   );
 
   /** 供异步回调读取：关闭协同后仍可能收到「已断开」，此时不应再更新顶栏状态 */
@@ -186,6 +183,18 @@ export function EditorContent({
     }
   }, [shouldConnectCollab, setConnectionStatus, setConnectedUsers]);
 
+  const activateCollabHttpFallback = useCallback(() => {
+    if (!shouldConnectCollabRef.current) {
+      return;
+    }
+    setCollabPersistenceFallback(true);
+    setIsEditorBodyReady(true);
+    if (!collabFallbackToastShownRef.current) {
+      collabFallbackToastShownRef.current = true;
+      toast.warning("协同已断开");
+    }
+  }, []);
+
   // 处理连接状态变更
   const handleConnectionStatusChange = useCallback(
     (status: EditorConnectionStatus) => {
@@ -193,9 +202,19 @@ export function EditorContent({
         return;
       }
       setConnectionStatus(status as ConnectionStatus);
+      if (status === "disconnected") {
+        activateCollabHttpFallback();
+      }
+      if (status === "connected") {
+        setCollabPersistenceFallback(false);
+      }
     },
-    [setConnectionStatus]
+    [activateCollabHttpFallback, setConnectionStatus]
   );
+
+  const handleCollabDisconnect = useCallback(() => {
+    activateCollabHttpFallback();
+  }, [activateCollabHttpFallback]);
 
   // 处理权限变更：重新拉取文档数据（获取最新 accessLevel），并提示用户
   const handlePermissionRevoked = useCallback(() => {
@@ -230,6 +249,11 @@ export function EditorContent({
   const isInitializedRef = useRef(false);
 
   const [isEditorBodyReady, setIsEditorBodyReady] = useState(false);
+  /** 供 yjs 回调读取：避免闭包读到旧的「编辑器是否已挂载就绪」 */
+  const isEditorBodyReadyRef = useRef(false);
+  useEffect(() => {
+    isEditorBodyReadyRef.current = isEditorBodyReady;
+  }, [isEditorBodyReady]);
   /** 已把当前 documentId 对应的服务端正文快照写入 content state，再挂载编辑器，避免首帧 initialContent 为空 */
   const [documentSnapshotApplied, setDocumentSnapshotApplied] =
     useState(false);
@@ -242,6 +266,19 @@ export function EditorContent({
     setIsEditorBodyReady(false);
   }, [editorMountKey]);
 
+  /** 协同 onSynced 丢失等极端情况下的兜底，避免骨架层永久盖住正文 */
+  useEffect(() => {
+    if (!documentSnapshotApplied || isEditorBodyReady) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setIsEditorBodyReady(true);
+    }, 3_000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [documentSnapshotApplied, editorMountKey, isEditorBodyReady]);
+
   useEffect(() => {
     if (!document || document.id !== documentId) {
       setDocumentSnapshotApplied(false);
@@ -249,33 +286,30 @@ export function EditorContent({
     }
 
     const isDocumentChanged = documentId !== prevDocumentIdRef.current;
-
     if (isDocumentChanged) {
       isInitializedRef.current = false;
-
       prevDocumentIdRef.current = documentId;
-      const newTitle = document.title ?? "";
-      const newIcon = document.icon ?? null;
-      const newContent = document.content ?? "";
-
-      setTitle(newTitle);
-      setIcon(newIcon);
-      setContent(newContent);
-
-      prevTitleRef.current = newTitle;
-      prevIconRef.current = newIcon;
-      prevContentRef.current = newContent;
-
-      setDocumentSnapshotApplied(true);
-
       window.dispatchEvent(
         new CustomEvent("document-loaded", { detail: document })
       );
-
       setTimeout(() => {
         isInitializedRef.current = true;
       }, 600);
     }
+
+    const newTitle = document.title ?? "";
+    const newIcon = document.icon ?? null;
+    const newContent = document.content ?? "";
+
+    setTitle(newTitle);
+    setIcon(newIcon);
+    setContent(newContent);
+
+    prevTitleRef.current = newTitle;
+    prevIconRef.current = newIcon;
+    prevContentRef.current = newContent;
+
+    setDocumentSnapshotApplied(true);
   }, [document, documentId]);
 
   useEffect(() => {
@@ -299,11 +333,29 @@ export function EditorContent({
 
   useEffect(() => {
     setPermissionRevoked(false);
+    setCollabPersistenceFallback(false);
+    collabFallbackToastShownRef.current = false;
   }, [documentId]);
 
-  // 切换文档时清空 yjsState 缓冲，防止跨文档写入旧 doc 的状态
+  useEffect(() => {
+    if (!isCollabTokenError || !shouldConnectCollab) {
+      return;
+    }
+    setCollabPersistenceFallback(true);
+    setIsEditorBodyReady(true);
+    if (!collabFallbackToastShownRef.current) {
+      collabFallbackToastShownRef.current = true;
+      toast.warning("协同服务不可用", {
+        description: "已切换为接口保存，编辑内容将写入数据库",
+      });
+    }
+  }, [isCollabTokenError, shouldConnectCollab]);
+
+  // 切换文档时清空 yjsState 缓冲 / 去重指针，防止跨文档写入旧 doc 的状态
   useEffect(() => {
     setLocalYjsStateB64(null);
+    latestYjsStateB64Ref.current = null;
+    prevLocalYjsStateB64Ref.current = null;
   }, [documentId]);
 
   // 显示错误（仅在 EditorContent 内部渲染时的非致命错误）
@@ -416,24 +468,45 @@ export function EditorContent({
     updateDocumentMutation.mutate,
   ]);
 
-  // 防抖保存内容（仅本地模式，协同模式通过 WebSocket 自动同步）
+  // 防抖保存内容（本地模式或协同断开兜底）：正文 JSON + Yjs 快照合并为**单次 PATCH**
   useEffect(() => {
     if (
-      shouldConnectCollab || // 协同模式下不通过 HTTP 保存
-      !isInitializedRef.current ||
+      !useHttpPersistence ||
+      !isEditorBodyReady ||
       !documentId ||
       !document ||
-      effectiveReadOnly ||
-      contentDebounced === document.content ||
-      contentDebounced === prevContentRef.current
-    )
+      effectiveReadOnly
+    ) {
       return;
+    }
 
-    prevContentRef.current = contentDebounced;
+    const contentNeedsPatch =
+      contentDebounced !== document.content &&
+      contentDebounced !== prevContentRef.current;
+
+    const yjsNeedsPatch =
+      localYjsStateB64Debounced !== null &&
+      localYjsStateB64Debounced !== prevLocalYjsStateB64Ref.current;
+
+    if (!contentNeedsPatch && !yjsNeedsPatch) {
+      return;
+    }
+
+    const updates: { content?: string; yjsState?: string } = {};
+
+    if (contentNeedsPatch) {
+      updates.content = contentDebounced;
+      prevContentRef.current = contentDebounced;
+    }
+    if (yjsNeedsPatch) {
+      updates.yjsState = localYjsStateB64Debounced;
+      prevLocalYjsStateB64Ref.current = localYjsStateB64Debounced;
+    }
+
     updateDocumentMutation.mutate(
       {
         documentId,
-        updates: { content: contentDebounced },
+        updates,
       },
       {
         onSuccess: () => {
@@ -442,62 +515,21 @@ export function EditorContent({
           }
         },
         onError: (error) => {
-          toast.error(error.message || "保存内容失败");
+          toast.error(error.message || "保存失败");
         },
       }
     );
   }, [
     contentDebounced,
+    localYjsStateB64Debounced,
     documentId,
     document?.content,
     document?.deletedAt,
     effectiveReadOnly,
+    useHttpPersistence,
     updateDocumentMutation.mutate,
-    shouldConnectCollab,
+    isEditorBodyReady,
   ]);
-
-  // 防抖保存本地 Yjs 二进制快照（仅本地模式）
-  // 与 content 路径并行：content 用于搜索/预览/老入口兼容，yjsState 是真相源
-  // （含评论 CRDT 等无法序列化到 ProseMirror JSON 的数据）。
-  const prevLocalYjsStateB64Ref = useRef<string | null>(null);
-  useEffect(() => {
-    if (
-      shouldConnectCollab || // 协同模式由 collab-server 持久化 yjsState
-      !isInitializedRef.current ||
-      !documentId ||
-      !document ||
-      effectiveReadOnly ||
-      localYjsStateB64Debounced === null ||
-      localYjsStateB64Debounced === prevLocalYjsStateB64Ref.current
-    ) {
-      return;
-    }
-
-    prevLocalYjsStateB64Ref.current = localYjsStateB64Debounced;
-    updateDocumentMutation.mutate(
-      {
-        documentId,
-        updates: { yjsState: localYjsStateB64Debounced },
-      },
-      {
-        onError: (error) => {
-          toast.error(error.message || "保存评论数据失败");
-        },
-      }
-    );
-  }, [
-    localYjsStateB64Debounced,
-    documentId,
-    document,
-    effectiveReadOnly,
-    shouldConnectCollab,
-    updateDocumentMutation.mutate,
-  ]);
-
-  // 文档切换时一并清空 yjsState 写入去重
-  useEffect(() => {
-    prevLocalYjsStateB64Ref.current = null;
-  }, [documentId]);
 
   useEffect(() => {
     return () => {
@@ -519,6 +551,7 @@ export function EditorContent({
       title?: string;
       icon?: string | null;
       content?: string;
+      yjsState?: string;
     } = {};
 
     if (title.trim() !== "" && title !== document.title) {
@@ -527,12 +560,18 @@ export function EditorContent({
     if (icon !== document.icon) {
       updates.icon = icon;
     }
-    if (!shouldConnectCollab && content !== document.content) {
-      updates.content = content;
+    if (useHttpPersistence) {
+      if (content !== document.content) {
+        updates.content = content;
+      }
+      const yjsLatest = latestYjsStateB64Ref.current;
+      if (yjsLatest !== null) {
+        updates.yjsState = yjsLatest;
+      }
     }
 
     if (Object.keys(updates).length === 0) {
-      if (shouldConnectCollab) {
+      if (shouldConnectCollab && !useHttpPersistence) {
         toast.success("正文已通过协同实时同步");
       } else {
         toast.info("没有需要保存的更改");
@@ -548,6 +587,9 @@ export function EditorContent({
     }
     if (updates.content !== undefined) {
       prevContentRef.current = updates.content;
+    }
+    if (updates.yjsState !== undefined) {
+      prevLocalYjsStateB64Ref.current = updates.yjsState;
     }
 
     updateDocumentMutation.mutate(
@@ -570,6 +612,7 @@ export function EditorContent({
     documentId,
     effectiveReadOnly,
     icon,
+    useHttpPersistence,
     shouldConnectCollab,
     title,
     updateDocumentMutation.mutate,
@@ -714,13 +757,19 @@ export function EditorContent({
       if (effectiveReadOnly || conversionLocked) {
         return;
       }
-      setLocalYjsStateB64(encodeYjsStateToBase64(state));
+      // 与防抖落库 effect 对齐：须等编辑器就绪后再采集 yjs，否则会因依赖未触发而丢保存
+      if (!isEditorBodyReadyRef.current) {
+        return;
+      }
+      const b64 = encodeYjsStateToBase64(state);
+      latestYjsStateB64Ref.current = b64;
+      setLocalYjsStateB64(b64);
     },
     [conversionLocked, effectiveReadOnly]
   );
 
-  // 等待文档加载完成，如果需要协同则等待 token
-  if (isLoading || (shouldConnectCollab && isTokenLoading)) {
+  // 等待文档加载；协同 token 仅首次请求时阻塞，失败则立即走 HTTP 兜底
+  if (isLoading || (shouldConnectCollab && isTokenLoading && !isCollabTokenError)) {
     return <EditorLoadingSkeleton className="min-h-full pt-11" />;
   }
 
@@ -778,10 +827,12 @@ export function EditorContent({
                 onConnectedUsersChange={setConnectedUsers}
                 onConnectionStatusChange={handleConnectionStatusChange}
                 onPermissionRevoked={handlePermissionRevoked}
-                onUpdate={shouldConnectCollab ? undefined : handleEditorUpdate}
+                onDisconnect={handleCollabDisconnect}
+                onUpdate={useHttpPersistence ? handleEditorUpdate : undefined}
                 onLocalYjsState={
-                  shouldConnectCollab ? undefined : handleLocalYjsState
+                  useHttpPersistence ? handleLocalYjsState : undefined
                 }
+                enableHttpPersistence={collabPersistenceFallback}
                 onEditorReady={handleEditorReady}
               />
             </div>

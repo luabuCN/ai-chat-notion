@@ -3,7 +3,14 @@ import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { Placeholder } from "@tiptap/extensions";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ImagePreviewControlled } from "@repo/ui";
 import { toast } from "sonner";
 import * as Y from "yjs";
@@ -92,12 +99,12 @@ export interface UnifiedEditorProps {
     token: string;
   } | null;
   /**
-   * 仅在本地模式（`collabConfig == null`）下触发：每次本地 ydoc 变更后回调，
-   * 把 `Y.encodeStateAsUpdate(ydoc)` 上抛给宿主层。宿主负责防抖、序列化与落盘。
-   *
-   * 协同模式下持久化由 collab-server 接管，此回调不会触发。
+   * 每次本地 ydoc 变更后回调，把 `Y.encodeStateAsUpdate(ydoc)` 上抛给宿主层。
+   * 协同在线时由 collab-server 写库；`enableHttpPersistence` 为 true 时协同断开也会触发（HTTP 兜底）。
    */
   onLocalYjsState?: (state: Uint8Array) => void;
+  /** 协同 WS 不可用时仍通过 HTTP 上报 yjs 快照（与 onLocalYjsState 配合） */
+  enableHttpPersistence?: boolean;
 }
 
 /**
@@ -131,6 +138,7 @@ export function UnifiedEditor({
   user,
   collabConfig,
   onLocalYjsState,
+  enableHttpPersistence = false,
 }: UnifiedEditorProps) {
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
@@ -174,6 +182,9 @@ export function UnifiedEditor({
 
   const isMountedRef = useRef(false);
   const connectedUsersSigRef = useRef("");
+  /** 递增后使旧 provider 的 onSynced 等异步回调失效，避免 Strict Mode 下丢同步事件 */
+  const providerGenerationRef = useRef(0);
+  const [isCommentUiEnabled, setIsCommentUiEnabled] = useState(false);
 
   // 连接状态
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(
@@ -195,8 +206,19 @@ export function UnifiedEditor({
   // 延迟渲染状态
   const [isClientReady, setIsClientReady] = useState(false);
 
+  useLayoutEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      providerGenerationRef.current += 1;
+    };
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
       setIsClientReady(true);
     }, 0);
     return () => clearTimeout(timer);
@@ -205,11 +227,16 @@ export function UnifiedEditor({
   useEffect(() => {
     connectedUsersSigRef.current = "";
     setIsWebSocketSynced(!collabConfig);
+    setIsCommentUiEnabled(false);
   }, [editorKey, collabConfig]);
 
-  // 创建 Provider - 依赖 documentId 和 collabConfig
-  // 当协同模式切换时，provider 也会重新创建
-  const provider = useMemo(() => {
+  /** Provider 必须在 effect 中创建：在 useMemo/render 里建连会触发「未挂载就 setState」警告 */
+  const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
+
+  useEffect(() => {
+    const generation = providerGenerationRef.current + 1;
+    providerGenerationRef.current = generation;
+
     const serverUrl =
       collabConfig?.serverUrl ||
       process.env.NEXT_PUBLIC_HOCUSPOCUS_URL ||
@@ -222,17 +249,22 @@ export function UnifiedEditor({
       token: collabConfig?.token || "",
       onStatus: ({ status: s }) => {
         setTimeout(() => {
+          if (providerGenerationRef.current !== generation) return;
           if (!isMountedRef.current) return;
           const newStatus = s as ConnectionStatus;
           setConnectionStatus(newStatus);
           onConnectionStatusChangeRef.current?.(newStatus);
           if (s === "disconnected") {
+            if (collabConfig) {
+              setIsWebSocketSynced(true);
+            }
             onDisconnectRef.current?.();
           }
         }, 0);
       },
       onSynced: ({ state }) => {
         setTimeout(() => {
+          if (providerGenerationRef.current !== generation) return;
           if (!isMountedRef.current) return;
           if (state) {
             setIsWebSocketSynced(true);
@@ -242,6 +274,7 @@ export function UnifiedEditor({
       },
       onAwarenessUpdate: ({ states }) => {
         setTimeout(() => {
+          if (providerGenerationRef.current !== generation) return;
           if (!isMountedRef.current) return;
           const raw = Array.from(states.values())
             .filter(
@@ -253,11 +286,6 @@ export function UnifiedEditor({
                 state.user as CollaborativeUser
             );
 
-          /**
-           * 同一用户可能对应多个 awareness 客户端（多标签、热更新、短暂重连、补头像 awareness 重发）。
-           * `color` 由 `userId` 稳定派生，按 `name|color` 即可识别同一人；
-           * 保留首条有头像的 awareness 作为展示值，避免无头像 awareness 抹掉真实头像。
-           */
           const byKey = new Map<string, CollaborativeUser>();
           for (const u of raw) {
             const key = `${u.name}|${u.color}`;
@@ -290,6 +318,7 @@ export function UnifiedEditor({
       },
       onAuthenticationFailed: ({ reason }) => {
         setTimeout(() => {
+          if (providerGenerationRef.current !== generation) return;
           if (!isMountedRef.current) return;
           toast.error("认证失败", {
             description: reason || "无法连接到协同服务器",
@@ -298,10 +327,9 @@ export function UnifiedEditor({
       },
       onClose: ({ event }) => {
         setTimeout(() => {
+          if (providerGenerationRef.current !== generation) return;
           if (!isMountedRef.current) return;
-          // 服务端自定义 close code 4003 = 权限变更
           if (event?.code === 4003) {
-            // 停止自动重连
             p.disconnect();
             onPermissionRevokedRef.current?.();
           }
@@ -309,25 +337,57 @@ export function UnifiedEditor({
       },
     });
 
-    // 设置用户 awareness
     if (userRef.current) {
       p.setAwarenessField("user", userRef.current);
     }
 
-    // 如果没有协同配置，断开连接（本地模式）
     if (!collabConfig) {
       p.disconnect();
     }
 
-    return p;
-  }, [documentId, ydoc, collabConfig?.serverUrl, collabConfig?.token]);
+    setProvider(p);
 
-  useEffect(() => {
-    isMountedRef.current = true;
     return () => {
-      isMountedRef.current = false;
+      providerGenerationRef.current += 1;
+      p.disconnect();
+      p.destroy();
+      setProvider(null);
     };
-  }, []);
+  }, [collabConfig, documentId, ydoc]);
+
+  /** 刷新时 onSynced 可能早于订阅；挂载后补查 provider.synced + 超时兜底 */
+  useEffect(() => {
+    if (!collabConfig || !provider) {
+      return;
+    }
+
+    const providerWithSync = provider as HocuspocusProvider & {
+      synced?: boolean;
+    };
+    if (providerWithSync.synced && isMountedRef.current) {
+      setIsWebSocketSynced(true);
+    }
+
+    const fallbackMs = 2_000;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+      setIsWebSocketSynced((prev) => {
+        if (prev) {
+          return prev;
+        }
+        setConnectionStatus("disconnected");
+        onConnectionStatusChangeRef.current?.("disconnected");
+        onDisconnectRef.current?.();
+        return true;
+      });
+    }, fallbackMs);
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [collabConfig, editorKey, provider]);
 
   // 更新 awareness
   useEffect(() => {
@@ -413,7 +473,7 @@ export function UnifiedEditor({
         });
       },
     },
-    [editorKey, readonly]
+    [editorKey, provider, readonly]
   );
 
   const { handleSlashCommand, onDragHandleNodeChange } =
@@ -455,6 +515,10 @@ export function UnifiedEditor({
     const scheduleReady = () => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          if (!isMountedRef.current) {
+            return;
+          }
+          setIsCommentUiEnabled(true);
           onEditorReadyRef.current?.();
         });
       });
@@ -466,17 +530,8 @@ export function UnifiedEditor({
     initialContent,
     isWebSocketSynced,
     ydoc,
+    editorKey,
   ]);
-
-  // 清理
-  useEffect(() => {
-    return () => {
-      if (provider) {
-        provider.disconnect();
-        provider.destroy();
-      }
-    };
-  }, [provider]);
 
   useEffect(() => {
     return () => {
@@ -494,7 +549,7 @@ export function UnifiedEditor({
    *   首次 setContent，但订阅在 effect 注册后也会立刻收到一次，宿主负责忽略首帧）。
    */
   useEffect(() => {
-    if (collabConfig) {
+    if (collabConfig && !enableHttpPersistence) {
       return;
     }
     const handleUpdate = (
@@ -516,7 +571,7 @@ export function UnifiedEditor({
     return () => {
       ydoc.off("update", handleUpdate);
     };
-  }, [collabConfig, ydoc]);
+  }, [collabConfig, enableHttpPersistence, ydoc]);
 
   // 更新编辑器的可编辑状态
   useEffect(() => {
@@ -552,6 +607,7 @@ export function UnifiedEditor({
           <CommentBlockMarginTrigger
             currentUser={user}
             editor={editor}
+            uiEnabled={isCommentUiEnabled}
             ydoc={ydoc}
           />
           <BlockDragHandleToolbar

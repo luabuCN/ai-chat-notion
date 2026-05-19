@@ -48,6 +48,10 @@ type CommentBlockMarginTriggerProps = {
    * 缺省时退化为只读 UI（hover 触发器可见，但禁止落地评论），便于纯本地预览/旧入口。
    */
   ydoc?: Y.Doc | null;
+  /**
+   * 正文已完成首帧加载且可交互后再展示评论 UI（portal 在 body 上，否则会叠在骨架屏之上）。
+   */
+  uiEnabled?: boolean;
   /** 用作评论作者占位 */
   currentUser?: CommentPrototypeUser;
 };
@@ -82,6 +86,7 @@ function clampPanelLeft(rawLeft: number, panelWidth: number) {
 function CommentBlockMarginTriggerInner({
   editor,
   ydoc,
+  uiEnabled = false,
   currentUser,
 }: CommentBlockMarginTriggerProps) {
   const isAiBusy = useAIPanelStore(
@@ -564,7 +569,7 @@ function CommentBlockMarginTriggerInner({
     scheduleHideLiveCue();
   }, [scheduleHideLiveCue]);
 
-  if (!mounted) {
+  if (!mounted || !uiEnabled) {
     return null;
   }
 
@@ -619,8 +624,8 @@ function CommentBlockMarginTriggerInner({
           .map(({ blockId, geom }) => (
             <Button
               aria-haspopup="dialog"
-              aria-label="查看本块评论（原型占位）"
-              className="fixed z-[130] size-7 bg-background/90 text-primary backdrop-blur-sm [&_svg]:size-4 [&_svg]:text-primary"
+              aria-label="查看本块评论"
+              className="fixed z-[10] size-7 bg-background/90 text-primary backdrop-blur-sm [&_svg]:size-4 [&_svg]:text-primary"
               key={blockId}
               onClick={() => {
                 handlePersistentClick(blockId);
@@ -632,7 +637,7 @@ function CommentBlockMarginTriggerInner({
                 left: `${geom.iconLeftPx}px`,
                 top: `${geom.iconTopPx}px`,
               }}
-              title="查看本块评论（原型）"
+              title="查看本块评论"
               type="button"
               variant="ghost"
             >
@@ -647,8 +652,8 @@ function CommentBlockMarginTriggerInner({
           aria-haspopup="dialog"
           aria-label={
             isActiveAnchorCommented
-              ? "查看本块评论（原型占位）"
-              : "评论当前块（原型占位）"
+              ? "查看本块评论"
+              : "评论当前块"
           }
           className={cn(
             "fixed z-[131] size-7 bg-background/90 backdrop-blur-sm [&_svg]:size-4",
@@ -667,8 +672,8 @@ function CommentBlockMarginTriggerInner({
           }}
           title={
             isActiveAnchorCommented
-              ? "查看本块评论（原型）"
-              : "在当前块发表评论（原型）"
+              ? "查看本块评论"
+              : "在当前块发表评论"
           }
           type="button"
           variant="ghost"
