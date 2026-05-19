@@ -687,7 +687,7 @@ function CommentBlockMarginTriggerInner({
           aria-expanded={false}
           aria-haspopup="dialog"
           aria-label="评论当前块（原型占位）"
-          className="fixed z-[131] size-7 bg-background/90 text-muted-foreground opacity-70 backdrop-blur-sm hover:opacity-100 [&_svg]:size-4 [&_svg]:text-muted-foreground"
+          className="fixed z-[13] size-7 bg-background/90 text-muted-foreground opacity-70 backdrop-blur-sm hover:opacity-100 [&_svg]:size-4 [&_svg]:text-muted-foreground"
           onClick={handleAnchorClick}
           onPointerEnter={handleFloatingUiPointerEnter}
           onPointerLeave={handleFloatingUiPointerLeave}
@@ -697,7 +697,7 @@ function CommentBlockMarginTriggerInner({
             left: `${hoverPreviewGeom.iconLeftPx}px`,
             top: `${hoverPreviewGeom.iconTopPx}px`,
           }}
-          title="在当前块发表评论（原型）"
+          title="在当前块发表评论"
           type="button"
           variant="ghost"
         >

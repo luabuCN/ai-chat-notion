@@ -155,6 +155,10 @@ export function EditorHeader({
     return Array.from(merged.values());
   }, [connectedUsers, viewerAsCollaborator]);
 
+  /** 仅两人及以上协同时展示头像与在线状态（awareness 变更时实时更新） */
+  const showCollabPresence =
+    connectionStatus !== "idle" && headerOnlineUsers.length >= 2;
+
   const toggleFavorite = () => {
     if (conversionLocked || isUpdatingFavorite) return;
     setIsUpdatingFavorite(true);
@@ -232,32 +236,30 @@ export function EditorHeader({
           conversionLocked && "pointer-events-none select-none opacity-60"
         )}
       >
-        {/* 在线用户头像和连接状态（协同模式） */}
-        {connectionStatus !== "idle" && (
+        {/* 在线用户头像和连接状态（≥2 人协同时展示） */}
+        {showCollabPresence && (
           <div className="flex items-center gap-2 mr-2">
-            {headerOnlineUsers.length > 0 && (
-              <div className="flex items-center -space-x-2">
-                {headerOnlineUsers.slice(0, 5).map((user, index) => (
-                  <Avatar
-                    key={`${user.name}-${user.color}-${index}`}
-                    className="h-7 w-7 border-2 border-background"
+            <div className="flex items-center -space-x-2">
+              {headerOnlineUsers.slice(0, 5).map((user, index) => (
+                <Avatar
+                  key={`${user.name}-${user.color}-${index}`}
+                  className="h-7 w-7 border-2 border-background"
+                >
+                  <AvatarImage alt={user.name} src={user.avatar} />
+                  <AvatarFallback
+                    className="text-[10px] font-medium text-white"
+                    style={{ backgroundColor: user.color }}
                   >
-                    <AvatarImage alt={user.name} src={user.avatar} />
-                    <AvatarFallback
-                      className="text-[10px] font-medium text-white"
-                      style={{ backgroundColor: user.color }}
-                    >
-                      {user.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-                {headerOnlineUsers.length > 5 && (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground">
-                    +{headerOnlineUsers.length - 5}
-                  </div>
-                )}
-              </div>
-            )}
+                    {user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {headerOnlineUsers.length > 5 && (
+                <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground">
+                  +{headerOnlineUsers.length - 5}
+                </div>
+              )}
+            </div>
             <div
               className={cn(
                 "flex items-center gap-1.5 text-xs",

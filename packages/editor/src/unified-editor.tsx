@@ -173,6 +173,18 @@ export function UnifiedEditor({
   const userRef = useRef(user);
   userRef.current = user;
 
+  /** 写入 Yjs awareness 的用户信息；CollaborationCaret 会覆盖 `user` 字段，必须含 avatar */
+  const awarenessUser = useMemo(() => {
+    if (!user) {
+      return null;
+    }
+    return {
+      name: user.name,
+      color: user.color,
+      ...(user.avatar ? { avatar: user.avatar } : {}),
+    };
+  }, [user]);
+
   const stableUploadFile = useCallback(async (file: File) => {
     if (uploadFileRef.current) {
       return uploadFileRef.current(file);
@@ -389,12 +401,12 @@ export function UnifiedEditor({
     };
   }, [collabConfig, editorKey, provider]);
 
-  // 更新 awareness
+  // 更新 awareness（CollaborationCaret 插件 init 也会写 user，需与之保持一致）
   useEffect(() => {
-    if (provider && user) {
-      provider.setAwarenessField("user", user);
+    if (provider && awarenessUser) {
+      provider.setAwarenessField("user", awarenessUser);
     }
-  }, [provider, user]);
+  }, [provider, awarenessUser]);
 
   // Extensions
   const extensions = useMemo(() => {
@@ -424,14 +436,11 @@ export function UnifiedEditor({
     ];
 
     // 协同模式下添加光标扩展
-    if (collabConfig && user && provider) {
+    if (collabConfig && awarenessUser && provider) {
       exts.push(
         CollaborationCaret.configure({
           provider,
-          user: {
-            name: user.name,
-            color: user.color,
-          },
+          user: awarenessUser,
         })
       );
     }
@@ -441,7 +450,7 @@ export function UnifiedEditor({
     placeholder,
     ydoc,
     showAiTools,
-    user,
+    awarenessUser,
     provider,
     collabConfig,
     stableNavigate,
@@ -475,6 +484,14 @@ export function UnifiedEditor({
     },
     [editorKey, provider, readonly]
   );
+
+  /** editor 挂载后 CollaborationCaret 插件 init 会覆盖 awareness，再同步一次 avatar */
+  useEffect(() => {
+    if (!editor || !provider || !awarenessUser || !collabConfig) {
+      return;
+    }
+    provider.setAwarenessField("user", awarenessUser);
+  }, [editor, provider, awarenessUser, collabConfig]);
 
   const { handleSlashCommand, onDragHandleNodeChange } =
     useSlashCommandTrigger(editor);
