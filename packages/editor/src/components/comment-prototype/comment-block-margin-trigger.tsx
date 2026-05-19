@@ -604,7 +604,7 @@ function CommentBlockMarginTriggerInner({
       {bridgeGeom && (
         <div
           aria-hidden
-          className="fixed z-[120] bg-transparent"
+          className="fixed z-30 bg-transparent"
           onPointerEnter={handleFloatingUiPointerEnter}
           onPointerLeave={handleFloatingUiPointerLeave}
           ref={bridgeRef}
@@ -625,7 +625,7 @@ function CommentBlockMarginTriggerInner({
             <Button
               aria-haspopup="dialog"
               aria-label="查看本块评论"
-              className="fixed z-[10] size-7 bg-background/90 text-primary backdrop-blur-sm [&_svg]:size-4 [&_svg]:text-primary"
+              className="fixed z-40 size-7 bg-background/90 text-primary backdrop-blur-sm [&_svg]:size-4 [&_svg]:text-primary"
               key={blockId}
               onClick={() => {
                 handlePersistentClick(blockId);
@@ -656,7 +656,7 @@ function CommentBlockMarginTriggerInner({
               : "评论当前块"
           }
           className={cn(
-            "fixed z-[131] size-7 bg-background/90 backdrop-blur-sm [&_svg]:size-4",
+            "fixed z-40 size-7 bg-background/90 backdrop-blur-sm [&_svg]:size-4",
             isActiveAnchorCommented
               ? "text-primary opacity-100 [&_svg]:text-primary"
               : "text-muted-foreground opacity-100 [&_svg]:text-muted-foreground"
@@ -686,8 +686,8 @@ function CommentBlockMarginTriggerInner({
         <Button
           aria-expanded={false}
           aria-haspopup="dialog"
-          aria-label="评论当前块（原型占位）"
-          className="fixed z-[13] size-7 bg-background/90 text-muted-foreground opacity-70 backdrop-blur-sm hover:opacity-100 [&_svg]:size-4 [&_svg]:text-muted-foreground"
+          aria-label="评论当前块"
+          className="fixed z-40 size-7 bg-background/90 text-muted-foreground opacity-70 backdrop-blur-sm hover:opacity-100 [&_svg]:size-4 [&_svg]:text-muted-foreground"
           onClick={handleAnchorClick}
           onPointerEnter={handleFloatingUiPointerEnter}
           onPointerLeave={handleFloatingUiPointerLeave}
@@ -708,7 +708,7 @@ function CommentBlockMarginTriggerInner({
       {effectivePanelOpen && activeAnchorGeom && canPersistComments && (
         <div
           aria-label="发表评论"
-          className="fixed z-[132] w-[min(20rem,calc(100vw-2rem))] outline-none"
+          className="fixed z-40 w-[min(20rem,calc(100vw-2rem))] outline-none"
           onPointerEnter={handleFloatingUiPointerEnter}
           onPointerLeave={handleFloatingUiPointerLeave}
           ref={panelRef}

@@ -130,7 +130,7 @@ export function CommentPrototypeForm({
             className="flex flex-col gap-3"
           >
             {comments.map((c) => (
-              <li key={c.id}>
+              <li className="group" key={c.id}>
                 <div className="flex gap-2">
                   <CommentAuthorAvatar
                     avatar={c.authorAvatar}
@@ -151,8 +151,8 @@ export function CommentPrototypeForm({
                         </time>
                       </div>
                       <Button
-                        aria-label="删除本条评论（原型占位）"
-                        className="-mr-1 size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label="删除本条评论"
+                        className="-mr-1 size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                         onClick={() => {
                           onDeleteComment(c.id);
                         }}

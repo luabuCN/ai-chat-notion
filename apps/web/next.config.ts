@@ -4,7 +4,8 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
-  transpilePackages: ["@repo/database"],
+  transpilePackages: ["@repo/database","@repo/editor","@repo/ui","@repo/ai"],
+  productionBrowserSourceMaps:false,
   images: {
     dangerouslyAllowSVG: true,
     remotePatterns: [
