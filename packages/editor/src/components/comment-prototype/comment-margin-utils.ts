@@ -81,7 +81,7 @@ export function getCommentAnchorFromPos(
 }
 
 /**
- * 「后半段」：指针在块水平方向约 42% 以右，且纵向与块相交（略放宽容差）。
+ * 「后半段」：指针在块水平方向约 66% 以右，且纵向与块相交（略放宽容差）。
  */
 export function shouldShowTrailingCommentCue(
   clientX: number,
@@ -95,7 +95,7 @@ export function shouldShowTrailingCommentCue(
     return false;
   }
 
-  return clientX >= blockRect.left + blockRect.width * 0.42;
+  return clientX >= blockRect.left + blockRect.width * 0.66;
 }
 
 const DEFAULT_MARGIN_GAP_PX = 8;

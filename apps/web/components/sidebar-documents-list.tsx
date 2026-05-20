@@ -129,6 +129,7 @@ const DocumentsList = ({
               expanded={expanded[document.id]}
               documentIcon={document.icon}
               canEdit={canManageMembers}
+              isFavorite={document.isFavorite}
               lastEditedByName={(document as any).lastEditedByName}
             />
             {expanded[document.id] && (

@@ -311,7 +311,8 @@ export function useUpdateDocument() {
       // 立即更新所有列表缓存中的文档
       if (
         variables.updates.title !== undefined ||
-        variables.updates.icon !== undefined
+        variables.updates.icon !== undefined ||
+        variables.updates.isFavorite !== undefined
       ) {
         queryClient.setQueriesData<EditorDocument[]>(
           { queryKey: documentKeys.lists() },
@@ -326,6 +327,9 @@ export function useUpdateDocument() {
                     }),
                     ...(variables.updates.icon !== undefined && {
                       icon: variables.updates.icon,
+                    }),
+                    ...(variables.updates.isFavorite !== undefined && {
+                      isFavorite: variables.updates.isFavorite,
                     }),
                   }
                 : doc
@@ -397,8 +401,9 @@ export function useArchive() {
       queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       // 刷新垃圾箱列表
       queryClient.invalidateQueries({ queryKey: documentKeys.trashes() });
-      // 刷新文档详情缓存，确保从回收站打开时能正确显示删除状态
-      queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
+      // 移除文档详情缓存（而非 invalidate），避免当前编辑器页因 refetch 到 404
+      // 而先渲染错误 UI，干扰后续 router.replace 跳转
+      queryClient.removeQueries({ queryKey: documentKeys.detail(documentId) });
       queryClient.invalidateQueries({ queryKey: documentKeys.allDocs() });
     },
   });

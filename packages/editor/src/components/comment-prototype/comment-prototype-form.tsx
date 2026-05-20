@@ -72,7 +72,7 @@ function CommentAuthorAvatar({
 }
 
 const cardShell =
-  "rounded-sm border-0 bg-background px-2 py-2 text-foreground shadow-[0_0_1px_1px_rgb(0_0_0/0.05),0px_8px_24px_0px_rgb(0_0_0/0.1)] ring-0";
+  "rounded-sm border-0 bg-background pl-3 pr-2 py-2 text-foreground shadow-[0_0_1px_1px_rgb(0_0_0/0.05),0px_8px_24px_0px_rgb(0_0_0/0.1)] ring-0";
 
 type CommentPrototypeFormProps = {
   className?: string;
@@ -126,7 +126,7 @@ export function CommentPrototypeForm({
       <div className={cn("flex flex-col gap-2", cardShell)}>
         {comments.length > 0 ? (
           <ul
-            aria-label="评论列表（原型占位）"
+            aria-label="评论列表"
             className="flex flex-col gap-3"
           >
             {comments.map((c) => (
@@ -191,7 +191,7 @@ export function CommentPrototypeForm({
             value={draft}
           />
           <Button
-            aria-label="提及用户（占位）"
+            aria-label="提及用户"
             className="size-7 shrink-0 text-muted-foreground hover:text-muted-foreground"
             size="icon"
             type="button"
@@ -200,7 +200,7 @@ export function CommentPrototypeForm({
             <AtSignIcon aria-hidden className="size-4 stroke-[1.25]" />
           </Button>
           <Button
-            aria-label="提交评论（原型占位）"
+            aria-label="提交评论"
             className="size-7 shrink-0 text-muted-foreground hover:text-muted-foreground"
             onClick={submitDraft}
             size="icon"

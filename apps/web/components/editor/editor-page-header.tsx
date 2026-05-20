@@ -28,7 +28,7 @@ interface EditorPageHeaderProps {
   isLoggedIn?: boolean;
   /** 全宽模式 */
   isFullWidth?: boolean;
-  onAddComment?: () => void;
+
 }
 
 export function EditorPageHeader({
@@ -45,7 +45,6 @@ export function EditorPageHeader({
   isOwner = true, // 默认为 true，保持向后兼容
   isLoggedIn = false,
   isFullWidth = false,
-  onAddComment,
 }: EditorPageHeaderProps) {
   const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
@@ -120,12 +119,7 @@ export function EditorPageHeader({
       return;
     }
 
-    if (onAddComment) {
-      onAddComment();
-    } else {
-      toast("评论功能开发中");
-    }
-  }, [isLoggedIn, onAddComment, router]);
+  }, [isLoggedIn,router]);
 
   return (
     <div className="w-full">
@@ -171,7 +165,6 @@ export function EditorPageHeader({
             hasCover={!!cover}
             onAddIcon={handleAddIcon}
             onAddCover={handleAddCover}
-            onAddComment={handleAddComment}
             isOwner={!readonly && isOwner}
           />
         </div>

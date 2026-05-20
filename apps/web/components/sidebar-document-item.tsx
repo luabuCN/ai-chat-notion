@@ -17,17 +17,28 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
+  FolderInput,
+  Loader2,
   MoreHorizontal,
   Plus,
+  Star,
   Trash,
   type LucideIcon,
 } from "lucide-react";
 import { useRouter, usePathname, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { useCreateDocument, useArchive } from "@/hooks/use-document-query";
+import {
+  useCreateDocument,
+  useArchive,
+  useUpdateDocument,
+  useDuplicateDocument,
+  useMoveDocument,
+} from "@/hooks/use-document-query";
 import { useState, useCallback } from "react";
 import { useSidebarDocumentsContext } from "./sidebar-documents-context";
 import { useWorkspace } from "./workspace-provider";
+import { DocumentSelectorDialog } from "./editor/document-selector-dialog";
 
 interface ItemProps {
   id?: string;
@@ -41,6 +52,7 @@ interface ItemProps {
   onClick?: () => void;
   icon: LucideIcon;
   canEdit?: boolean;
+  isFavorite?: boolean;
   lastEditedByName?: string | null;
 }
 
@@ -56,6 +68,7 @@ const Item = ({
   expanded,
   onExpand,
   canEdit = true,
+  isFavorite = false,
   lastEditedByName,
 }: ItemProps) => {
   const router = useRouter();
@@ -72,41 +85,114 @@ const Item = ({
     workspaceSlug || currentWorkspace?.slug || "";
   const createDocumentMutation = useCreateDocument();
   const archiveMutation = useArchive();
+  const updateDocumentMutation = useUpdateDocument();
+  const duplicateMutation = useDuplicateDocument();
+  const moveMutation = useMoveDocument();
   const { setExpanded: forceExpand } = useSidebarDocumentsContext();
   const [isHovered, setIsHovered] = useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
 
   const isViewingThisDocument = id
     ? isPathnameEditorDocument(pathname, id)
     : false;
 
   const onArchive = useCallback(
+    async (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      if (!id) return;
+      e.stopPropagation();
+
+      try {
+        await archiveMutation.mutateAsync(id);
+        toast.success("笔记已移至回收站！");
+        // 如果当前正在查看该文档，跳转到列表页
+        if (isViewingThisDocument) {
+          const pathNow =
+            typeof window !== "undefined" ? window.location.pathname : pathname;
+          router.replace(
+            getEditorListPathAfterLeavingDocument(
+              pathNow,
+              effectiveWorkspaceSlug
+            )
+          );
+        } else {
+          router.refresh();
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "移动到回收站失败"
+        );
+      }
+    },
+    [id, archiveMutation, isViewingThisDocument, router, pathname, effectiveWorkspaceSlug]
+  );
+
+  const onToggleFavorite = useCallback(
     (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
       if (!id) return;
       e.stopPropagation();
 
-      archiveMutation.mutate(id, {
-        onSuccess: () => {
-          toast.success("笔记已移至回收站！");
-          // 如果当前正在查看该文档，跳转到列表页
-          if (isViewingThisDocument) {
-            router.replace(
-              getEditorListPathAfterLeavingDocument(
-                pathname,
-                effectiveWorkspaceSlug
-              )
-            );
-          } else {
-            router.refresh();
-          }
+      updateDocumentMutation.mutate({
+        documentId: id,
+        updates: { isFavorite: !isFavorite },
+      });
+    },
+    [id, isFavorite, updateDocumentMutation]
+  );
+
+  const onDuplicate = useCallback(
+    (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      if (!id) return;
+      e.stopPropagation();
+
+      duplicateMutation.mutate(id, {
+        onSuccess: (newDoc) => {
+          toast.success("文档已复制");
+          router.push(
+            effectiveWorkspaceSlug
+              ? `/${effectiveWorkspaceSlug}/editor/${newDoc.id}`
+              : `/editor/${newDoc.id}`
+          );
         },
         onError: (error) => {
           toast.error(
-            error instanceof Error ? error.message : "移动到回收站失败"
+            error instanceof Error ? error.message : "复制文档失败"
           );
         },
       });
     },
-    [id, archiveMutation, isViewingThisDocument, router, pathname, effectiveWorkspaceSlug]
+    [id, duplicateMutation, router, effectiveWorkspaceSlug]
+  );
+
+  const onMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      if (!id) return;
+      e.stopPropagation();
+      setIsMoveDialogOpen(true);
+    },
+    [id]
+  );
+
+  const handleMove = useCallback(
+    async (parentDocumentId: string | null) => {
+      if (!id) return;
+
+      moveMutation.mutate(
+        { documentId: id, parentDocumentId },
+        {
+          onSuccess: () => {
+            toast.success("文档已移动");
+            setIsMoveDialogOpen(false);
+            router.refresh();
+          },
+          onError: (error) => {
+            toast.error(
+              error instanceof Error ? error.message : "移动文档失败"
+            );
+          },
+        }
+      );
+    },
+    [id, moveMutation, router]
   );
 
   const handleExpand = (
@@ -243,6 +329,28 @@ const Item = ({
               align="start"
               side="right"
             >
+              <DropdownMenuItem onClick={onToggleFavorite}>
+                <Star
+                  className={cn(
+                    "h-4 w-4 mr-2",
+                    isFavorite && "fill-yellow-400 text-yellow-400"
+                  )}
+                />
+                {isFavorite ? "取消收藏" : "收藏"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onMove}>
+                <FolderInput className="h-4 w-4 mr-2" />
+                移动
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onDuplicate} disabled={duplicateMutation.isPending}>
+                {duplicateMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                复制
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onArchive}>
                 <Trash className="h-4 w-4 mr-2" />
                 移到回收站
@@ -265,6 +373,16 @@ const Item = ({
           </Button>
         </div>
       )}
+
+      <DocumentSelectorDialog
+        open={isMoveDialogOpen}
+        onOpenChange={setIsMoveDialogOpen}
+        onSelect={handleMove}
+        isLoading={moveMutation.isPending}
+        title="移动文档"
+        placeholder="将页面移至..."
+        excludeDocumentId={id}
+      />
     </div>
   );
 };

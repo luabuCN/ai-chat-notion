@@ -10,7 +10,6 @@ interface EditorToolbarProps {
   hasCover: boolean;
   onAddIcon: (emoji: string) => void;
   onAddCover: () => void;
-  onAddComment?: () => void;
   isOwner?: boolean; // 是否是文档所有者
 }
 
@@ -20,7 +19,6 @@ export function EditorToolbar({
   hasCover,
   onAddIcon,
   onAddCover,
-  onAddComment,
   isOwner = true, // 默认为 true，保持向后兼容
 }: EditorToolbarProps) {
   if (!visible) return null;
@@ -52,16 +50,6 @@ export function EditorToolbar({
           添加封面
         </Button>
       )}
-      {/* 添加评论 - 所有人可见 */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 text-xs text-muted-foreground hover:text-foreground"
-        onClick={onAddComment}
-      >
-        <MessageSquare className="h-4 w-4 mr-1" />
-        添加评论
-      </Button>
     </div>
   );
 }

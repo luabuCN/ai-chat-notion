@@ -290,7 +290,7 @@ export function EditorHeader({
           </div>
         )}
 
-        {connectionStatus !== "idle" && (
+        {showCollabPresence && (
           <Separator orientation="vertical" className="mx-2 h-6" />
         )}
 

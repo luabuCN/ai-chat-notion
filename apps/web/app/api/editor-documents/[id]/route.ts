@@ -131,7 +131,7 @@ export async function PATCH(
       sourcePdfUrl,
       sourcePageUrl,
       lastEditedBy: user.id,
-      lastEditedByName: user.email?.split("@")[0] || "Unknown", // 用邮箱前缀作为名称
+      lastEditedByName: user.name || "Unknown",
     });
 
     return Response.json(updatedDocument, { status: 200 });
