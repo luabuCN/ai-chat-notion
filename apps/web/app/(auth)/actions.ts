@@ -202,7 +202,8 @@ export type SendCodeActionState = {
     | "success"
     | "failed"
     | "invalid_data"
-    | "rate_limited";
+    | "rate_limited"
+    | "user_exists";
 };
 
 export type VerifyCodeActionState = {
@@ -230,6 +231,12 @@ export const sendEmailCode = async (
     const validatedData = emailCodeSchema.parse({
       email: formData.get("email"),
     });
+
+    // 检查邮箱是否已注册
+    const [existingUser] = await getUser(validatedData.email);
+    if (existingUser) {
+      return { status: "user_exists" };
+    }
 
     const { prisma: db } = await import("@repo/database");
     const { sendVerificationCodeEmail } = await import("@/lib/email");

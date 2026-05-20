@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useActionState, useEffect, useState, useRef } from "react";
+import { useActionState, useEffect, useState, useRef, startTransition } from "react";
 import { Input, Button, Label } from "@repo/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
@@ -68,6 +68,8 @@ export default function Page() {
       setCountdown(60);
     } else if (sendState.status === "rate_limited") {
       toast({ type: "error", description: "请求过于频繁，请稍后再试" });
+    } else if (sendState.status === "user_exists") {
+      toast({ type: "error", description: "该邮箱已被注册，请直接登录" });
     } else if (sendState.status === "invalid_data") {
       toast({ type: "error", description: "请输入有效的邮箱地址" });
     } else if (sendState.status === "failed") {
@@ -98,7 +100,9 @@ export default function Page() {
     }
     const formData = new FormData();
     formData.append("email", emailInput.value);
-    sendAction(formData);
+    startTransition(() => {
+      sendAction(formData);
+    });
   };
 
   return (
