@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import type { User } from "next-auth";
 
 import { BotIcon, ClockRewind, ImageIcon } from "@/components/icons";
@@ -33,19 +33,18 @@ import {
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
   const { currentWorkspace, workspaces, refreshWorkspaces } = useWorkspace();
+
+  const isChatActive = /\/[^\/]+\/chat(\/|$)/.test(pathname ?? "");
+  const isImageActive = /\/[^\/]+\/image(\/|$)/.test(pathname ?? "");
+  const isDocumentsActive = /\/[^\/]+\/documents(\/|$)/.test(pathname ?? "");
 
   const handleWorkspaceSwitch = (workspace: Workspace) => {
     router.push(`/${workspace.slug}/chat`);
     router.refresh();
   };
-
-  const handleSettingsClick = (workspace: Workspace) => {
-    // TODO: 创建空间设置页面
-    console.log("Settings for workspace:", workspace.slug);
-  };
-
   return (
     <>
       <Sidebar className="group-data-[side=left]:border-r-0">
@@ -59,7 +58,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   workspaces={workspaces}
                   userId={user.id!}
                   onSwitch={handleWorkspaceSwitch}
-                  onSettingsClick={handleSettingsClick}
                   onRefresh={refreshWorkspaces}
                 />
               )}
@@ -69,12 +67,13 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             </div>
           </SidebarMenu>
         </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup>
+        <SidebarContent className="overflow-hidden">
+          <SidebarGroup className="flex-shrink-0">
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    isActive={isChatActive}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -102,6 +101,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    isActive={isImageActive}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -118,6 +118,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    isActive={isDocumentsActive}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {

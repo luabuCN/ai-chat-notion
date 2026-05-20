@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Toaster } from "sonner";
+import { ToasterProvider } from "@/components/toaster-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@repo/ui";
 
@@ -77,7 +77,7 @@ export default async function RootLayout({
             <NextIntlClientProvider messages={messages}>
               <ImagePreview>
                 <TooltipProvider>
-                  <Toaster position="top-center" />
+                  <ToasterProvider />
                   <SessionProvider
                     refetchInterval={5 * 60} // 5分钟刷新一次
                     refetchOnWindowFocus={false} // 窗口聚焦时不刷新

@@ -53,7 +53,6 @@ interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
   userId: string;
   onSwitch?: (workspace: Workspace) => void;
-  onSettingsClick?: (workspace: Workspace) => void;
   onInviteClick?: (workspace: Workspace) => void;
   onRefresh?: () => Promise<void>;
 }
@@ -63,7 +62,6 @@ export function WorkspaceSwitcher({
   workspaces,
   userId,
   onSwitch,
-  onSettingsClick,
   onRefresh,
 }: WorkspaceSwitcherProps) {
   const router = useRouter();

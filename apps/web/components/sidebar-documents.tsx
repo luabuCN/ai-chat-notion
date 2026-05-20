@@ -59,8 +59,9 @@ export function SidebarDocuments() {
   };
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="flex min-h-0 flex-1 flex-col">
       <SidebarGroupLabel
+        className="flex-shrink-0"
         onMouseEnter={() => setIsLabelHovered(true)}
         onMouseLeave={() => setIsLabelHovered(false)}
       >
@@ -95,7 +96,7 @@ export function SidebarDocuments() {
         )}
       </SidebarGroupLabel>
       <SidebarDocumentsProvider>
-        <SidebarMenu>
+        <SidebarMenu className="overflow-y-auto flex-1">
           <DocumentsList />
         </SidebarMenu>
       </SidebarDocumentsProvider>

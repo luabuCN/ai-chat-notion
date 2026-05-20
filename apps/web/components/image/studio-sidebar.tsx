@@ -16,7 +16,9 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  useSidebar,
 } from "@repo/ui";
+import { SidebarToggle } from "@/components/sidebar-toggle";
 import {
   Camera,
   Loader2,
@@ -109,12 +111,16 @@ export function StudioSidebar({
 }: StudioSidebarProps) {
   const { mutate: optimizePrompt, isPending: isOptimizing } =
     useOptimizePrompt();
+  const { open } = useSidebar();
 
   return (
     <aside className="flex h-full w-full flex-col border-b border-zinc-100 bg-white xl:w-[380px] xl:border-b-0 xl:border-r">
       {/* 顶部 header */}
       <div className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
+          {!open && (
+            <SidebarToggle variant="ghost" className="h-7 w-7 shrink-0 text-zinc-400 hover:text-zinc-700" />
+          )}
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50">
             <Sparkles className="size-3.5 text-primary" />
           </div>
