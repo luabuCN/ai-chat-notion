@@ -83,7 +83,7 @@ export function EditorContent({
 }: EditorContentProps) {
   const { data: document, isLoading, error } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
-  const { setConnectedUsers, setConnectionStatus } = useCollaboration();
+  const { connectedUsers, setConnectedUsers, setConnectionStatus } = useCollaboration();
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState("");
@@ -176,6 +176,10 @@ export function EditorContent({
   const shouldConnectCollabRef = useRef(shouldConnectCollab);
   shouldConnectCollabRef.current = shouldConnectCollab;
 
+  /** 供 fallback 回调读取断开瞬间的协同用户数（≥2 才提示，避免单人编辑时误报） */
+  const connectedUsersCountRef = useRef(connectedUsers.length);
+  connectedUsersCountRef.current = connectedUsers.length;
+
   useEffect(() => {
     if (!shouldConnectCollab) {
       setConnectionStatus("idle");
@@ -189,7 +193,10 @@ export function EditorContent({
     }
     setCollabPersistenceFallback(true);
     setIsEditorBodyReady(true);
-    if (!collabFallbackToastShownRef.current) {
+    if (
+      !collabFallbackToastShownRef.current &&
+      connectedUsersCountRef.current >= 2
+    ) {
       collabFallbackToastShownRef.current = true;
       toast.warning("协同已断开");
     }
