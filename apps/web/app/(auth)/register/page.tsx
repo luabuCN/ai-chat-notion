@@ -41,7 +41,7 @@ export default function Page() {
   // 处理注册结果
   useEffect(() => {
     if (state.status === "user_exists") {
-      toast({ type: "error", description: "该邮箱或用户名已被注册" });
+      toast({ type: "error", description: "该邮箱或用户名已被注册", position: "top-center" });
     } else if (state.status === "failed") {
       toast({ type: "error", description: "注册失败，请重试" });
     } else if (state.status === "invalid_data") {

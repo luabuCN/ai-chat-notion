@@ -405,16 +405,13 @@ export function DocumentSharePopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant={isPubliclyEditable || hasCollaborators ? "default" : "ghost"}
+          variant="ghost"
           size="sm"
           className={cn(
-            "h-8 gap-1.5",
-            isPubliclyEditable || hasCollaborators
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "text-muted-foreground"
+            "h-8 gap-1.5 text-muted-foreground"
           )}
         >
-          <Users className="size-4" />
+          <Users className={cn( 'size-4',isPubliclyEditable || hasCollaborators ? "text-primary" : "text-muted-foreground")} />
           <span className="text-xs hidden sm:inline">分享</span>
         </Button>
       </PopoverTrigger>

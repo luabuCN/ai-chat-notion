@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { toast as sonnerToast } from "sonner";
+import { toast as sonnerToast, type ExternalToast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CheckCircleFillIcon, WarningIcon } from "./icons";
 
@@ -11,9 +11,12 @@ const iconsByType: Record<"success" | "error", ReactNode> = {
 };
 
 export function toast(props: Omit<ToastProps, "id">) {
-  return sonnerToast.custom((id) => (
-    <Toast description={props.description} id={id} type={props.type} />
-  ));
+  return sonnerToast.custom(
+    (id) => (
+      <Toast description={props.description} id={id} type={props.type} />
+    ),
+    { position: props.position ?? "top-center" }
+  );
 }
 
 function Toast(props: ToastProps) {
@@ -72,4 +75,5 @@ type ToastProps = {
   id: string | number;
   type: "success" | "error";
   description: string;
+  position?: ExternalToast["position"];
 };

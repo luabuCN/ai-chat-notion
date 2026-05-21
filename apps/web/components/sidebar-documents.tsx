@@ -59,7 +59,7 @@ export function SidebarDocuments() {
   };
 
   return (
-    <SidebarGroup className="flex min-h-0 flex-1 flex-col">
+    <SidebarGroup className="flex min-h-0 flex-col overflow-hidden">
       <SidebarGroupLabel
         className="flex-shrink-0"
         onMouseEnter={() => setIsLabelHovered(true)}
