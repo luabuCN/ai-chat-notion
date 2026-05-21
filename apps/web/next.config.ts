@@ -3,6 +3,7 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   reactStrictMode: false,
   transpilePackages: ["@repo/database","@repo/editor","@repo/ui","@repo/ai"],
   productionBrowserSourceMaps:false,

@@ -715,6 +715,9 @@ importers:
       '@tiptap/extension-text-style':
         specifier: ^3.0.7
         version: 3.13.0(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))
+      '@tiptap/extension-unique-id':
+        specifier: ^3.15.3
+        version: 3.23.4(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))(@tiptap/pm@3.13.0)
       '@tiptap/extension-youtube':
         specifier: ^3.0.7
         version: 3.13.0(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))

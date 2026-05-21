@@ -1,0 +1,15 @@
+node_modules
+.next
+.turbo
+dist
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.git
+.gitignore
+README.md
+LICENSE
+playwright-report
+test-results
