@@ -3,6 +3,7 @@ import { getAuthStatus, openMainSiteLogin } from "@/lib/auth/client";
 import { imageElementToDataUrl } from "@/lib/image-element-to-data-url";
 import { sendMessage } from "@/lib/messaging/extension-messaging";
 import { recognizeImageDataUrl } from "@/lib/run-tesseract-ocr";
+import { generateUUID } from "@/lib/uuid";
 import { ImageExtractTextPopover } from "./ImageExtractTextPopover";
 import { ImageHoverToolbar } from "./ImageHoverToolbar";
 
@@ -75,7 +76,7 @@ export function ImageHoverToolbarHost() {
       }
       let id = wm.get(node);
       if (!id) {
-        id = crypto.randomUUID();
+        id = generateUUID();
         wm.set(node, id);
       }
       idToImg.set(id, node);

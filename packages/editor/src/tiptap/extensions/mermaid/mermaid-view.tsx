@@ -1,5 +1,5 @@
 import { Button } from "@repo/ui/button";
-import { cn } from "../../../lib/utils";
+import { cn, generateUUID } from "../../../lib/utils";
 import { NodeViewWrapper, ReactNodeViewProps } from "@tiptap/react";
 import { EditIcon, Trash2Icon } from "lucide-react";
 import mermaid from "mermaid";
@@ -36,7 +36,7 @@ export function MermaidView({
 
   const renderDiagram = useCallback(async () => {
     try {
-      const id = "m-" + crypto.randomUUID();
+      const id = "m-" + generateUUID();
       const result = await mermaid.render(id, node.textContent);
       if (containerRef.current) {
         containerRef.current.innerHTML = result.svg;

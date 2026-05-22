@@ -34,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../../ui/table";
-import { cn, safeParseNum, uppercaseFirstChar } from "../../../lib/utils";
+import { cn, generateUUID, safeParseNum, uppercaseFirstChar } from "../../../lib/utils";
 import { format, parse } from "date-fns";
 import {
   ArrowLeftToLineIcon,
@@ -61,7 +61,7 @@ import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { ChartRenderer } from "./chart-renderer";
 import { ChartConfig, ChartData, parseChartData, Property } from "./common";
 
-const defaultId = crypto.randomUUID();
+const defaultId = generateUUID();
 const defaultData: ChartData = {
   config: {
     type: "bar",
@@ -212,7 +212,7 @@ export function ChartEditDialog({
   const addNextColumn = (index: number, type: Property["type"]) => {
     const isLastColumn = index === propertiesField.fields.length - 1;
     const property = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       type: type,
       name: "Name",
     } satisfies Property;

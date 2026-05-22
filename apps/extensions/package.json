@@ -47,6 +47,7 @@
     "remark-gfm": "^4.0.1",
     "sonner": "^1.7.4",
     "streamdown": "^1.6.10",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "uuid": "^14.0.0"
   }
 }

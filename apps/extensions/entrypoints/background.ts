@@ -3,6 +3,7 @@ import { registerMainSiteStreamPort } from "@/lib/auth/main-site-stream-backgrou
 import type { MainSitePostJsonProxyResult } from "@/lib/auth/main-site-post-json-proxy-message";
 import { postMainSiteJsonWithFallback } from "@/lib/auth/post-main-site-json";
 import { blobToDataUrl } from "@/lib/blob-to-data-url";
+import { generateUUID } from "@/lib/uuid";
 import { onMessage } from "@/lib/messaging/extension-messaging";
 import { pageCaptureOverlayFn } from "@/lib/page-capture-overlay-fn";
 import { dataUrlToFile } from "@/lib/data-url-to-file";
@@ -84,7 +85,7 @@ export default defineBackground(() => {
   });
 
   onMessage("pageCapture", async () => {
-    const requestId = crypto.randomUUID();
+    const requestId = generateUUID();
     return await new Promise<PageCapturePendingResult>((resolve) => {
       const timeoutId = setTimeout(() => {
         const p = pendingPageCaptures.get(requestId);

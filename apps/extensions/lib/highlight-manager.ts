@@ -3,6 +3,7 @@
  * 持久化由 highlight-db + highlight-persistence 负责。
  */
 import type { StoredHighlight } from "@/lib/highlight-db";
+import { generateUUID } from "@/lib/uuid";
 
 export const HIGHLIGHT_COLORS = {
   yellow: { bg: "rgba(255, 224, 102, 0.5)", dot: "#facc15", label: "黄色" },
@@ -265,7 +266,7 @@ export function highlightSelection(
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
 
   const range = sel.getRangeAt(0);
-  const id = crypto.randomUUID();
+  const id = generateUUID();
   applyHighlightToRange(range, id, color);
   sel.removeAllRanges();
   return id;

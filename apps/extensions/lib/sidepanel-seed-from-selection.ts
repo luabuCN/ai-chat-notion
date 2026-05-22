@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { generateUUID } from "@/lib/uuid";
 
 /** 与 `browser.storage.session` 键一致，供 background 写入与侧栏读取 */
 export const SIDEPANEL_SEED_FROM_SELECTION_KEY = "sidepanelSeedFromSelection";
@@ -29,18 +30,18 @@ export function buildSidepanelSeedFromSelectionMessages(
   userQuery: string,
   assistantAnswer: string,
 ): SidepanelSeedFromSelectionPayload {
-  const chatId = crypto.randomUUID();
+  const chatId = generateUUID();
   const userText = buildUserMessageText(selectedText, userQuery);
   const messages: UIMessage[] = [
     {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: "user",
       parts: [{ type: "text", text: userText }],
     },
   ];
   if (assistantAnswer.trim().length > 0) {
     messages.push({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: "assistant",
       parts: [{ type: "text", text: assistantAnswer.trim() }],
     });

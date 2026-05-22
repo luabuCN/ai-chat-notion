@@ -2,6 +2,7 @@ import { Chat, useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionModelInfo } from "@/hooks/use-extension-models";
+import { generateUUID } from "@/lib/uuid";
 import { createSidepanelChatTransport } from "@/lib/sidepanel-chat-transport";
 import {
   SIDEPANEL_PENDING_IMAGE_KEY,
@@ -21,7 +22,7 @@ export function useSidepanelChat(
   modelsLoading: boolean,
   workspaceSlug: string,
 ) {
-  const [chatId, setChatId] = useState<string>(() => crypto.randomUUID());
+  const [chatId, setChatId] = useState<string>(() => generateUUID());
   const pendingRestoreRef = useRef<{
     chatId: string;
     messages: UIMessage[];
@@ -72,7 +73,7 @@ export function useSidepanelChat(
           }
         },
         transport,
-        generateId: () => crypto.randomUUID(),
+        generateId: () => generateUUID(),
       }),
     [chatId, transport],
   );
@@ -366,7 +367,7 @@ export function useSidepanelChat(
 
   const resetToNewChat = useCallback(() => {
     seedSyncPendingRef.current = false;
-    const newChatId = crypto.randomUUID();
+    const newChatId = generateUUID();
     pendingRestoreRef.current = {
       chatId: newChatId,
       messages: [],

@@ -1,4 +1,5 @@
 import "server-only";
+import { generateUUID } from "../utils";
 import { ChatSDKError } from "../errors";
 import { prisma } from "../client";
 import { EditorDocument } from "./types";
@@ -291,7 +292,7 @@ export async function enablePublicEditEditorDocument({ id }: { id: string }) {
 
     const publicShareToken =
       existing?.publicShareToken ||
-      `${globalThis.crypto.randomUUID()}${globalThis.crypto.randomUUID()}`
+      `${generateUUID()}${generateUUID()}`
         .replaceAll("-", "")
         .slice(0, 64);
     const shouldResetYjsState =

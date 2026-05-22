@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import type * as Y from "yjs";
 import { Button } from "@repo/ui/button";
-import { cn } from "../../lib/utils";
+import { cn, generateUUID } from "../../lib/utils";
 import { useAIPanelStore } from "../ai-panel/ai-panel-store";
 import type { CommentMarginCueGeom } from "./comment-margin-types";
 import {
@@ -336,9 +336,7 @@ function CommentBlockMarginTriggerInner({
         authorName: currentUser?.name ?? "原型用户",
         body,
         createdAtMs: Date.now(),
-        id: globalThis.crypto?.randomUUID
-          ? globalThis.crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        id: generateUUID(),
       });
     },
     [currentUser?.avatar, currentUser?.color, currentUser?.name, ydoc]
