@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./workspace-name": "./src/workspace-name.ts"
   },
   "scripts": {
     "build": "prisma generate",

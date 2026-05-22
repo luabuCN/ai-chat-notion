@@ -8,6 +8,7 @@ import {
   generateWorkspaceSlug,
   updateUserCurrentWorkspace,
 } from "@repo/database";
+import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 import { ChatSDKError } from "@/lib/errors";
 import {
   extensionCorsOptionsResponse,
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
     if (workspaces.length === 0) {
       const slug = generateWorkspaceSlug();
       const workspace = await createWorkspace({
-        name: "我的空间",
+        name: generateDefaultWorkspaceName(session.user.name),
         slug,
         ownerId: session.user.id,
       });

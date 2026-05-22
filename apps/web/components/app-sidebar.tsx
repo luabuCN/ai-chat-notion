@@ -57,6 +57,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   currentWorkspace={currentWorkspace}
                   workspaces={workspaces}
                   userId={user.id!}
+                  userName={user.name}
                   onSwitch={handleWorkspaceSwitch}
                   onRefresh={refreshWorkspaces}
                 />

@@ -4,6 +4,7 @@ import { prisma } from "../client";
 import { generateHashedPassword } from "../password";
 import { generateUUID } from "../utils";
 import { User } from "./types";
+import { generateDefaultWorkspaceName } from "../workspace-name";
 import { createWorkspace, generateWorkspaceSlug } from "./workspace";
 
 export async function getUser(identifier: string): Promise<User[]> {
@@ -43,7 +44,7 @@ export async function createUser(
 
     // 自动为新用户创建默认工作区
     const workspace = await createWorkspace({
-      name: "我的空间",
+      name: generateDefaultWorkspaceName(name),
       slug: generateWorkspaceSlug(),
       ownerId: user.id,
     });

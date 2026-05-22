@@ -37,6 +37,7 @@ import {
   Check,
 } from "lucide-react";
 import { WorkspaceSettingsDialog } from "./workspace-settings-dialog";
+import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 
 export type Workspace = {
   id: string;
@@ -52,6 +53,7 @@ interface WorkspaceSwitcherProps {
   currentWorkspace: Workspace | null;
   workspaces: Workspace[];
   userId: string;
+  userName?: string | null;
   onSwitch?: (workspace: Workspace) => void;
   onInviteClick?: (workspace: Workspace) => void;
   onRefresh?: () => Promise<void>;
@@ -61,6 +63,7 @@ export function WorkspaceSwitcher({
   currentWorkspace,
   workspaces,
   userId,
+  userName,
   onSwitch,
   onRefresh,
 }: WorkspaceSwitcherProps) {
@@ -267,7 +270,8 @@ export function WorkspaceSwitcher({
   };
 
   const isDefaultWorkspace = (workspace: Workspace) => {
-    return workspace.name === "我的空间";
+    const defaultName = generateDefaultWorkspaceName(userName);
+    return workspace.name === defaultName || workspace.name === "我的空间";
   };
 
   const displayName = currentWorkspace?.name || "选择空间";

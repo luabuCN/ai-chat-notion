@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma, createWorkspace, generateWorkspaceSlug } from "@repo/database";
+import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 import { DUMMY_PASSWORD } from "@/lib/constants";
 import { getUser } from "@repo/database";
 import { authConfig } from "./auth.config";
@@ -104,7 +105,7 @@ export const {
 
           // 为新用户创建工作空间
           const workspace = await createWorkspace({
-            name: "我的空间",
+            name: generateDefaultWorkspaceName(newUser.name),
             slug: generateWorkspaceSlug(),
             ownerId: newUser.id,
           });
@@ -169,7 +170,7 @@ export const {
       // 仅当用户来自 OAuth 且没有工作空间时运行（Credential 用户在 queries/user.ts 中已经处理了）
       if (user.id) {
         const workspace = await createWorkspace({
-          name: "我的空间",
+          name: generateDefaultWorkspaceName(user.name),
           slug: generateWorkspaceSlug(),
           ownerId: user.id,
         });
