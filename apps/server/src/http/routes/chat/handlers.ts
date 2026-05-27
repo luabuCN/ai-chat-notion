@@ -1,4 +1,3 @@
-import { Hono } from "hono";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -35,22 +34,21 @@ import {
   titlePrompt,
   type RequestHints,
 } from "@repo/ai";
-import { getSessionFromRequest } from "../../shared/auth.js";
-import { ApiError } from "../../shared/errors.js";
+import type { Context } from "hono";
+import { getSessionFromRequest } from "../../../shared/auth.js";
+import { ApiError } from "../../../shared/errors.js";
 import {
   convertToUIMessages,
   generateUUID,
   getTextFromMessage,
-} from "../../shared/utils.js";
-import type { AppUsage, ChatMessage } from "../../shared/types.js";
-import { createDocument } from "../ai/tools/create-document.js";
-import { getWeather } from "../ai/tools/get-weather.js";
-import { requestSuggestions } from "../ai/tools/request-suggestions.js";
-import { updateDocument } from "../ai/tools/update-document.js";
-import { viewDocument } from "../ai/tools/view-document.js";
-import { postRequestBodySchema, type PostRequestBody } from "./chat-schema.js";
-
-export const chatRoutes = new Hono();
+} from "../../../shared/utils.js";
+import type { ChatMessage } from "../../../shared/types.js";
+import { createDocument } from "../../ai/tools/create-document.js";
+import { getWeather } from "../../ai/tools/get-weather.js";
+import { requestSuggestions } from "../../ai/tools/request-suggestions.js";
+import { updateDocument } from "../../ai/tools/update-document.js";
+import { viewDocument } from "../../ai/tools/view-document.js";
+import { postRequestBodySchema, type PostRequestBody } from "./schema.js";
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -64,8 +62,9 @@ export function getStreamContext() {
       globalStreamContext = createResumableStreamContext({
         waitUntil: null,
       });
-    } catch (error: any) {
-      if (error.message?.includes("REDIS_URL")) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("REDIS_URL")) {
         console.log(" > Resumable streams are disabled due to missing REDIS_URL");
       } else {
         console.error(error);
@@ -92,7 +91,7 @@ async function generateTitleFromUserMessage({
   return title;
 }
 
-chatRoutes.post("/", async (c) => {
+export async function postChatHandler(c: Context) {
   let requestBody: PostRequestBody;
 
   try {
@@ -182,7 +181,7 @@ chatRoutes.post("/", async (c) => {
       if (msg.role === "assistant") {
         const parts = msg.parts || [];
         const hasTextPart = parts.some(
-          (part) => part.type === "text" && part.text?.trim()
+          (part) => part.type === "text" && part.text?.trim(),
         );
         const hasToolParts = parts.some((part) => part.type.startsWith("tool-"));
 
@@ -225,7 +224,7 @@ chatRoutes.post("/", async (c) => {
           } catch {
             return null;
           }
-        })
+        }),
       );
 
       const validDocs = docs.filter(Boolean);
@@ -246,7 +245,7 @@ chatRoutes.post("/", async (c) => {
               : content;
 
           truncatedParts.push(
-            `<reference_document id="${doc!.id}" title="${doc!.title}">\n${truncated}\n</reference_document>`
+            `<reference_document id="${doc!.id}" title="${doc!.title}">\n${truncated}\n</reference_document>`,
           );
           totalChars += truncated.length;
 
@@ -283,10 +282,12 @@ chatRoutes.post("/", async (c) => {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
-    let finalMergedUsage: any;
+    let finalMergedUsage:
+      | Parameters<typeof updateChatLastContextById>[0]["context"]
+      | undefined;
     const modelSlug = selectedModelSlug || (await getFirstModelSlug());
     const modelProvider = getProviderWithModel(
-      modelSlug
+      modelSlug,
     ) as unknown as LanguageModel;
     const supportsReasoning =
       modelCapabilities?.supports_reasoning ?? isMoonshotThinkingModel(modelSlug);
@@ -388,9 +389,9 @@ chatRoutes.post("/", async (c) => {
     console.error("Unhandled error in chat API:", error);
     return new ApiError("offline:chat").toResponse();
   }
-});
+}
 
-chatRoutes.delete("/", async (c) => {
+export async function deleteChatHandler(c: Context) {
   const id = new URL(c.req.url).searchParams.get("id");
 
   if (!id) {
@@ -409,9 +410,9 @@ chatRoutes.delete("/", async (c) => {
 
   const deletedChat = await deleteChatById({ id });
   return c.json(deletedChat);
-});
+}
 
-chatRoutes.get("/:id", async (c) => {
+export async function getChatHandler(c: Context) {
   const id = c.req.param("id");
 
   if (!id) {
@@ -433,9 +434,9 @@ chatRoutes.get("/:id", async (c) => {
   }
 
   return c.json(chat);
-});
+}
 
-chatRoutes.get("/:id/messages", async (c) => {
+export async function getChatMessagesHandler(c: Context) {
   const id = c.req.param("id");
 
   if (!id) {
@@ -458,9 +459,9 @@ chatRoutes.get("/:id/messages", async (c) => {
 
   const messages = await getMessagesByChatId({ id });
   return c.json({ chatId: id, messages: convertToUIMessages(messages) });
-});
+}
 
-chatRoutes.get("/:id/title", async (c) => {
+export async function getChatTitleHandler(c: Context) {
   const id = c.req.param("id");
 
   if (!id) {
@@ -482,9 +483,9 @@ chatRoutes.get("/:id/title", async (c) => {
   }
 
   return c.json({ title: chat.title });
-});
+}
 
-chatRoutes.get("/:id/stream", async (c) => {
+export async function getChatStreamHandler(c: Context) {
   const chatId = c.req.param("id");
   const streamContext = getStreamContext();
   const resumeRequestedAt = new Date();
@@ -529,7 +530,7 @@ chatRoutes.get("/:id/stream", async (c) => {
   });
 
   const stream = await streamContext.resumableStream(recentStreamId, () =>
-    emptyDataStream.pipeThrough(new JsonToSseTransformStream())
+    emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
   );
 
   if (!stream) {
@@ -557,9 +558,9 @@ chatRoutes.get("/:id/stream", async (c) => {
 
     return new Response(
       restoredStream.pipeThrough(new JsonToSseTransformStream()),
-      { status: 200 }
+      { status: 200 },
     );
   }
 
   return new Response(stream, { status: 200 });
-});
+}

@@ -791,6 +791,9 @@ importers:
         specifier: ^14.0.0
         version: 14.0.0
     devDependencies:
+      '@types/node':
+        specifier: ^22.8.6
+        version: 22.19.1
       prisma:
         specifier: '6'
         version: 6.19.0(typescript@5.9.3)

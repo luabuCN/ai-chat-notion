@@ -1,7 +1,7 @@
-import { generateUUID } from "../utils";
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
-import { EditorDocument } from "./types";
+import { generateUUID } from "../utils.js";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
+import { EditorDocument } from "./types.js";
 
 // EditorDocument 相关查询函数
 

@@ -1,13 +1,13 @@
-export * from "./queries/types";
-export * from "./queries/user";
-export * from "./queries/chat";
-export * from "./queries/message";
-export * from "./queries/vote";
-export * from "./queries/document";
-export * from "./queries/suggestion";
-export * from "./queries/stream";
-export * from "./queries/editor-document";
-export * from "./queries/workspace";
-export * from "./queries/image-generation";
+export * from "./queries/types.js";
+export * from "./queries/user.js";
+export * from "./queries/chat.js";
+export * from "./queries/message.js";
+export * from "./queries/vote.js";
+export * from "./queries/document.js";
+export * from "./queries/suggestion.js";
+export * from "./queries/stream.js";
+export * from "./queries/editor-document.js";
+export * from "./queries/workspace.js";
+export * from "./queries/image-generation.js";
 
 

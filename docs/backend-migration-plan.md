@@ -1,11 +1,11 @@
 # API 与协同服务后端迁移方案
 
-## 当前进度（2026-05-26 更新）
+## 当前进度（2026-05-27 更新）
 
 ### 已完成
 
 - **阶段 0：Hono 后端骨架**
-  - 新增 `apps/server`，目录布局：`src/index.ts`、`src/http/app.ts`、`src/http/middleware/cors.ts`、`src/http/routes/{ai,chat,collab,history,models}.ts`、`src/shared/{auth,config,errors,permissions,types,utils}.ts`、`src/collab/{server,auth,extensions}.ts`。
+  - 新增 `apps/server`，目录布局：`src/index.ts`、`src/http/app.ts`、`src/http/middleware/cors.ts`、`src/http/routes/{ai,chat,collab,history,models}/`（见下文「HTTP 路由模块约定」）、`src/shared/{auth,config,errors,permissions,types,utils}.ts`、`src/collab/{server,auth,extensions}.ts`。
   - 根目录 `package.json` 新增 `dev:server`、`dev:all`、`build:server` 等脚本。
   - `turbo.json` 注册 `@repo/server#dev` / `#build`，并显式声明所需环境变量（`SERVER_HTTP_PORT`、`SERVER_COLLAB_PORT`、`WEB_ORIGIN`、`API_ORIGIN`、`NEXT_PUBLIC_API_ORIGIN`、`API_AUTH_SECRET` 等）。
   - HTTP 与 Collab 同进程启动：HTTP `4000`、Collab WebSocket `1234`，提供 `SIGINT/SIGTERM` 优雅关闭。
@@ -31,6 +31,49 @@
     - `hooks/use-models.ts`、`hooks/use-collab-token.ts`、`components/message-actions.tsx`、`components/image/actions.ts`、`components/multimodal-input.tsx`、`components/sidebar-history.tsx` 已切换。
   - 浏览器插件 (`apps/extensions`) 已新增 `API_ORIGIN`（`WXT_API_ORIGIN`），并切换 `models`、`chat`（sidepanel transport）、主站 API fetch、`ai/openai` 流式后台调用到新源；同时为后续 token 化迁移做好分离。
   - 已删除 `apps/web/app/api/{chat,history,models,collab,ai/completion,ai/openai}/` 目录与所有内部 `withExtensionCors`/`OPTIONS` 分支。
+
+- **HTTP 路由模块分层（2026-05-27）**
+  - 第一批已迁移的 5 个 route 从单文件改为「一模块一目录」，统一三层职责：
+    - `index.ts`：Hono 路由注册，只做 path → handler 绑定
+    - `handlers.ts`：鉴权、业务逻辑、组装 `Response`
+    - `schema.ts`：Zod 校验 + `z.infer` 类型（无 body/query schema 的模块可省略）
+  - 当前目录：
+
+    ```text
+    apps/server/src/http/routes/
+    ├── ai/
+    │   ├── index.ts
+    │   ├── handlers.ts      # completionHandler、openaiHandler
+    │   └── schema.ts        # completionRequestSchema、openaiRequestSchema
+    ├── chat/
+    │   ├── index.ts
+    │   ├── handlers.ts      # postChatHandler、deleteChatHandler、getChat* 等
+    │   └── schema.ts        # postRequestBodySchema（原 chat-schema.ts）
+    ├── collab/
+    │   ├── index.ts
+    │   ├── handlers.ts      # createTokenHandler
+    │   └── schema.ts        # collabTokenBodySchema
+    ├── history/
+    │   ├── index.ts
+    │   └── handlers.ts      # listHistoryHandler、deleteAllHistoryHandler
+    └── models/
+        ├── index.ts
+        ├── handlers.ts      # listModelsHandler
+        └── schema.ts        # ModelInfo 响应类型
+    ```
+
+  - `apps/server/src/http/app.ts` 通过显式路径挂载（NodeNext 不会自动解析目录 index）：
+
+    ```ts
+    import { aiRoutes } from "./routes/ai/index.js";
+    import { chatRoutes } from "./routes/chat/index.js";
+    // ...
+    app.route("/api/ai", aiRoutes);
+    app.route("/api/chat", chatRoutes);
+    ```
+
+  - **后续第二批/第三批迁移的新模块**（如 `workspaces`、`editor-documents`）按同一约定新建目录，不再使用 `routes/foo.ts` 单文件写法。
+  - 类型对齐：`ModelInfo` 仍在 `apps/web/lib/api-types.ts` 独立维护；server 侧 `models/schema.ts` 仅作 handler 内部类型，扩展侧见 `apps/extensions/hooks/use-extension-models.ts` 中的 `ExtensionModelInfo` 注释。
 
 ### 进行中 / 待办
 
@@ -292,16 +335,29 @@ app.use(
 ```text
 apps/server/
   src/index.ts
-  src/app.ts
   src/http/app.ts
-  src/http/middleware/auth.ts
   src/http/middleware/cors.ts
-  src/http/middleware/error.ts
-  src/http/routes/chat.ts
-  src/http/routes/history.ts
-  src/http/routes/collab-token.ts
-  src/http/routes/workspaces.ts
-  src/http/routes/editor-documents.ts
+  src/http/routes/
+    ai/index.ts
+    ai/handlers.ts
+    ai/schema.ts
+    chat/index.ts
+    chat/handlers.ts
+    chat/schema.ts
+    collab/index.ts
+    collab/handlers.ts
+    collab/schema.ts
+    history/index.ts
+    history/handlers.ts
+    models/index.ts
+    models/handlers.ts
+    models/schema.ts
+    workspaces/index.ts          # 第二批起按同约定新增
+    workspaces/handlers.ts
+    workspaces/schema.ts
+    editor-documents/index.ts
+    editor-documents/handlers.ts
+    editor-documents/schema.ts
   src/collab/server.ts
   src/collab/auth.ts
   src/collab/extensions/database.ts
@@ -309,6 +365,34 @@ apps/server/
   src/shared/auth.ts
   src/shared/permissions.ts
   src/shared/config.ts
+```
+
+### HTTP 路由模块约定
+
+每个业务模块占一个目录，文件职责固定：
+
+| 文件 | 职责 | 示例 |
+| --- | --- | --- |
+| `index.ts` | 创建 `Hono` 实例，注册 HTTP path | `chatRoutes.post("/", postChatHandler)` |
+| `handlers.ts` | 请求处理：鉴权、调 DB/AI、返回 `Response` | `export async function postChatHandler(c: Context)` |
+| `schema.ts` | Zod schema 与推断类型 | `postRequestBodySchema`、`PostRequestBody` |
+
+约定细则：
+
+- `index.ts` 理想状态仅十几行，不含业务逻辑；需要对外 re-export 的符号（如 `getStreamContext`）可从 `handlers.ts` 再导出。
+- 仅 query 参数、无 body 校验的模块（如 `history`）可不建 `schema.ts`，校验留在 handler 内。
+- handler 命名建议 `{动作}{资源}Handler`，如 `listHistoryHandler`、`createTokenHandler`。
+- `app.ts` 使用 `./routes/<module>/index.js` 显式 import（`moduleResolution: NodeNext`）。
+
+单模块 `index.ts` 示例：
+
+```ts
+import { Hono } from "hono";
+import { postChatHandler, deleteChatHandler } from "./handlers.js";
+
+export const chatRoutes = new Hono();
+chatRoutes.post("/", postChatHandler);
+chatRoutes.delete("/", deleteChatHandler);
 ```
 
 根目录脚本：
@@ -374,6 +458,7 @@ packages/api-common/
 - Web 前端和插件只改 `NEXT_PUBLIC_API_ORIGIN` / `API_ORIGIN` 指向 `apps/server` 的 HTTP API，不改业务调用语义。
 - `/api/chat` 必须保留流式响应，验证 AI SDK 的流输出在 Hono 下可正常消费。
 - 迁移后删除 route 内部零散的 `OPTIONS` 和 `withExtensionCors`。
+- 新迁入的 route 按「HTTP 路由模块约定」拆为 `index.ts` + `handlers.ts` + `schema.ts`（可选），不要新增 `routes/*.ts` 单文件。
 
 ### 阶段 3：迁移工作区与文档权限接口
 

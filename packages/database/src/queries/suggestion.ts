@@ -1,6 +1,6 @@
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
-import { Suggestion } from "./types";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
+import { Suggestion } from "./types.js";
 
 export async function saveSuggestions({
   suggestions,

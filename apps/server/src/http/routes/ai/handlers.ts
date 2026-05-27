@@ -1,37 +1,79 @@
-import { Hono } from "hono";
 import { getProviderWithModel } from "@repo/ai";
 import { streamText, type LanguageModel, type ModelMessage } from "ai";
+import type { Context } from "hono";
 import {
   DEFAULT_MODELSCOPE_MODEL,
   runModelScopeChat,
   streamModelScopeChat,
   type ModelScopeChatParams,
-} from "../ai/modelscope-chat.js";
-import { getSessionFromRequest } from "../../shared/auth.js";
+} from "../../ai/modelscope-chat.js";
+import { getSessionFromRequest } from "../../../shared/auth.js";
+import {
+  completionRequestSchema,
+  openaiRequestSchema,
+  type OpenaiRequest,
+} from "./schema.js";
 
-export const aiRoutes = new Hono();
+function parseOpenaiParams(
+  body: OpenaiRequest,
+): ModelScopeChatParams | Response {
+  if (Array.isArray(body.messages)) {
+    return {
+      messages: body.messages as ModelMessage[],
+      temperature: body.temperature,
+      model: body.model,
+    };
+  }
 
-aiRoutes.post("/completion", async (c) => {
+  if (typeof body.prompt === "string") {
+    return {
+      system: body.system,
+      prompt: body.prompt,
+      temperature: body.temperature,
+      model: body.model,
+    };
+  }
+
+  return new Response(
+    JSON.stringify({
+      error: "Provide either `prompt` (optional `system`) or `messages` array",
+    }),
+    {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+}
+
+export async function completionHandler(c: Context) {
   try {
+    const json = await c.req.json();
+    const parsed = completionRequestSchema.safeParse(json);
+
+    if (!parsed.success) {
+      return c.text("Missing prompt or messages", 400);
+    }
+
     const {
       prompt,
       messages,
       system: overrideSystem,
-      temperature = 0.7,
-    } = await c.req.json();
+      temperature,
+    } = parsed.data;
 
     if (!prompt && (!messages || messages.length === 0)) {
       return c.text("Missing prompt or messages", 400);
     }
 
     const model = getProviderWithModel(
-      "moonshot-v1-8k"
+      "moonshot-v1-8k",
     ) as unknown as LanguageModel;
 
     const result = streamText({
       model,
-      prompt: messages ? undefined : prompt,
-      messages,
+      ...(messages
+        ? { messages: messages as ModelMessage[] }
+        : { prompt: prompt as string }),
       system:
         overrideSystem ||
         "You are a helpful assistant. Please answer the question directly without using a thinking tone. Answer in the language used by the user.",
@@ -44,57 +86,41 @@ aiRoutes.post("/completion", async (c) => {
     console.error("AI completion error:", error);
     return c.text("AI completion failed", 500);
   }
-});
+}
 
-aiRoutes.post("/openai", async (c) => {
+export async function openaiHandler(c: Context) {
   const session = await getSessionFromRequest(c.req.raw);
   if (!session) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  let body: unknown;
+  let json: unknown;
   try {
-    body = await c.req.json();
+    json = await c.req.json();
   } catch {
     return c.json({ error: "Invalid JSON" }, 400);
   }
 
-  if (typeof body !== "object" || body === null) {
+  const parsed = openaiRequestSchema.safeParse(json);
+  if (!parsed.success) {
     return c.json({ error: "Invalid body" }, 400);
   }
 
-  const o = body as Record<string, unknown>;
-  let params: ModelScopeChatParams;
-
-  if (Array.isArray(o.messages)) {
-    params = {
-      messages: o.messages as ModelMessage[],
-      temperature: typeof o.temperature === "number" ? o.temperature : undefined,
-      model: typeof o.model === "string" ? o.model : undefined,
-    };
-  } else if (typeof o.prompt === "string") {
-    params = {
-      system: typeof o.system === "string" ? o.system : undefined,
-      prompt: o.prompt,
-      temperature: typeof o.temperature === "number" ? o.temperature : undefined,
-      model: typeof o.model === "string" ? o.model : undefined,
-    };
-  } else {
-    return c.json(
-      { error: "Provide either `prompt` (optional `system`) or `messages` array" },
-      400
-    );
+  const body = parsed.data;
+  const paramsOrResponse = parseOpenaiParams(body);
+  if (paramsOrResponse instanceof Response) {
+    return paramsOrResponse;
   }
 
-  if (o.stream === true) {
-    const streamResult = streamModelScopeChat(params);
+  if (body.stream === true) {
+    const streamResult = streamModelScopeChat(paramsOrResponse);
     if (streamResult === null) {
       return c.json(
         {
           error: "MODELSCOPE_API_KEY is not configured",
-          model: o.model ?? DEFAULT_MODELSCOPE_MODEL,
+          model: body.model ?? DEFAULT_MODELSCOPE_MODEL,
         },
-        503
+        503,
       );
     }
 
@@ -127,7 +153,7 @@ aiRoutes.post("/openai", async (c) => {
 
   let text: string | null;
   try {
-    text = await runModelScopeChat(params);
+    text = await runModelScopeChat(paramsOrResponse);
   } catch (error) {
     const message =
       error instanceof Error && error.message.trim().length > 0
@@ -140,11 +166,11 @@ aiRoutes.post("/openai", async (c) => {
     return c.json(
       {
         error: "MODELSCOPE_API_KEY is not configured",
-        model: o.model ?? DEFAULT_MODELSCOPE_MODEL,
+        model: body.model ?? DEFAULT_MODELSCOPE_MODEL,
       },
-      503
+      503,
     );
   }
 
   return c.json({ text });
-});
+}

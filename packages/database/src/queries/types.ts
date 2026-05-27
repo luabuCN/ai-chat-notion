@@ -1,4 +1,4 @@
-import type { AppUsage } from "../usage";
+import type { AppUsage } from "../usage.js";
 
 export type User = {
   id: string;

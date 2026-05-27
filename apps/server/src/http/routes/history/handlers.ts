@@ -1,15 +1,13 @@
-import { Hono } from "hono";
+import type { Context } from "hono";
 import {
   deleteAllChatsByUserId,
   getChatsByUserId,
   getWorkspaceBySlug,
 } from "@repo/database";
-import { getSessionFromRequest } from "../../shared/auth.js";
-import { ApiError } from "../../shared/errors.js";
+import { getSessionFromRequest } from "../../../shared/auth.js";
+import { ApiError } from "../../../shared/errors.js";
 
-export const historyRoutes = new Hono();
-
-historyRoutes.get("/", async (c) => {
+export async function listHistoryHandler(c: Context) {
   const searchParams = new URL(c.req.url).searchParams;
   const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
   const startingAfter = searchParams.get("starting_after");
@@ -19,7 +17,7 @@ historyRoutes.get("/", async (c) => {
   if (startingAfter && endingBefore) {
     return new ApiError(
       "bad_request:api",
-      "Only one of starting_after or ending_before can be provided."
+      "Only one of starting_after or ending_before can be provided.",
     ).toResponse();
   }
 
@@ -45,9 +43,9 @@ historyRoutes.get("/", async (c) => {
   });
 
   return c.json(chats);
-});
+}
 
-historyRoutes.delete("/", async (c) => {
+export async function deleteAllHistoryHandler(c: Context) {
   const session = await getSessionFromRequest(c.req.raw);
   if (!session) {
     return new ApiError("unauthorized:chat").toResponse();
@@ -55,4 +53,4 @@ historyRoutes.delete("/", async (c) => {
 
   const result = await deleteAllChatsByUserId({ userId: session.user.id });
   return c.json(result);
-});
+}

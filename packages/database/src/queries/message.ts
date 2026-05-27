@@ -1,6 +1,6 @@
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
-import { DBMessage } from "./types";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
+import { DBMessage } from "./types.js";
 
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
   try {

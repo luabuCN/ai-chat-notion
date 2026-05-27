@@ -1,7 +1,7 @@
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
-import { AppUsage } from "../usage";
-import { Chat } from "./types";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
+import { AppUsage } from "../usage.js";
+import { Chat } from "./types.js";
 
 export async function saveChat({
   id,

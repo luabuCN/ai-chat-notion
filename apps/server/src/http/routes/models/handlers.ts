@@ -1,25 +1,8 @@
-import { Hono } from "hono";
 import OpenAI from "openai";
+import type { Context } from "hono";
+import type { ModelInfo } from "./schema.js";
 
-export interface ModelInfo {
-  provider: string;
-  model: string;
-  full_slug: string;
-  context_length: number;
-  supports_image_in: boolean;
-  supports_video_in: boolean;
-  supports_reasoning: boolean;
-  raw: {
-    context_length: number | null;
-    supports_image_in: boolean | null;
-    supports_video_in: boolean | null;
-    supports_reasoning: boolean | null;
-  };
-}
-
-export const modelRoutes = new Hono();
-
-modelRoutes.get("/", async (c) => {
+export async function listModelsHandler(c: Context) {
   try {
     const client = new OpenAI({
       apiKey: process.env.API_KEY || "",
@@ -85,4 +68,4 @@ modelRoutes.get("/", async (c) => {
     console.error("Error fetching models:", error);
     return c.json({ error: "Unexpected error occurred" }, 500);
   }
-});
+}
