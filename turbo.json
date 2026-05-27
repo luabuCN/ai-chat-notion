@@ -37,6 +37,30 @@
       "outputs": ["dist/**"],
       "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
     },
+    "@repo/server#dev": {
+      "dependsOn": ["@repo/database#db:generate"],
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "POSTGRES_URL",
+        "AUTH_SECRET",
+        "JWT_SECRET",
+        "API_AUTH_SECRET",
+        "SERVER_HTTP_PORT",
+        "SERVER_COLLAB_PATH",
+        "REDIS_URL",
+        "API_KEY",
+        "MODELSCOPE_API_KEY",
+        "WEB_ORIGIN",
+        "API_ORIGIN",
+        "NEXT_PUBLIC_API_ORIGIN"
+      ]
+    },
+    "@repo/server#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
+    },
     "migrate:yjs": {
       "cache": false,
       "env": ["POSTGRES_URL"]

@@ -3,9 +3,9 @@ import {
   webFetchJsonErrorBody,
   webFetchWithMainSiteCookies,
 } from "@/lib/web-fetch";
-import { WEB_ORIGIN } from "@/lib/web-config";
+import { API_ORIGIN } from "@/lib/web-config";
 
-/** 与主站 `app/api/models/route` 中 `ModelInfo` 对齐（扩展内独立类型，避免跨包引用）。 */
+/** 与 apps/server `src/http/routes/models` 中 `ModelInfo` 对齐（扩展内独立类型，避免跨包引用）。 */
 export type ExtensionModelInfo = {
   provider: string;
   model: string;
@@ -28,7 +28,7 @@ export function useExtensionModels() {
       setError(null);
       try {
         const res = await webFetchWithMainSiteCookies(
-          `${WEB_ORIGIN}/api/models`,
+          `${API_ORIGIN}/api/models`,
         );
         if (!res.ok) {
           const j = await webFetchJsonErrorBody(res);

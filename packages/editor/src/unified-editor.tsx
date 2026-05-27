@@ -252,7 +252,7 @@ export function UnifiedEditor({
     const serverUrl =
       collabConfig?.serverUrl ||
       process.env.NEXT_PUBLIC_HOCUSPOCUS_URL ||
-      "ws://localhost:1234";
+      "ws://localhost:4000/collab";
 
     const p = new HocuspocusProvider({
       url: serverUrl,

@@ -1,7 +1,7 @@
 import { proxyMainSiteApiViaTab } from "@/lib/auth/proxy-main-site-api-via-tab";
 import type { MainSiteApiProxyResult } from "@/lib/auth/main-site-api-proxy-message";
 import { webFetchWithMainSiteCookies } from "@/lib/web-fetch";
-import { WEB_ORIGIN } from "@/lib/web-config";
+import { API_ORIGIN } from "@/lib/web-config";
 
 /**
  * 与 {@link createSidepanelChatTransport} 一致：用 `credentials: "include"` 让浏览器按目标源附带
@@ -13,7 +13,7 @@ export async function fetchMainSiteApiJson(
   method: "GET" | "DELETE",
 ): Promise<MainSiteApiProxyResult> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const url = `${WEB_ORIGIN}${normalizedPath}`;
+  const url = `${API_ORIGIN}${normalizedPath}`;
 
   let direct: MainSiteApiProxyResult | null = null;
   try {

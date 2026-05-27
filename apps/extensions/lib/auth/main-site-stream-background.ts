@@ -1,10 +1,10 @@
 import { MAIN_SITE_STREAM_PORT } from "@/lib/auth/stream-main-site";
-import { WEB_ORIGIN } from "@/lib/web-config";
+import { API_ORIGIN } from "@/lib/web-config";
 
 const ALLOWED_STREAM_PATH_PREFIX = "/api/ai/openai";
 
 function buildMainSiteUrl(path: string): string {
-  const base = WEB_ORIGIN.replace(/\/$/, "");
+  const base = API_ORIGIN.replace(/\/$/, "");
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return `${base}${normalized}`;
 }

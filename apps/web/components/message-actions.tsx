@@ -13,6 +13,7 @@ import { useCreateDocument } from "@/hooks/use-document-query";
 import { useParams, useRouter } from "next/navigation";
 import { markdownToTiptap } from "@repo/editor";
 import { useWorkspace } from "./workspace-provider";
+import { apiFetch } from "@/lib/api-client";
 
 export function PureMessageActions({
   chatId,
@@ -78,7 +79,7 @@ export function PureMessageActions({
       console.log(content, "content====");
       let title = "新文档";
       try {
-        const chatRes = await fetch(`/api/chat/${chatId}/title`);
+        const chatRes = await apiFetch(`/api/chat/${chatId}/title`);
         if (chatRes.ok) {
           const chatData = await chatRes.json();
           if (chatData.title) {

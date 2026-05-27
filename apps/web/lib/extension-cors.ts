@@ -1,6 +1,9 @@
 /**
  * 扩展侧栏（chrome-extension:// / moz-extension://）跨域访问主站 API 时的 CORS。
- * 与 `app/api/chat/route.ts` 中 POST 的 OPTIONS 行为对齐。
+ *
+ * 注意：第一批已迁移到 apps/server 的接口（chat / history / models / collab / ai）
+ * 现在由 Hono 统一处理 CORS，不再需要这里的 helper。仅剩下尚未迁移到 apps/server
+ * 的第二/三批接口（workspaces、editor-documents 等）继续使用此模块。
  */
 function isExtensionOrigin(origin: string | null): boolean {
   if (!origin) {

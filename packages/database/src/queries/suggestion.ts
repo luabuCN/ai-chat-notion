@@ -1,4 +1,3 @@
-import "server-only";
 import { ChatSDKError } from "../errors";
 import { prisma } from "../client";
 import { Suggestion } from "./types";

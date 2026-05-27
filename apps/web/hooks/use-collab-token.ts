@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiJson } from "@/lib/api-client";
 
 interface CollabTokenResponse {
   token: string;
@@ -7,20 +8,13 @@ interface CollabTokenResponse {
 }
 
 async function fetchCollabToken(documentId: string): Promise<CollabTokenResponse> {
-  const response = await fetch("/api/collab/token", {
+  return apiJson<CollabTokenResponse>("/api/collab/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ documentId }),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Failed to get collaboration token");
-  }
-
-  return response.json();
 }
 
 /**

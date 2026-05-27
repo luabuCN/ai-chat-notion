@@ -1,4 +1,3 @@
-import "server-only";
 import { generateUUID } from "../utils";
 import { ChatSDKError } from "../errors";
 import { prisma } from "../client";

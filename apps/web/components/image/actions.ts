@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { HistoryItem, PromptOptions } from "./types";
+import { apiFetch } from "@/lib/api-client";
 
 interface GenerateImagePayload {
   model: string;
@@ -92,7 +93,7 @@ export function useOptimizePrompt() {
       prompt: string;
       onUpdate: (value: string) => void;
     }) => {
-      const response = await fetch("/api/ai/completion", {
+      const response = await apiFetch("/api/ai/completion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

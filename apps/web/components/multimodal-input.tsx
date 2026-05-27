@@ -31,7 +31,7 @@ import type { AppUsage } from "@/lib/usage";
 import { cn, fetcher } from "@/lib/utils";
 import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 import { useModels } from "@/hooks/use-models";
-import type { ModelInfo } from "@/app/api/models/route";
+import type { ModelInfo } from "@/lib/api-types";
 import {
   PromptInput,
   PromptInputModelSelect,

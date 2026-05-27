@@ -1,5 +1,3 @@
-import "server-only";
-
 export * from "./queries/types";
 export * from "./queries/user";
 export * from "./queries/chat";

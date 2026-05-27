@@ -150,7 +150,7 @@ export function EditorContent({
 
   // 协同服务器 URL
   const collabServerUrl =
-    process.env.NEXT_PUBLIC_HOCUSPOCUS_URL || "ws://localhost:1234";
+    process.env.NEXT_PUBLIC_HOCUSPOCUS_URL || "ws://localhost:4000/collab";
 
   // 协同配置（null = 本地模式，不连接 WebSocket）
   const collabConfig = useMemo(() => {

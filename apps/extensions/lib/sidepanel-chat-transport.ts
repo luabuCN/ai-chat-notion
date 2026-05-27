@@ -4,7 +4,7 @@ import {
   webFetchJsonErrorBody,
   webFetchWithMainSiteCookies,
 } from "@/lib/web-fetch";
-import { WEB_ORIGIN } from "@/lib/web-config";
+import { API_ORIGIN } from "@/lib/web-config";
 
 /**
  * 与主站 `apps/web/components/chat.tsx` 的 `DefaultChatTransport` 对齐。
@@ -20,7 +20,7 @@ export function createSidepanelChatTransport(
   shouldIncludeSeedSync: () => boolean,
 ): DefaultChatTransport<UIMessage> {
   return new DefaultChatTransport<UIMessage>({
-    api: `${WEB_ORIGIN}/api/chat`,
+    api: `${API_ORIGIN}/api/chat`,
     credentials: "omit",
     fetch: async (inputUrl, init) => {
       const url =
