@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(pnpm --filter @repo/server typecheck)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(rtk ls *)"
     ]
   }
 }

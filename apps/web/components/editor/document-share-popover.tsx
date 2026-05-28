@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
 import { usePublicEditDocument } from "@/hooks/use-document-query";
 import { useCollaboration } from "./collaboration-context";
 import { generateUserColor } from "@repo/editor";
@@ -148,7 +149,7 @@ export function DocumentSharePopover({
   const fetchCollaborators = useCallback(async () => {
     if (!documentId) return;
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/editor-documents/${documentId}/collaborators`
       );
       if (response.ok) {
@@ -164,7 +165,7 @@ export function DocumentSharePopover({
   const fetchWorkspaceMembers = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/workspaces/members?workspaceId=${workspaceId}`
       );
       if (response.ok) {
@@ -180,7 +181,7 @@ export function DocumentSharePopover({
   const fetchDocumentOwner = useCallback(async () => {
     if (!documentOwnerId) return;
     try {
-      const response = await fetch(`/api/users/${documentOwnerId}`);
+      const response = await apiFetch(`/api/users/${documentOwnerId}`);
       if (response.ok) {
         const data = await response.json();
         setDocumentOwner(data);
@@ -225,7 +226,7 @@ export function DocumentSharePopover({
 
     setInviting(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/editor-documents/${documentId}/collaborators`,
         {
           method: "POST",
@@ -276,7 +277,7 @@ export function DocumentSharePopover({
   ) => {
     setUpdating(email);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/editor-documents/${documentId}/collaborators`,
         {
           method: "PATCH",
@@ -305,7 +306,7 @@ export function DocumentSharePopover({
   const handleRemoveCollaborator = async (email: string) => {
     setUpdating(email);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/editor-documents/${documentId}/collaborators?email=${encodeURIComponent(
           email
         )}`,

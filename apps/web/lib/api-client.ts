@@ -5,6 +5,17 @@ const SERVER_API_PREFIXES = [
   "/api/collab/token",
   "/api/history",
   "/api/models",
+  "/api/workspaces",
+  "/api/editor-documents",
+  "/api/document",
+  "/api/documents",
+  "/api/vote",
+  "/api/suggestions",
+  "/api/invite",
+  "/api/users",
+  "/api/image",
+  "/api/pdf",
+  "/api/files",
 ] as const;
 
 export const API_ORIGIN =

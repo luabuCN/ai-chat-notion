@@ -102,7 +102,7 @@ export function PureMessageActions({
       });
 
       // Update content
-      await fetch(`/api/editor-documents/${newDoc.id}`, {
+      await apiFetch(`/api/editor-documents/${newDoc.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: JSON.stringify(content) }),
@@ -161,7 +161,7 @@ export function PureMessageActions({
           data-testid="message-upvote"
           disabled={vote?.isUpvoted}
           onClick={() => {
-            const upvote = fetch("/api/vote", {
+            const upvote = apiFetch("/api/vote", {
               method: "PATCH",
               body: JSON.stringify({
                 chatId,
@@ -210,7 +210,7 @@ export function PureMessageActions({
           data-testid="message-downvote"
           disabled={vote && !vote.isUpvoted}
           onClick={() => {
-            const downvote = fetch("/api/vote", {
+            const downvote = apiFetch("/api/vote", {
               method: "PATCH",
               body: JSON.stringify({
                 chatId,

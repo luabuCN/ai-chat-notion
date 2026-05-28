@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { WorkspaceSettingsDialog } from "./workspace-settings-dialog";
 import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
+import { apiFetch } from "@/lib/api-client";
 
 export type Workspace = {
   id: string;
@@ -91,7 +92,7 @@ export function WorkspaceSwitcher({
     if (!currentWorkspace || !inviteeEmail.trim()) return;
     setIsLoadingLink(true);
     try {
-      const res = await fetch(`/api/workspaces/${currentWorkspace.id}/invite`, {
+      const res = await apiFetch(`/api/workspaces/${currentWorkspace.id}/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -160,10 +161,7 @@ export function WorkspaceSwitcher({
 
     setIsCreating(true);
     try {
-      const response = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newWorkspaceName.trim() }),
+      const response = await apiFetch("/api/workspaces", {
       });
 
       if (response.ok) {
@@ -182,7 +180,7 @@ export function WorkspaceSwitcher({
 
   const handleSwitchWorkspace = async (workspace: Workspace) => {
     try {
-      await fetch("/api/workspaces/switch", {
+      await apiFetch("/api/workspaces/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId: workspace.id }),
@@ -202,7 +200,7 @@ export function WorkspaceSwitcher({
 
     setIsRenaming(true);
     try {
-      const response = await fetch(`/api/workspaces/${workspaceToRename.id}`, {
+      const response = await apiFetch(`/api/workspaces/${workspaceToRename.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: renameValue.trim() }),
@@ -226,7 +224,7 @@ export function WorkspaceSwitcher({
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/workspaces/${workspaceToDelete.id}`, {
+      const response = await apiFetch(`/api/workspaces/${workspaceToDelete.id}`, {
         method: "DELETE",
       });
 

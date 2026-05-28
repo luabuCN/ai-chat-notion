@@ -19,6 +19,7 @@ import {
 import { Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Workspace } from "./workspace-switcher";
+import { apiFetch } from "@/lib/api-client";
 
 interface Member {
   id: string;
@@ -59,7 +60,7 @@ export function WorkspaceSettingsDialog({
     if (!workspace) return;
     setLoading(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/workspaces/members?workspaceId=${workspace.id}`
       );
       if (response.ok) {
@@ -87,7 +88,7 @@ export function WorkspaceSettingsDialog({
     if (!workspace) return;
     setUpdating(userId);
     try {
-      const response = await fetch("/api/workspaces/members", {
+      const response = await apiFetch("/api/workspaces/members", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -118,7 +119,7 @@ export function WorkspaceSettingsDialog({
     if (!confirm("确定要移除此成员吗？")) return;
     setUpdating(userId);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/workspaces/members?workspaceId=${workspace.id}&userId=${userId}`,
         { method: "DELETE" }
       );

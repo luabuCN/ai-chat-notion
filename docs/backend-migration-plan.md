@@ -1,6 +1,6 @@
 # API 与协同服务后端迁移方案
 
-## 当前进度（2026-05-27 更新）
+## 当前进度（2026-05-28 更新）
 
 ### 已完成
 
@@ -31,6 +31,33 @@
     - `hooks/use-models.ts`、`hooks/use-collab-token.ts`、`components/message-actions.tsx`、`components/image/actions.ts`、`components/multimodal-input.tsx`、`components/sidebar-history.tsx` 已切换。
   - 浏览器插件 (`apps/extensions`) 已新增 `API_ORIGIN`（`WXT_API_ORIGIN`），并切换 `models`、`chat`（sidepanel transport）、主站 API fetch、`ai/openai` 流式后台调用到新源；同时为后续 token 化迁移做好分离。
   - 已删除 `apps/web/app/api/{chat,history,models,collab,ai/completion,ai/openai}/` 目录与所有内部 `withExtensionCors`/`OPTIONS` 分支。
+
+- **阶段 3：工作区与文档权限接口迁移**
+  - 已迁移并对外提供：
+    - `GET/POST/PATCH/DELETE /api/workspaces`、`PATCH/DELETE /api/workspaces/:id`
+    - `GET/POST/PATCH/DELETE /api/workspaces/members`、`POST /api/workspaces/:id/invite`、`POST /api/workspaces/switch`
+    - `GET/POST /api/editor-documents`、`GET/PATCH/DELETE /api/editor-documents/:id`
+    - `GET /api/editor-documents/all`、`GET /api/editor-documents/shared-with-me`
+    - `GET/POST/PATCH/DELETE /api/editor-documents/:id/collaborators`
+    - `POST /api/editor-documents/:id/duplicate`、`POST /api/editor-documents/:id/move`
+    - `GET /api/editor-documents/:id/path`
+    - `POST/DELETE /api/editor-documents/:id/public-edit`、`POST/DELETE /api/editor-documents/:id/publish`
+    - `POST /api/editor-documents/:id/restore`、`POST /api/editor-documents/:id/visit`
+    - `GET/POST /api/editor-documents/collaborator-invite/:token`
+    - `GET/POST/DELETE /api/document`（旧文档）
+    - `GET /api/documents`
+    - `GET/PATCH /api/vote`、`GET /api/suggestions`
+    - `GET /api/invite/:code`、`POST /api/invite/join`
+    - `GET /api/users/:id`
+  - 共享模块：
+    - `apps/server/src/shared/permission-assert.ts`：从 `apps/web/lib/permission-assert.ts` 移植，提供 `assertDocumentCanView/Edit/Manage`、`assertWorkspaceCanManage`、`PermissionChangedError`。
+    - `apps/server/src/shared/document-access.ts`：从 `apps/web/lib/document-access.ts` 移植，提供 `verifyDocumentAccess`。
+    - `apps/server/src/shared/workspace-access.ts`：从 `apps/web/lib/workspace-access.ts` 移植，提供 `verifyWorkspaceAccess`。
+  - 前端 `apps/web/lib/api-client.ts` 已将所有第二批路由前缀加入 `SERVER_API_PREFIXES`。
+  - 已删除 `apps/web/app/api/{workspaces,editor-documents,document,documents,vote,suggestions,invite,users}/` 目录。
+  - `pnpm --filter @repo/server typecheck` 通过。
+  - 本地验收通过：`/api/workspaces` 列表/创建/切换、`/api/editor-documents` 列表/创建/更新/删除、`/api/vote` 投票、`/api/suggestions` 建议、`/api/invite/:code` 邀请详情、`/api/users/:id` 用户信息。
+  - 浏览器插件验收通过：工作区切换、文档列表、协同编辑邀请。
 
 - **HTTP 路由模块分层（2026-05-27）**
   - 第一批已迁移的 5 个 route 从单文件改为「一模块一目录」，统一三层职责：
@@ -77,18 +104,17 @@
 
 ### 进行中 / 待办
 
-- **阶段 2 第一批：本地验收**
-  - `pnpm dev:all` 同时启动 web (3000) + server (4000) + collab WS (1234)。
-  - 冒烟：`/api/models` (Cookie 模式)、`/api/history` 列表/删除、`/api/chat` SSE 首 token、`/api/chat/:id/stream` resumable、`POST /api/collab/token` → Hocuspocus 连接。
-  - 浏览器插件：sidepanel 聊天、模型列表、`ai/openai` 后台流式。
-- **阶段 3 / 4 / 5**：尚未开始，按原计划推进（工作区/文档/上传/PDF/图片接口、`apps/collab-server` 合并入 `apps/server/src/collab`）。
+- **阶段 4：重任务接口迁移**（第三批）
+  - `/api/files/upload`、`/api/uploadthing`、`/api/pdf/parse`、`/api/image/generations`、`/api/image/history`、`/api/image/tasks/[id]`、`/api/unsplash`
+  - 附加：文件大小限制统一配置、任务队列/状态表、API 超时与重试策略、后端侧对象存储抽象。
+- **阶段 5：协同服务合并**——将 `apps/collab-server` 的 Hocuspocus 代码迁入 `apps/server/src/collab`，统一认证、权限、配置。
 - **共享包 `packages/api-common`**：当前实现仍在 `apps/server/src/shared/*`；后续若 web/extension 需要复用类型再抽包，目前 web 用 `apps/web/lib/api-types.ts` 独立维护。
 
 ### 保留在 `apps/web` 的路由
 
 - `app/api/auth/*`（NextAuth）
 - `app/api/extension/auth-status`（插件登录状态查询，待迁到 `/api/extension/api-token` 后再处理）
-- 第二/三批仍在 web：`workspaces`、`editor-documents`、`document`、`documents`、`files`、`uploadthing`、`pdf`、`image`、`unsplash`、`users`、`vote`、`suggestions`、`invite`
+- 第三批仍在 web：`files`、`uploadthing`、`pdf`、`image`、`unsplash`
 
 ### 本地启动
 

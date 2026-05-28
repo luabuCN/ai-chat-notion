@@ -1,6 +1,4 @@
-/**
- * 客户端上传到 `/api/files/upload` 的返回结构（与 route 一致）。
- */
+import { apiFetch } from "./api-client";
 export type FileUploadResult = {
   url: string;
   pathname: string;
@@ -27,7 +25,7 @@ export async function uploadFileToApi(
     formData.append("relaxMimeTypes", "true");
   }
 
-  const response = await fetch("/api/files/upload", {
+  const response = await apiFetch("/api/files/upload", {
     method: "POST",
     body: formData,
   });

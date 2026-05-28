@@ -7,6 +7,14 @@ import { chatRoutes } from "./routes/chat/index.js";
 import { collabRoutes } from "./routes/collab/index.js";
 import { historyRoutes } from "./routes/history/index.js";
 import { modelRoutes } from "./routes/models/index.js";
+import { workspaceRoutes } from "./routes/workspaces/index.js";
+import { editorDocumentRoutes } from "./routes/editor-documents/index.js";
+import { documentRoutes } from "./routes/document/index.js";
+import { documentsRoutes } from "./routes/documents/index.js";
+import { voteRoutes } from "./routes/vote/index.js";
+import { suggestionRoutes } from "./routes/suggestions/index.js";
+import { inviteRoutes } from "./routes/invite/index.js";
+import { usersRoutes } from "./routes/users/index.js";
 
 export const app = new Hono();
 
@@ -20,6 +28,14 @@ app.route("/api/chat", chatRoutes);
 app.route("/api/collab", collabRoutes);
 app.route("/api/history", historyRoutes);
 app.route("/api/models", modelRoutes);
+app.route("/api/workspaces", workspaceRoutes);
+app.route("/api/editor-documents", editorDocumentRoutes);
+app.route("/api/document", documentRoutes);
+app.route("/api/documents", documentsRoutes);
+app.route("/api/vote", voteRoutes);
+app.route("/api/suggestions", suggestionRoutes);
+app.route("/api/invite", inviteRoutes);
+app.route("/api/users", usersRoutes);
 
 app.notFound(() =>
   new ApiError("not_found:api", "Route not found").toResponse()

@@ -1,0 +1,557 @@
+import type { Context } from "hono";
+import {
+  createWorkspace,
+  getWorkspacesByUserId,
+  getWorkspaceBySlug,
+  getWorkspaceById,
+  getWorkspaceMembers,
+  addWorkspaceMember,
+  updateWorkspaceMemberRole,
+  removeWorkspaceMember,
+  updateWorkspace,
+  deleteWorkspace,
+  generateWorkspaceSlug,
+  updateUserCurrentWorkspace,
+  hasWorkspaceAccess,
+} from "@repo/database";
+import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
+import { prisma } from "@repo/database";
+import { randomBytes } from "node:crypto";
+import { addDays } from "date-fns";
+import { getSessionFromRequest } from "../../../shared/auth.js";
+import { ApiError } from "../../../shared/errors.js";
+import {
+  assertWorkspaceCanManage,
+  isPermissionChangedError,
+  permissionChangedResponse,
+} from "../../../shared/permission-assert.js";
+
+// ─── Root routes ─────────────────────────────────────────────────────────────
+
+export async function listWorkspacesHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    let workspaces = await getWorkspacesByUserId({ userId: session.user.id });
+
+    // Auto-create default workspace if user has none
+    if (workspaces.length === 0) {
+      const slug = generateWorkspaceSlug();
+      const workspace = await createWorkspace({
+        name: generateDefaultWorkspaceName(session.user.name),
+        slug,
+        ownerId: session.user.id,
+      });
+
+      await updateUserCurrentWorkspace({
+        userId: session.user.id,
+        workspaceId: workspace.id,
+      });
+
+      workspaces = [workspace as any];
+    }
+
+    return c.json(workspaces);
+  } catch (error) {
+    console.error("Failed to get workspaces:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to get workspaces"
+    ).toResponse();
+  }
+}
+
+export async function createWorkspaceHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const { name, icon } = await c.req.json();
+
+    if (!name || typeof name !== "string") {
+      return new ApiError(
+        "bad_request:api",
+        "Name is required"
+      ).toResponse();
+    }
+
+    // Generate unique slug
+    let slug = generateWorkspaceSlug();
+    let attempts = 0;
+    while (attempts < 5) {
+      const existing = await getWorkspaceBySlug({ slug });
+      if (!existing) break;
+      slug = generateWorkspaceSlug();
+      attempts++;
+    }
+
+    const workspace = await createWorkspace({
+      name: name.trim(),
+      slug,
+      icon,
+      ownerId: session.user.id,
+    });
+
+    await updateUserCurrentWorkspace({
+      userId: session.user.id,
+      workspaceId: workspace.id,
+    });
+
+    return c.json(workspace, 201);
+  } catch (error) {
+    console.error("Failed to create workspace:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to create workspace"
+    ).toResponse();
+  }
+}
+
+export async function updateWorkspaceHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const { id, name, icon } = await c.req.json();
+
+    if (!id) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace ID is required"
+      ).toResponse();
+    }
+
+    const workspace = await updateWorkspace({
+      id,
+      name: name?.trim(),
+      icon,
+    });
+
+    return c.json(workspace);
+  } catch (error) {
+    console.error("Failed to update workspace:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to update workspace"
+    ).toResponse();
+  }
+}
+
+export async function deleteWorkspaceHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const searchParams = new URL(c.req.url).searchParams;
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace ID is required"
+      ).toResponse();
+    }
+
+    await deleteWorkspace({ id });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete workspace:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to delete workspace"
+    ).toResponse();
+  }
+}
+
+// ─── Parameterized routes ────────────────────────────────────────────────────
+
+export async function updateWorkspaceByIdHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const id = c.req.param("id")!;
+    const { name, icon } = await c.req.json();
+
+    const workspace = await updateWorkspace({
+      id,
+      name: name?.trim(),
+      icon,
+    });
+
+    return c.json(workspace);
+  } catch (error) {
+    console.error("Failed to update workspace:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to update workspace"
+    ).toResponse();
+  }
+}
+
+export async function deleteWorkspaceByIdHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const id = c.req.param("id")!;
+    await deleteWorkspace({ id });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete workspace:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to delete workspace"
+    ).toResponse();
+  }
+}
+
+// ─── Members ─────────────────────────────────────────────────────────────────
+
+export async function listMembersHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const searchParams = new URL(c.req.url).searchParams;
+    const workspaceId = searchParams.get("workspaceId");
+
+    if (!workspaceId) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace ID is required"
+      ).toResponse();
+    }
+
+    const hasAccess = await hasWorkspaceAccess({
+      workspaceId,
+      userId: session.user.id,
+    });
+
+    if (!hasAccess) {
+      return new ApiError(
+        "unauthorized:chat",
+        "Access denied"
+      ).toResponse();
+    }
+
+    const members = await getWorkspaceMembers({ workspaceId });
+    return c.json(members);
+  } catch (error) {
+    console.error("Failed to get workspace members:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to get members"
+    ).toResponse();
+  }
+}
+
+export async function addMemberHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const { workspaceId, userId, role = "member", permission } =
+      await c.req.json();
+
+    if (!workspaceId || !userId) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace ID and User ID are required"
+      ).toResponse();
+    }
+
+    try {
+      await assertWorkspaceCanManage(workspaceId, session.user.id);
+    } catch (error) {
+      if (isPermissionChangedError(error)) {
+        return permissionChangedResponse();
+      }
+      throw error;
+    }
+
+    const member = await addWorkspaceMember({
+      workspaceId,
+      userId,
+      role,
+      permission: role === "admin" ? "edit" : permission,
+    });
+    return c.json(member, 201);
+  } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse();
+    }
+    console.error("Failed to add member:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to add member"
+    ).toResponse();
+  }
+}
+
+export async function updateMemberHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const { workspaceId, userId, role, permission } = await c.req.json();
+
+    if (!workspaceId || !userId) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace ID and User ID are required"
+      ).toResponse();
+    }
+
+    if (!role && !permission) {
+      return new ApiError(
+        "bad_request:api",
+        "Role or permission is required"
+      ).toResponse();
+    }
+
+    const callerInfo = await assertWorkspaceCanManage(
+      workspaceId,
+      session.user.id
+    );
+    const workspace = await getWorkspaceById({ id: workspaceId });
+
+    const members = await getWorkspaceMembers({ workspaceId });
+    const targetMember = members.find((m) => m.userId === userId);
+    if (!targetMember) {
+      return new ApiError(
+        "bad_request:api",
+        "Member not found"
+      ).toResponse();
+    }
+
+    // Admin cannot operate on other admins or owners
+    if (
+      !callerInfo.isOwner &&
+      (targetMember.role === "admin" ||
+        targetMember.role === "owner" ||
+        targetMember.userId === workspace?.ownerId)
+    ) {
+      return new ApiError(
+        "unauthorized:chat",
+        "Admin can only update regular members"
+      ).toResponse();
+    }
+
+    // Cannot change owner's role/permission
+    if (userId === workspace?.ownerId) {
+      return new ApiError(
+        "bad_request:api",
+        "Cannot change workspace owner"
+      ).toResponse();
+    }
+
+    const nextRole = role ?? targetMember.role;
+    if (nextRole === "admin" && permission === "view") {
+      return new ApiError(
+        "bad_request:api",
+        "Admin must have edit permission"
+      ).toResponse();
+    }
+
+    const member = await updateWorkspaceMemberRole({
+      workspaceId,
+      userId,
+      role,
+      permission: nextRole === "admin" ? "edit" : permission,
+    });
+    return c.json(member);
+  } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse();
+    }
+    console.error("Failed to update member:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to update member"
+    ).toResponse();
+  }
+}
+
+export async function removeMemberHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const searchParams = new URL(c.req.url).searchParams;
+    const workspaceId = searchParams.get("workspaceId");
+    const userId = searchParams.get("userId");
+
+    if (!workspaceId || !userId) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace ID and User ID are required"
+      ).toResponse();
+    }
+
+    // Cannot remove owner
+    const workspace = await getWorkspaceById({ id: workspaceId });
+    if (!workspace) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace not found"
+      ).toResponse();
+    }
+
+    if (userId === workspace.ownerId) {
+      return new ApiError(
+        "bad_request:api",
+        "Cannot remove workspace owner"
+      ).toResponse();
+    }
+
+    // Self-leave doesn't need management permission
+    if (userId === session.user.id) {
+      await removeWorkspaceMember({ workspaceId, userId });
+      return c.json({ success: true });
+    }
+
+    // Admin removing other members needs management permission
+    try {
+      await assertWorkspaceCanManage(workspaceId, session.user.id);
+    } catch (error) {
+      if (isPermissionChangedError(error)) {
+        return permissionChangedResponse();
+      }
+      throw error;
+    }
+
+    await removeWorkspaceMember({ workspaceId, userId });
+    return c.json({ success: true });
+  } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse();
+    }
+    console.error("Failed to remove member:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to remove member"
+    ).toResponse();
+  }
+}
+
+// ─── Invite ──────────────────────────────────────────────────────────────────
+
+export async function createInviteHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  const id = c.req.param("id")!;
+  const { email, role, permission } = await c.req.json();
+
+  try {
+    await assertWorkspaceCanManage(id, session.user.id);
+  } catch (error) {
+    if (isPermissionChangedError(error)) {
+      return permissionChangedResponse();
+    }
+    throw error;
+  }
+
+  // Generate new unique token for this specific invite
+  const token = randomBytes(6).toString("hex");
+
+  const invite = await prisma.workspaceInvite.create({
+    data: {
+      workspaceId: id,
+      email,
+      role: role || "member",
+      permission: permission || "view",
+      token,
+      expiresAt: addDays(new Date(), 7), // 7 days expiration
+    },
+  });
+
+  return c.json({
+    token: invite.token,
+    inviteCode: invite.token, // Maintain compatibility
+  });
+}
+
+// ─── Switch ──────────────────────────────────────────────────────────────────
+
+export async function switchWorkspaceHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const { workspaceId, slug } = await c.req.json();
+
+    let targetWorkspaceId = workspaceId;
+
+    // If slug provided instead of ID, look up by slug
+    if (!targetWorkspaceId && slug) {
+      const workspace = await getWorkspaceBySlug({ slug });
+      if (!workspace) {
+        return new ApiError(
+          "bad_request:api",
+          "Workspace not found"
+        ).toResponse();
+      }
+      targetWorkspaceId = workspace.id;
+    }
+
+    if (!targetWorkspaceId) {
+      return new ApiError(
+        "bad_request:api",
+        "Workspace ID or slug is required"
+      ).toResponse();
+    }
+
+    // Check access
+    const hasAccess = await hasWorkspaceAccess({
+      workspaceId: targetWorkspaceId,
+      userId: session.user.id,
+    });
+
+    if (!hasAccess) {
+      return new ApiError(
+        "unauthorized:chat",
+        "Access denied"
+      ).toResponse();
+    }
+
+    await updateUserCurrentWorkspace({
+      userId: session.user.id,
+      workspaceId: targetWorkspaceId,
+    });
+
+    return c.json({ success: true, workspaceId: targetWorkspaceId });
+  } catch (error) {
+    console.error("Failed to switch workspace:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to switch workspace"
+    ).toResponse();
+  }
+}
