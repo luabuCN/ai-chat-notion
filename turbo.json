@@ -31,17 +31,6 @@
       "cache": false,
       "persistent": true
     },
-    "@repo/collab-server#dev": {
-      "dependsOn": ["@repo/database#build"],
-      "cache": false,
-      "persistent": true,
-      "env": ["POSTGRES_URL", "AUTH_SECRET", "JWT_SECRET", "COLLAB_SERVER_PORT"]
-    },
-    "@repo/collab-server#build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"],
-      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
-    },
     "@repo/server#dev": {
       "dependsOn": ["@repo/database#build", "@repo/ai#build"],
       "cache": false,

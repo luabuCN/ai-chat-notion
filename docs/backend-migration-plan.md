@@ -77,6 +77,15 @@
   - 已删除 `apps/web/app/api/{files,uploadthing,pdf,image,unsplash}/` 目录。
   - `pnpm --filter @repo/server typecheck` 通过。
 
+- **阶段 5：协同服务合并**
+  - 已删除独立的 `apps/collab-server` 包，其 Hocuspocus 代码此前已迁入 `apps/server/src/collab/`（`server.ts`、`auth.ts`、`extensions/database.ts`、`extensions/redis.ts`）。
+  - `apps/server/src/index.ts` 同进程启动 HTTP API 与 Collab WebSocket（`upgrade` handler），共享 `serverConfig` 配置。
+  - 认证统一：collab 模块的 `verifyToken`/`verifyDocumentAccess` 引用 `apps/server/src/shared/permissions.ts`，与 HTTP API 共用同一份权限漏斗模型。
+  - 新增 `apps/server/Dockerfile`，替代原 `apps/collab-server/Dockerfile`；`docker-compose.yml` 中 `collab-server` 服务替换为 `server` 服务（端口 4000，同时暴露 HTTP 与 WS）。
+  - `turbo.json` 已移除 `@repo/collab-server#dev` 和 `@repo/collab-server#build` 任务。
+  - `README.md` 已更新架构图、项目结构、环境变量表和部署文档，反映 `apps/server` 合并后的新拓扑。
+  - `pnpm --filter @repo/server typecheck` 通过。
+
 - **HTTP 路由模块分层（2026-05-27）**
   - 第一批已迁移的 5 个 route 从单文件改为「一模块一目录」，统一三层职责：
     - `index.ts`：Hono 路由注册，只做 path → handler 绑定
@@ -122,7 +131,6 @@
 
 ### 进行中 / 待办
 
-- **阶段 5：协同服务合并**——将 `apps/collab-server` 的 Hocuspocus 代码迁入 `apps/server/src/collab`，统一认证、权限、配置。
 - **共享包 `packages/api-common`**：当前实现仍在 `apps/server/src/shared/*`；后续若 web/extension 需要复用类型再抽包，目前 web 用 `apps/web/lib/api-types.ts` 独立维护。
 
 ### 保留在 `apps/web` 的路由
@@ -141,7 +149,8 @@ pnpm dev:server
 ```
 
 需要的环境变量见 `turbo.json#@repo/server#dev.env`，关键项：
-`SERVER_HTTP_PORT=4000`、`SERVER_COLLAB_PORT=1234`、`WEB_ORIGIN=http://localhost:3000`、`API_ORIGIN=http://localhost:4000`、`NEXT_PUBLIC_API_ORIGIN=http://localhost:4000`、`API_AUTH_SECRET=<32+ 字符>`，以及插件侧 `WXT_API_ORIGIN=http://localhost:4000`。
+`SERVER_HTTP_PORT=4000`、`SERVER_COLLAB_PATH=/collab`、`WEB_ORIGIN=http://localhost:3000`、`API_ORIGIN=http://localhost:4000`、`NEXT_PUBLIC_API_ORIGIN=http://localhost:4000`、`API_AUTH_SECRET=<32+ 字符>`，以及插件侧 `WXT_API_ORIGIN=http://localhost:4000`。
+`NEXT_PUBLIC_HOCUSPOCUS_URL=ws://localhost:4000/collab`。
 
 ---
 
@@ -187,7 +196,7 @@ apps/server
 ```text
 https://app.example.com       -> apps/web
 https://api.example.com       -> apps/server HTTP API
-wss://collab.example.com      -> apps/server Collab WebSocket
+wss://api.example.com/collab  -> apps/server Collab WebSocket（同进程，upgrade handler）
 ```
 
 本地开发建议：
@@ -195,7 +204,7 @@ wss://collab.example.com      -> apps/server Collab WebSocket
 ```text
 http://localhost:3000         -> apps/web
 http://localhost:4000         -> apps/server HTTP API
-ws://localhost:1234           -> apps/server Collab WebSocket
+ws://localhost:4000/collab    -> apps/server Collab WebSocket
 ```
 
 ## 登录与会话方案
@@ -450,7 +459,8 @@ chatRoutes.delete("/", deleteChatHandler);
 NEXT_PUBLIC_API_ORIGIN=http://localhost:4000
 WXT_API_ORIGIN=http://localhost:4000
 SERVER_HTTP_PORT=4000
-SERVER_COLLAB_PORT=1234
+SERVER_COLLAB_PATH=/collab
+NEXT_PUBLIC_HOCUSPOCUS_URL=ws://localhost:4000/collab
 WEB_ORIGIN=http://localhost:3000
 API_AUTH_SECRET=change-me
 CHROME_EXTENSION_ORIGIN=chrome-extension://<extension-id>
@@ -534,35 +544,22 @@ packages/api-common/
 - API 超时与重试策略。
 - 后端侧对象存储抽象，避免上传实现绑定 Next。
 
-### 阶段 5：协同服务合并到 `apps/server`
+### 阶段 5：协同服务合并到 `apps/server`（已完成）
 
-将当前 `apps/collab-server` 的 Hocuspocus 代码迁入 `apps/server/src/collab`。它和 Hono HTTP API 位于同一个后端应用目录，复用同一套共享模块，但运行时仍可以监听不同端口：
+`apps/collab-server` 的 Hocuspocus 代码已迁入 `apps/server/src/collab`，统一认证、权限、配置。HTTP API 与 Collab WebSocket 同进程运行，共用端口：
 
 ```text
 apps/server
   HTTP API: http://localhost:4000
-  Collab WS: ws://localhost:1234
+  Collab WS: ws://localhost:4000/collab (upgrade handler)
 ```
 
-需要改的不是“把 Hocuspocus 硬塞进 Hono”，而是统一这些能力：
+已统一的能力：
 
-- 使用同一个 `verifyApiToken()` 或 `verifyCollabToken()`。
-- 使用同一个 `checkDocumentPermission()`。
-- 使用同一套 env 配置。
-- `apps/server` 的 HTTP API 负责签发 collab token。
-- 反向代理层统一域名和 TLS。
-
-最终：
-
-```text
-POST https://api.example.com/api/collab/token
-  -> apps/server HTTP API
-  -> 签发 collab token
-
-wss://collab.example.com
-  -> apps/server Collab WebSocket
-  -> 校验 collab token
-```
+- 使用同一个 `checkDocumentPermission()`（`apps/server/src/shared/permissions.ts`）。
+- 使用同一套 env 配置（`apps/server/src/shared/config.ts`）。
+- `apps/server` 的 HTTP API 负责签发 collab token（`POST /api/collab/token`）。
+- `apps/collab-server` 已删除，Docker 部署由 `apps/server/Dockerfile` 替代。
 
 ## 前端与插件改造
 
@@ -618,8 +615,8 @@ headers: {
 ```text
 app.example.com/api/auth/*  -> apps/web
 app.example.com/api/*       -> apps/server HTTP API
+app.example.com/collab      -> apps/server Collab WebSocket (upgrade)
 app.example.com/*           -> apps/web
-collab.example.com/*        -> apps/server Collab WebSocket
 ```
 
 这样 Web 主站仍可以请求 `/api/chat`，但真正处理者已经是 Hono。插件也可以直接请求 `https://api.example.com/api/chat`，逐步摆脱主站 API。
