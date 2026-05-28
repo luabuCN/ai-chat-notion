@@ -59,6 +59,24 @@
   - 本地验收通过：`/api/workspaces` 列表/创建/切换、`/api/editor-documents` 列表/创建/更新/删除、`/api/vote` 投票、`/api/suggestions` 建议、`/api/invite/:code` 邀请详情、`/api/users/:id` 用户信息。
   - 浏览器插件验收通过：工作区切换、文档列表、协同编辑邀请。
 
+- **阶段 4：重任务接口迁移**（第三批）
+  - 已迁移并对外提供：
+    - `POST /api/files/upload`：文件上传，使用 `uploadthing/server` 的 `UTApi`，支持 MIME 白名单与 `relaxMimeTypes` 跳过。
+    - `GET/POST /api/uploadthing`：UploadThing 客户端 SDK 的 presign/callback 端点，通过 `makeAdapterHandler` 适配 Hono。
+    - `POST /api/pdf/parse`：PDF 解析 SSE 流，管线为 extractPdfContent → uploadImagesToStorage → convertToMarkdown → polishWithAI。
+    - `POST /api/image/generations`：图片生成任务，调用 ModelScope API 并写入 `ImageGeneration` 记录。
+    - `GET /api/image/history`：图片生成历史，支持 workspace/user 双维度查询。
+    - `GET /api/image/tasks/:id`：图片任务状态轮询，自动拉取 ModelScope 结果并上传到 UploadThing。
+    - `GET /api/unsplash`：Unsplash 图片搜索代理。
+  - 共享模块：
+    - `apps/server/src/shared/pdf/`：从 `apps/web/lib/pdf/` 移植，包含 `types.ts`、`extract-pdf.ts`、`upload-images.ts`、`convert-to-markdown.ts`、`polish-with-ai.ts`。
+    - `polish-with-ai.ts` 改为引用 server 侧的 `modelscope-chat.js`，不再依赖 `@/lib/ai/modelscope-chat`。
+  - 新增依赖：`uploadthing@7.7.4`、`pdfjs-dist@^5.5.207`、`sharp@^0.34.5`、`effect@3.17.7`。
+  - 前端 `apps/web/lib/api-client.ts` 已将 `/api/uploadthing`、`/api/unsplash` 加入 `SERVER_API_PREFIXES`。
+  - `apps/web/next.config.ts` 新增 rewrite：`/api/uploadthing` → `${NEXT_PUBLIC_API_ORIGIN}/api/uploadthing`（UploadThing SDK 直接调用，不经过 apiFetch）。
+  - 已删除 `apps/web/app/api/{files,uploadthing,pdf,image,unsplash}/` 目录。
+  - `pnpm --filter @repo/server typecheck` 通过。
+
 - **HTTP 路由模块分层（2026-05-27）**
   - 第一批已迁移的 5 个 route 从单文件改为「一模块一目录」，统一三层职责：
     - `index.ts`：Hono 路由注册，只做 path → handler 绑定
@@ -104,9 +122,6 @@
 
 ### 进行中 / 待办
 
-- **阶段 4：重任务接口迁移**（第三批）
-  - `/api/files/upload`、`/api/uploadthing`、`/api/pdf/parse`、`/api/image/generations`、`/api/image/history`、`/api/image/tasks/[id]`、`/api/unsplash`
-  - 附加：文件大小限制统一配置、任务队列/状态表、API 超时与重试策略、后端侧对象存储抽象。
 - **阶段 5：协同服务合并**——将 `apps/collab-server` 的 Hocuspocus 代码迁入 `apps/server/src/collab`，统一认证、权限、配置。
 - **共享包 `packages/api-common`**：当前实现仍在 `apps/server/src/shared/*`；后续若 web/extension 需要复用类型再抽包，目前 web 用 `apps/web/lib/api-types.ts` 独立维护。
 
@@ -114,7 +129,6 @@
 
 - `app/api/auth/*`（NextAuth）
 - `app/api/extension/auth-status`（插件登录状态查询，待迁到 `/api/extension/api-token` 后再处理）
-- 第三批仍在 web：`files`、`uploadthing`、`pdf`、`image`、`unsplash`
 
 ### 本地启动
 

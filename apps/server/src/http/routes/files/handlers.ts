@@ -1,12 +1,8 @@
-import { UTApi } from "uploadthing/server";
-import { NextResponse } from "next/server";
+import type { Context } from "hono";
 import { z } from "zod";
+import { getSessionFromRequest } from "../../../shared/auth.js";
+import { ApiError } from "../../../shared/errors.js";
 
-import { auth } from "@/app/(auth)/auth";
-
-const utapi = new UTApi();
-
-// Use Blob instead of File since File is not available in Node.js environment
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 const MAX_OTHER_BYTES = 5 * 1024 * 1024;
 
@@ -37,30 +33,29 @@ function buildUploadSchema(relaxMimeTypes: boolean) {
 
   const fileSchema = relaxMimeTypes
     ? base
-    : base.refine((file) => ALLOWED_MIME_TYPES.includes(file.type as (typeof ALLOWED_MIME_TYPES)[number]), {
-        message: MIME_DENY_MESSAGE,
-      });
+    : base.refine(
+        (file) =>
+          ALLOWED_MIME_TYPES.includes(
+            file.type as (typeof ALLOWED_MIME_TYPES)[number]
+          ),
+        { message: MIME_DENY_MESSAGE }
+      );
 
   return z.object({ file: fileSchema });
 }
 
-export async function POST(request: Request) {
-  const session = await auth();
-
+export async function uploadFileHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (request.body === null) {
-    return new Response("Request body is empty", { status: 400 });
+    return new ApiError("unauthorized:api").toResponse();
   }
 
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      return c.json({ error: "No file uploaded" }, 400);
     }
 
     const relaxMimeTypesRaw = formData.get("relaxMimeTypes");
@@ -75,34 +70,29 @@ export async function POST(request: Request) {
       const errorMessage = validatedFile.error.errors
         .map((error) => error.message)
         .join(", ");
-
-      return NextResponse.json({ error: errorMessage }, { status: 400 });
+      return c.json({ error: errorMessage }, 400);
     }
+
+    const { UTApi } = await import("uploadthing/server");
+    const utapi = new UTApi();
 
     try {
       const response = await utapi.uploadFiles(file);
 
       if (response.error) {
-        return NextResponse.json(
-          { error: response.error.message },
-          { status: 500 }
-        );
+        return c.json({ error: response.error.message }, 500);
       }
 
       const data = response.data;
-
-      return NextResponse.json({
+      return c.json({
         url: data.url,
         pathname: data.name,
         contentType: data.type,
       });
-    } catch (_error) {
-      return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    } catch {
+      return c.json({ error: "Upload failed" }, 500);
     }
-  } catch (_error) {
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
-    );
+  } catch {
+    return c.json({ error: "Failed to process request" }, 500);
   }
 }

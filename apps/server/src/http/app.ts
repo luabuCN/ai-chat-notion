@@ -15,6 +15,11 @@ import { voteRoutes } from "./routes/vote/index.js";
 import { suggestionRoutes } from "./routes/suggestions/index.js";
 import { inviteRoutes } from "./routes/invite/index.js";
 import { usersRoutes } from "./routes/users/index.js";
+import { uploadthingRoutes } from "./routes/uploadthing/index.js";
+import { filesRoutes } from "./routes/files/index.js";
+import { pdfRoutes } from "./routes/pdf/index.js";
+import { imageRoutes } from "./routes/image/index.js";
+import { unsplashRoutes } from "./routes/unsplash/index.js";
 
 export const app = new Hono();
 
@@ -36,6 +41,11 @@ app.route("/api/vote", voteRoutes);
 app.route("/api/suggestions", suggestionRoutes);
 app.route("/api/invite", inviteRoutes);
 app.route("/api/users", usersRoutes);
+app.route("/api/uploadthing", uploadthingRoutes);
+app.route("/api/files", filesRoutes);
+app.route("/api/pdf", pdfRoutes);
+app.route("/api/image", imageRoutes);
+app.route("/api/unsplash", unsplashRoutes);
 
 app.notFound(() =>
   new ApiError("not_found:api", "Route not found").toResponse()
