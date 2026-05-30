@@ -1,11 +1,10 @@
-import "server-only";
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
-import { generateHashedPassword } from "../password";
-import { generateUUID } from "../utils";
-import { User } from "./types";
-import { generateDefaultWorkspaceName } from "../workspace-name";
-import { createWorkspace, generateWorkspaceSlug } from "./workspace";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
+import { generateHashedPassword } from "../password.js";
+import { generateUUID } from "../utils.js";
+import { User } from "./types.js";
+import { generateDefaultWorkspaceName } from "../workspace-name.js";
+import { createWorkspace, generateWorkspaceSlug } from "./workspace.js";
 
 export async function getUser(identifier: string): Promise<User[]> {
   try {

@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
-import type { Suggestion } from "./queries";
-import type { AppUsage } from "./usage";
+import type { Suggestion } from "./queries.js";
+import type { AppUsage } from "./usage.js";
 
 export type ArtifactKind = "text" | "code" | "image" | "sheet";
 

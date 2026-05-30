@@ -13,6 +13,7 @@ import { useCreateDocument } from "@/hooks/use-document-query";
 import { useParams, useRouter } from "next/navigation";
 import { markdownToTiptap } from "@repo/editor";
 import { useWorkspace } from "./workspace-provider";
+import { apiFetch } from "@/lib/api-client";
 
 export function PureMessageActions({
   chatId,
@@ -78,7 +79,7 @@ export function PureMessageActions({
       console.log(content, "content====");
       let title = "新文档";
       try {
-        const chatRes = await fetch(`/api/chat/${chatId}/title`);
+        const chatRes = await apiFetch(`/api/chat/${chatId}/title`);
         if (chatRes.ok) {
           const chatData = await chatRes.json();
           if (chatData.title) {
@@ -101,7 +102,7 @@ export function PureMessageActions({
       });
 
       // Update content
-      await fetch(`/api/editor-documents/${newDoc.id}`, {
+      await apiFetch(`/api/editor-documents/${newDoc.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: JSON.stringify(content) }),
@@ -160,7 +161,7 @@ export function PureMessageActions({
           data-testid="message-upvote"
           disabled={vote?.isUpvoted}
           onClick={() => {
-            const upvote = fetch("/api/vote", {
+            const upvote = apiFetch("/api/vote", {
               method: "PATCH",
               body: JSON.stringify({
                 chatId,
@@ -209,7 +210,7 @@ export function PureMessageActions({
           data-testid="message-downvote"
           disabled={vote && !vote.isUpvoted}
           onClick={() => {
-            const downvote = fetch("/api/vote", {
+            const downvote = apiFetch("/api/vote", {
               method: "PATCH",
               body: JSON.stringify({
                 chatId,

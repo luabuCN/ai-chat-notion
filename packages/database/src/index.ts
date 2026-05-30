@@ -1,3 +1,3 @@
-export { prisma } from "./client";
-export * from "./queries";
-export * from "./types";
+export { prisma } from "./client.js";
+export * from "./queries.js";
+export * from "./types.js";

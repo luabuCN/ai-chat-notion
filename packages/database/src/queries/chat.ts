@@ -1,8 +1,7 @@
-import "server-only";
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
-import { AppUsage } from "../usage";
-import { Chat } from "./types";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
+import { AppUsage } from "../usage.js";
+import { Chat } from "./types.js";
 
 export async function saveChat({
   id,
@@ -193,6 +192,24 @@ export async function getChatTitle({ id }: { id: string }) {
     return chat;
   } catch (_error) {
     throw new ChatSDKError("bad_request:database", "Failed to get chat title");
+  }
+}
+
+export async function updateChatTitleById({
+  chatId,
+  title,
+}: {
+  chatId: string;
+  title: string;
+}) {
+  try {
+    return await prisma.chat.update({
+      where: { id: chatId },
+      data: { title },
+    });
+  } catch (error) {
+    console.warn("Failed to update title for chat", chatId, error);
+    return;
   }
 }
 

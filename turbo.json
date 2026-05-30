@@ -10,6 +10,11 @@
       "cache": false,
       "persistent": true
     },
+    "@repo/web#dev": {
+      "dependsOn": ["@repo/database#build", "@repo/ai#build"],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {
       "dependsOn": ["^build"]
     },
@@ -26,13 +31,26 @@
       "cache": false,
       "persistent": true
     },
-    "@repo/collab-server#dev": {
-      "dependsOn": ["@repo/database#db:generate"],
+    "@repo/server#dev": {
+      "dependsOn": ["@repo/database#build", "@repo/ai#build"],
       "cache": false,
       "persistent": true,
-      "env": ["POSTGRES_URL", "AUTH_SECRET", "JWT_SECRET", "COLLAB_SERVER_PORT"]
+      "env": [
+        "POSTGRES_URL",
+        "AUTH_SECRET",
+        "JWT_SECRET",
+        "API_AUTH_SECRET",
+        "SERVER_HTTP_PORT",
+        "SERVER_COLLAB_PATH",
+        "REDIS_URL",
+        "API_KEY",
+        "MODELSCOPE_API_KEY",
+        "WEB_ORIGIN",
+        "API_ORIGIN",
+        "NEXT_PUBLIC_API_ORIGIN"
+      ]
     },
-    "@repo/collab-server#build": {
+    "@repo/server#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
       "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]

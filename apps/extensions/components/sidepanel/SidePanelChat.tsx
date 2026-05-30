@@ -42,8 +42,8 @@ import { sendMessage } from "@/lib/messaging/extension-messaging";
 import { fetchSidepanelChatMessages } from "@/lib/sidepanel-history-api";
 import { streamMainSitePost } from "@/lib/auth/stream-main-site";
 import { uploadFileToMainSite } from "@/lib/upload-main-site-file";
-import { WEB_ORIGIN } from "@/lib/web-config";
-import { webFetchWithMainSiteCookies } from "@/lib/web-fetch";
+import { WEB_ORIGIN, API_ORIGIN } from "@/lib/web-config";
+import { getApiToken, refreshApiToken } from "@/lib/auth/api-token";
 import { markdownToTiptap } from "@repo/editor/converter";
 
 export function SidePanelChat({
@@ -573,21 +573,31 @@ async function saveToKnowledgeBase(
   const content = JSON.stringify(doc);
   const trimmedPageUrl = pageUrl.trim();
 
-  const response = await webFetchWithMainSiteCookies(
-    `${WEB_ORIGIN}/api/editor-documents`,
-    {
+  let token = await getApiToken();
+  if (!token) throw new Error("未登录或无法获取 API Token");
+
+  const body = JSON.stringify({
+    title,
+    content,
+    workspaceSlug,
+    ...(trimmedPageUrl.length > 0 ? { sourcePageUrl: trimmedPageUrl } : {}),
+  });
+
+  const doFetch = (t: string) =>
+    fetch(`${API_ORIGIN}/api/editor-documents`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        content,
-        workspaceSlug,
-        ...(trimmedPageUrl.length > 0
-          ? { sourcePageUrl: trimmedPageUrl }
-          : {}),
-      }),
-    },
-  );
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${t}`,
+      },
+      body,
+    });
+
+  let response = await doFetch(token);
+  if (response.status === 401) {
+    token = (await refreshApiToken()) ?? token;
+    response = await doFetch(token);
+  }
 
   if (!response.ok) {
     const errorData = (await response.json().catch(() => ({}))) as {

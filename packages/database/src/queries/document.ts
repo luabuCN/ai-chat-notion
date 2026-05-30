@@ -1,8 +1,7 @@
-import "server-only";
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
-import { ArtifactKind } from "../types";
-import { Document } from "./types";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
+import { ArtifactKind } from "../types.js";
+import { Document } from "./types.js";
 
 export async function saveDocument({
   id,

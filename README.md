@@ -72,9 +72,10 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Monorepo (pnpm + Turbo)                  │
 ├──────────────┬──────────────────┬───────────────────────────────┤
-│  apps/web    │ apps/collab-server│      apps/extensions          │
-│  Next.js 15  │  Hocuspocus WS    │      WXT Chrome Extension     │
-│  Port 3000   │  Port 1234        │      Port 8088 (dev)          │
+│  apps/web    │  apps/server     │      apps/extensions          │
+│  Next.js 15  │  Hono HTTP API   │      WXT Chrome Extension     │
+│  Port 3000   │  + Hocuspocus WS │      Port 8088 (dev)          │
+│              │  Port 4000       │                               │
 └──────┬───────┴────────┬─────────┴───────────────┬───────────────┘
        │                │                         │
        ▼                ▼                         │ (HTTP Proxy)
@@ -124,7 +125,7 @@ ai-chat-notion/
 │   │   ├── components/      # React 组件
 │   │   ├── hooks/           # 自定义 Hooks
 │   │   └── lib/             # 工具函数、AI 工具、认证等
-│   ├── collab-server/       # Hocuspocus 协同编辑 WebSocket 服务
+│   ├── server/              # Hono HTTP API + Hocuspocus 协同 WebSocket
 │   └── extensions/          # WXT 浏览器扩展
 ├── packages/
 │   ├── ai/                  # AI 模型、Prompt、Provider 封装
@@ -231,8 +232,8 @@ pnpm dev:extension
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `NEXT_PUBLIC_HOCUSPOCUS_URL` | 前端 WebSocket 地址 | `ws://localhost:1234` |
-| `COLLAB_SERVER_PORT` | 协同服务端口 | `1234` |
+| `NEXT_PUBLIC_HOCUSPOCUS_URL` | 前端 WebSocket 地址 | `ws://localhost:4000/collab` |
+| `SERVER_COLLAB_PATH` | 协同 WebSocket 路径 | `/collab` |
 | `REDIS_URL` | Redis 连接（多实例协同同步） | — |
 
 ### 认证
@@ -259,8 +260,8 @@ pnpm dev:extension
 | 命令 | 说明 |
 |------|------|
 | `pnpm dev` | 启动 Web 开发服务器 |
-| `pnpm dev:collab` | 启动协同编辑 WebSocket 服务 |
-| `pnpm dev:all` | 同时启动 Web 与 Collab Server |
+| `pnpm dev:server` | 启动后端服务（HTTP API + 协同 WebSocket） |
+| `pnpm dev:all` | 同时启动 Web 与后端服务 |
 | `pnpm dev:extension` | 启动浏览器扩展开发模式 |
 | `pnpm build` | 构建所有应用 |
 | `pnpm lint` | 运行 Ultracite / Biome 代码检查 |
@@ -273,12 +274,12 @@ pnpm dev:extension
 
 ## 协同编辑服务
 
-协同编辑基于独立的 Hocuspocus WebSocket 服务，详细文档见 [`apps/collab-server/README.md`](apps/collab-server/README.md)。
+协同编辑基于 Hocuspocus WebSocket 服务，已集成到 `apps/server` 中，与 HTTP API 共享同一进程。
 
 ### 连接流程
 
 1. 前端调用 `POST /api/collab/token` 获取 JWT Token
-2. 使用 Token 连接 `NEXT_PUBLIC_HOCUSPOCUS_URL` 指定的 WebSocket 地址
+2. 使用 Token 连接 `NEXT_PUBLIC_HOCUSPOCUS_URL` 指定的 WebSocket 地址（默认 `ws://localhost:4000/collab`）
 3. 服务端验证 Token 与文档访问权限后开始协同同步
 
 ### 生产部署注意
@@ -348,17 +349,17 @@ pnpm build
 
 确保配置所有必需环境变量，并将 `NEXT_PUBLIC_HOCUSPOCUS_URL` 指向生产环境的 WebSocket 地址（如 `wss://your-domain.com/collab`）。
 
-### Collab Server
+### 后端服务
 
-支持 Docker 部署：
+支持 Docker 部署（HTTP API + 协同 WebSocket 同进程）：
 
 ```bash
-cd apps/collab-server
-docker build -t collab-server .
-docker run -p 1234:1234 \
+cd apps/server
+docker build -t ai-chat-notion-server .
+docker run -p 4000:4000 \
   -e POSTGRES_URL=your-database-url \
   -e AUTH_SECRET=your-secret \
-  collab-server
+  ai-chat-notion-server
 ```
 
 ---

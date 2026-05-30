@@ -1,6 +1,5 @@
-import "server-only";
-import { ChatSDKError } from "../errors";
-import { prisma } from "../client";
+import { ChatSDKError } from "../errors.js";
+import { prisma } from "../client.js";
 
 export async function createStreamId({
   streamId,

@@ -2,15 +2,25 @@
   "name": "@repo/database",
   "version": "1.0.0",
   "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./workspace-name": "./src/workspace-name.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./workspace-name": {
+      "types": "./dist/workspace-name.d.ts",
+      "default": "./dist/workspace-name.js"
+    }
   },
   "scripts": {
-    "build": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
     "db:generate": "dotenv -e ../../.env.local -- prisma generate",
     "db:migrate": "dotenv -e ../../.env.local -- prisma migrate dev",
     "db:push": "dotenv -e ../../.env.local -- prisma db push --accept-data-loss",
@@ -30,6 +40,7 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.8.6",
     "prisma": "6",
     "typescript": "^5.6.3"
   },
@@ -39,7 +50,7 @@
     ],
     "tasks": {
       "build": {
-        "outputs": []
+        "outputs": ["dist/**"]
       }
     }
   }

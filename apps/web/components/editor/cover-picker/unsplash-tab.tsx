@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api-client";
 
 interface UnsplashPhoto {
   id: string;
@@ -39,7 +40,7 @@ export function UnsplashTab({ onSelectCover, onClose }: UnsplashTabProps) {
     setHasSearched(true);
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/unsplash?query=${encodeURIComponent(query)}&page=1&per_page=12`
       );
       if (!response.ok) throw new Error("Failed to fetch");

@@ -1,5 +1,5 @@
-import { WEB_ORIGIN } from "@/lib/web-config";
-import { webFetchWithMainSiteCookies } from "@/lib/web-fetch";
+import { getApiToken, refreshApiToken } from "@/lib/auth/api-token";
+import { API_ORIGIN } from "@/lib/web-config";
 
 export type MainSiteFileUploadResult = {
   url: string;
@@ -12,13 +12,25 @@ export async function uploadFileToMainSite(
 ): Promise<MainSiteFileUploadResult> {
   const formData = new FormData();
   formData.append("file", file);
-  const res = await webFetchWithMainSiteCookies(
-    `${WEB_ORIGIN}/api/files/upload`,
-    {
+
+  let token = await getApiToken();
+  if (!token) {
+    throw new Error("未登录或无法获取 API Token");
+  }
+
+  const doFetch = (t: string) =>
+    fetch(`${API_ORIGIN}/api/files/upload`, {
       method: "POST",
       body: formData,
-    },
-  );
+      headers: { Authorization: `Bearer ${t}` },
+    });
+
+  let res = await doFetch(token);
+  if (res.status === 401) {
+    token = (await refreshApiToken()) ?? token;
+    res = await doFetch(token);
+  }
+
   const body = (await res.json().catch(() => ({}))) as {
     error?: string;
     url?: string;

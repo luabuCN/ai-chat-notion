@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { memo, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
+import { apiUrl } from "@/lib/api-client";
 import "@repo/editor/styles";
 import type {
   CollaborativeUser,
@@ -83,6 +84,8 @@ export const UnifiedEditorClient = memo(
       [uploadFileMutation]
     );
 
+    const aiApiUrl = useMemo(() => apiUrl("/api/ai/openai"), []);
+
     // 稳定的协同配置（避免不必要的重新渲染）
     const stableCollabConfig = useMemo(() => {
       if (!collabConfig) return null;
@@ -110,6 +113,7 @@ export const UnifiedEditorClient = memo(
         collabConfig={stableCollabConfig}
         placeholder={placeholder ?? "Type / for commands, or press Space for AI..."}
         showAiTools={true}
+        aiApiUrl={aiApiUrl}
         uploadFile={uploadFile}
         readonly={readonly}
         navigate={navigate}

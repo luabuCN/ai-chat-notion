@@ -10,8 +10,7 @@ import {
 } from "./util";
 import { AIStreamRequest } from "./types";
 
-
-const AI_COMPLETION_ENDPOINT = "/api/ai/openai";
+const DEFAULT_AI_API_URL = "/api/ai/openai";
 
 const buildAICompletionPayload = (request: AIStreamRequest) => {
   const options = request.options as
@@ -219,6 +218,7 @@ interface AIPanelState {
 
   // Editor Reference
   editor: Editor | null;
+  aiApiUrl: string;
   currentRequest: AIStreamRequest | null;
   wasEditable: boolean; // 记录原始可编辑状态
 
@@ -229,6 +229,7 @@ interface AIPanelState {
   setPrompt: (prompt: string) => void;
   setMode: (mode: AITriggerMode) => void;
   setEditor: (editor: Editor) => void;
+  setAiApiUrl: (url: string) => void;
 
   // Complex Actions
   handleError: (message: string) => void;
@@ -263,6 +264,7 @@ export const store = create<AIPanelState>()((set, get) => ({
   result: "",
   error: null,
   editor: null,
+  aiApiUrl: DEFAULT_AI_API_URL,
   currentRequest: null,
   wasEditable: true,
 
@@ -272,6 +274,7 @@ export const store = create<AIPanelState>()((set, get) => ({
   setInputFocused: (focused: boolean) => set({ isInputFocused: focused }),
   setPrompt: (prompt: string) => set({ prompt }),
   setEditor: (editor: Editor) => set({ editor }),
+  setAiApiUrl: (url: string) => set({ aiApiUrl: url }),
   setMode: (mode: AITriggerMode) => set({ mode }),
 
   // Error Handler
@@ -437,13 +440,14 @@ export const store = create<AIPanelState>()((set, get) => ({
     });
 
     try {
-      const response = await fetch(AI_COMPLETION_ENDPOINT, {
+      const response = await fetch(get().aiApiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(buildAICompletionPayload(request)),
         signal: controller.signal,
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -614,13 +618,14 @@ export const store = create<AIPanelState>()((set, get) => ({
     });
 
     try {
-      const response = await fetch(AI_COMPLETION_ENDPOINT, {
+      const response = await fetch(get().aiApiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(buildAICompletionPayload(request)),
         signal: controller.signal,
+        credentials: "include",
       });
 
       if (!response.ok) {

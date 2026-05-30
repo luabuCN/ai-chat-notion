@@ -5,9 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
-import useSWRInfinite from "swr/infinite";
-import { unstable_serialize } from "swr/infinite";
+import useSWR from "swr";
 import { ChatHeader } from "@/components/chat-header";
 import {
   AlertDialog,
@@ -25,13 +23,23 @@ import type { Vote } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import {
+  fetcher,
+  fetchWithErrorHandlers,
+  generateUUID,
+  hasAssistantMessageContent,
+  resolveChatErrorMessage,
+} from "@/lib/utils";
+import { apiUrl } from "@/lib/api-client";
+import {
+  useChatHistoryQuery,
+  useInvalidateChatHistory,
+} from "@/hooks/use-chat-history-query";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { createChatHistoryPaginationKey, getChatHistoryPaginationKey, type ChatHistory } from "./sidebar-history";
 import { toast } from "./toast";
 
 
@@ -50,7 +58,7 @@ export function Chat({
   autoResume: boolean;
   initialLastContext?: AppUsage;
 }) {
-  const { mutate } = useSWRConfig();
+  const invalidateChatHistory = useInvalidateChatHistory();
   const { setDataStream } = useDataStream();
   const params = useParams();
   const workspaceSlug =
@@ -86,7 +94,7 @@ export function Chat({
     experimental_throttle: 100,
     generateId: generateUUID,
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: apiUrl("/api/chat"),
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
         const modelId = currentModelIdRef.current;
@@ -111,10 +119,37 @@ export function Chat({
       }
     },
     onFinish: () => {
-      mutate(unstable_serialize(getChatHistoryPaginationKey));
+      invalidateChatHistory(workspaceSlugRef.current || undefined);
     },
     onError: (error) => {
       console.error("chat error:", error);
+
+      const description =
+        error instanceof ChatSDKError
+          ? error.message
+          : resolveChatErrorMessage(error);
+
+      setMessages((currentMessages) => {
+        const lastMessage = currentMessages.at(-1);
+        if (
+          lastMessage?.role !== "assistant" ||
+          hasAssistantMessageContent(lastMessage)
+        ) {
+          return currentMessages;
+        }
+
+        return [
+          ...currentMessages.slice(0, -1),
+          {
+            ...lastMessage,
+            metadata: {
+              ...lastMessage.metadata,
+              isError: true,
+            },
+            parts: [{ type: "text", text: description }],
+          },
+        ];
+      });
 
       if (error instanceof ChatSDKError) {
         if (
@@ -124,14 +159,13 @@ export function Chat({
         } else {
           toast({
             type: "error",
-            description: error.message,
+            description,
           });
         }
       } else {
         toast({
           type: "error",
-          description:
-            error.message || "发生错误，请稍后重试",
+          description,
         });
       }
     },
@@ -142,17 +176,11 @@ export function Chat({
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
-  const { data: history } = useSWRInfinite<ChatHistory>(
-    (index) => createChatHistoryPaginationKey()(index, null as any),
-    fetcher,
-    {
-      revalidateOnFocus: false,
-    }
-  );
+  const { data: history } = useChatHistoryQuery(workspaceSlug || undefined);
 
   useEffect(() => {
-    if (history) {
-      const allChats = history.flatMap((h) => h.chats);
+    if (history?.pages) {
+      const allChats = history.pages.flatMap((page) => page.chats);
       const currentChat = allChats.find((c) => c.id === id);
       if (currentChat?.title) {
         window.document.title = `${currentChat.title} - 知作`;

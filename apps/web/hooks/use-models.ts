@@ -1,29 +1,17 @@
-import { useEffect, useState } from "react";
-import type { ModelInfo } from "@/app/api/models/route";
+import { useQuery } from "@tanstack/react-query";
+import type { ModelInfo } from "@/lib/api-types";
+import { apiJson } from "@/lib/api-client";
 
 export function useModels() {
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ["models"],
+    queryFn: () => apiJson<ModelInfo[]>("/api/models"),
+    staleTime: 1000 * 60 * 5,
+  });
 
-  useEffect(() => {
-    async function fetchModels() {
-      try {
-        const response = await fetch("/api/models");
-        if (!response.ok) {
-          throw new Error("Failed to fetch models");
-        }
-        const data = await response.json();
-        setModels(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchModels();
-  }, []);
-
-  return { models, loading, error };
+  return {
+    models: query.data ?? [],
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+  };
 }

@@ -8,9 +8,9 @@ import { type ClassValue, clsx } from 'clsx';
 import { formatISO } from 'date-fns';
 import { twMerge } from 'tailwind-merge';
 import { v4 as uuidv4 } from 'uuid';
-import type { DBMessage, Document } from './queries';
-import { ChatSDKError, type ErrorCode } from './errors';
-import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
+import type { DBMessage, Document } from './queries.js';
+import { ChatSDKError, type ErrorCode } from './errors.js';
+import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types.js';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

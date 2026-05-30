@@ -20,6 +20,7 @@ import {
 
 interface AIPanelProps {
   editor: Editor;
+  aiApiUrl?: string;
 }
 
 const PANEL_GAP = 10;
@@ -29,7 +30,7 @@ const PANEL_MAX_WIDTH = 720;
 const PANEL_MIN_WIDTH = 320;
 const PANEL_MIN_HEIGHT = 120;
 
-export default function AIPanel({ editor }: AIPanelProps) {
+export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const dismissConfirmRef = useRef<HTMLDivElement>(null);
   const positionFrameRef = useRef<number | null>(null);
@@ -47,6 +48,7 @@ export default function AIPanel({ editor }: AIPanelProps) {
   const error = useAIPanelStore((state) => state.error);
   const setVisible = useAIPanelStore((state) => state.setVisible);
   const setEditor = useAIPanelStore((state) => state.setEditor);
+  const setAiApiUrl = useAIPanelStore((state) => state.setAiApiUrl);
   const reset = useAIPanelStore((state) => state.reset);
   const stopStream = useAIPanelStore((state) => state.stopStream);
 
@@ -54,6 +56,12 @@ export default function AIPanel({ editor }: AIPanelProps) {
   useEffect(() => {
     setEditor(editor);
   }, [editor, setEditor]);
+
+  useEffect(() => {
+    if (aiApiUrl) {
+      setAiApiUrl(aiApiUrl);
+    }
+  }, [aiApiUrl, setAiApiUrl]);
 
   // Create portal container on mount
   useEffect(() => {

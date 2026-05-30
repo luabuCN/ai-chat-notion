@@ -4,11 +4,9 @@ import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import type { User } from "next-auth";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import useSWRInfinite from "swr/infinite";
-import { useSWRConfig } from "swr";
-import { unstable_serialize } from "swr/infinite";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +31,12 @@ import {
   useSidebar,
 } from "@repo/ui";
 import type { Chat } from "@repo/database";
-import { fetcher } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
+import {
+  chatHistoryQueryKey,
+  useChatHistoryQuery,
+  type ChatHistory,
+} from "@/hooks/use-chat-history-query";
 import { LoaderIcon, TrashIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
 
@@ -44,13 +47,6 @@ type GroupedChats = {
   lastMonth: Chat[];
   older: Chat[];
 };
-
-export type ChatHistory = {
-  chats: Chat[];
-  hasMore: boolean;
-};
-
-const PAGE_SIZE = 20;
 
 const groupChatsByDate = (chats: Chat[]): GroupedChats => {
   const now = new Date();
@@ -85,105 +81,54 @@ const groupChatsByDate = (chats: Chat[]): GroupedChats => {
   );
 };
 
-// 创建一个工厂函数，返回带 workspace 参数的 pagination key 函数
-export function createChatHistoryPaginationKey(workspaceSlug?: string) {
-  return function getChatHistoryPaginationKey(
-    pageIndex: number,
-    previousPageData: ChatHistory
-  ) {
-    if (previousPageData && previousPageData.hasMore === false) {
-      return null;
-    }
-
-    const workspaceParam = workspaceSlug ? `&workspace=${workspaceSlug}` : "";
-
-    if (pageIndex === 0) {
-      return `/api/history?limit=${PAGE_SIZE}${workspaceParam}`;
-    }
-
-    const firstChatFromPage = previousPageData.chats.at(-1);
-
-    if (!firstChatFromPage) {
-      return null;
-    }
-
-    return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}${workspaceParam}`;
-  };
-}
-
-// 保留原函数作为默认导出，不带 workspace 过滤
-export function getChatHistoryPaginationKey(
-  pageIndex: number,
-  previousPageData: ChatHistory
-) {
-  if (previousPageData && previousPageData.hasMore === false) {
-    return null;
-  }
-
-  if (pageIndex === 0) {
-    return `/api/history?limit=${PAGE_SIZE}`;
-  }
-
-  const firstChatFromPage = previousPageData.chats.at(-1);
-
-  if (!firstChatFromPage) {
-    return null;
-  }
-
-  return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
-}
-
 export function SidebarHistory({ user }: { user: User | undefined }) {
   const { setOpenMobile } = useSidebar();
   const { id, slug } = useParams();
   const workspaceSlug =
     typeof slug === "string" ? slug : Array.isArray(slug) ? slug[0] : "";
-  const { mutate: mutateSWR } = useSWRConfig();
-
-  // 使用 useMemo 缓存 pagination key 函数，当 workspaceSlug 变化时重新创建
-  const getPaginationKey = useMemo(
-    () => createChatHistoryPaginationKey(workspaceSlug),
-    [workspaceSlug]
-  );
+  const queryClient = useQueryClient();
 
   const {
-    data: paginatedChatHistories,
-    setSize,
-    isValidating,
+    data,
     isLoading,
-    mutate,
-  } = useSWRInfinite<ChatHistory>(getPaginationKey, fetcher, {
-    fallbackData: [],
-  });
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useChatHistoryQuery(workspaceSlug || undefined);
 
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
-  const hasReachedEnd = paginatedChatHistories
-    ? paginatedChatHistories.some((page) => page.hasMore === false)
-    : false;
-
-  const hasEmptyChatHistory = paginatedChatHistories
-    ? paginatedChatHistories.every((page) => page.chats.length === 0)
-    : false;
+  const pages: ChatHistory[] = data?.pages ?? [];
+  const hasReachedEnd = pages.length > 0 && !hasNextPage;
+  const hasEmptyChatHistory =
+    pages.length > 0 && pages.every((page) => page.chats.length === 0);
 
   const handleDelete = () => {
-    const deletePromise = fetch(`/api/chat?id=${deleteId}`, {
+    const deletePromise = apiFetch(`/api/chat?id=${deleteId}`, {
       method: "DELETE",
     });
 
     toast.promise(deletePromise, {
       loading: "Deleting chat...",
       success: () => {
-        mutate((chatHistories) => {
-          if (chatHistories) {
-            return chatHistories.map((chatHistory) => ({
-              ...chatHistory,
-              chats: chatHistory.chats.filter((chat) => chat.id !== deleteId),
-            }));
+        queryClient.setQueryData<{
+          pages: ChatHistory[];
+          pageParams: unknown[];
+        }>(chatHistoryQueryKey(workspaceSlug || undefined), (prev) => {
+          if (!prev) {
+            return prev;
           }
+          return {
+            ...prev,
+            pages: prev.pages.map((page) => ({
+              ...page,
+              chats: page.chats.filter((chat) => chat.id !== deleteId),
+            })),
+          };
         });
 
         return "Chat deleted successfully";
@@ -199,14 +144,16 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   };
 
   const handleDeleteAll = () => {
-    const deletePromise = fetch("/api/history", {
+    const deletePromise = apiFetch("/api/history", {
       method: "DELETE",
     });
 
     toast.promise(deletePromise, {
       loading: "Deleting all chats...",
       success: () => {
-        mutateSWR(unstable_serialize(getChatHistoryPaginationKey));
+        queryClient.invalidateQueries({
+          queryKey: chatHistoryQueryKey(workspaceSlug || undefined),
+        });
         router.push(`/${workspaceSlug}/chat`);
         setShowDeleteAllDialog(false);
         return "All chats deleted successfully";
@@ -298,11 +245,9 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
             </div>
           )}
           <SidebarMenu className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)] min-h-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-border [&::-webkit-scrollbar-track]:bg-transparent">
-            {paginatedChatHistories &&
+            {pages.length > 0 &&
               (() => {
-                const chatsFromHistory = paginatedChatHistories.flatMap(
-                  (paginatedChatHistory) => paginatedChatHistory.chats
-                );
+                const chatsFromHistory = pages.flatMap((page) => page.chats);
 
                 const groupedChats = groupChatsByDate(chatsFromHistory);
 
@@ -417,8 +362,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               })()}
             <motion.div
               onViewportEnter={() => {
-                if (!isValidating && !hasReachedEnd) {
-                  setSize((size) => size + 1);
+                if (!isFetching && !isFetchingNextPage && hasNextPage) {
+                  fetchNextPage();
                 }
               }}
             />

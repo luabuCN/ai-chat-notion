@@ -18,7 +18,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { documentKeys } from "@/hooks/use-document-query";
-import { fetcher } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
 import {
   startConvertTask,
   updateConvertProgress,
@@ -42,7 +42,7 @@ async function createDocument(
   title: string,
   workspaceId?: string | null
 ): Promise<CreatedDoc> {
-  const res = await fetch("/api/editor-documents", {
+  const res = await apiFetch("/api/editor-documents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, workspaceId: workspaceId ?? null }),
@@ -54,7 +54,7 @@ async function createDocument(
 /** 将 markdown 转为 Tiptap JSON 并保存到文档 */
 async function saveDocumentContent(docId: string, markdown: string) {
   const doc = markdownToTiptap(markdown);
-  const res = await fetch(`/api/editor-documents/${docId}`, {
+  const res = await apiFetch(`/api/editor-documents/${docId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content: JSON.stringify(doc) }),
@@ -73,7 +73,7 @@ async function runConvertInBackground(file: File, docId: string) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch("/api/pdf/parse", {
+    const res = await apiFetch("/api/pdf/parse", {
       method: "POST",
       body: formData,
     });
@@ -139,7 +139,11 @@ export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
   const queryClient = useQueryClient();
 
   // 拿 workspaces 列表，从 slug 找 workspaceId
-  const { data: workspaces } = useSWR<Workspace[]>("/api/workspaces", fetcher);
+  const { data: workspaces } = useSWR<Workspace[]>("/api/workspaces", async (url: string) => {
+    const res = await apiFetch(url);
+    if (!res.ok) throw new Error("获取工作区失败");
+    return res.json();
+  });
 
   const handlePdfUpload = useCallback(
     async (file: File): Promise<void> => {
@@ -171,7 +175,7 @@ export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
 
         try {
           const { url } = await uploadFileToApi(file);
-          const patchRes = await fetch(`/api/editor-documents/${doc.id}`, {
+          const patchRes = await apiFetch(`/api/editor-documents/${doc.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sourcePdfUrl: url }),

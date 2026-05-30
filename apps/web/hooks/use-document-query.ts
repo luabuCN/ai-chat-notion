@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { EditorDocument } from "@repo/database";
+import { apiFetch } from "@/lib/api-client";
 
 // Query Keys
 export const documentKeys = {
@@ -36,7 +37,7 @@ async function fetchDocuments(
   }
   params.append("includeDeleted", "false");
 
-  const response = await fetch(`/api/editor-documents?${params.toString()}`);
+  const response = await apiFetch(`/api/editor-documents?${params.toString()}`);
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.message || "获取文档列表失败");
@@ -67,7 +68,7 @@ async function createApiMutationError(
 }
 
 async function fetchDocument(documentId: string): Promise<EditorDocument> {
-  const response = await fetch(`/api/editor-documents/${documentId}`);
+  const response = await apiFetch(`/api/editor-documents/${documentId}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const error: FetchDocumentError = {
@@ -85,7 +86,7 @@ async function createDocument(arg: {
   parentDocumentId?: string;
   workspaceId?: string;
 }): Promise<EditorDocument> {
-  const response = await fetch("/api/editor-documents", {
+  const response = await apiFetch("/api/editor-documents", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -128,7 +129,7 @@ async function updateDocument({
     sourcePageUrl?: string | null;
   };
 }): Promise<EditorDocument> {
-  const response = await fetch(`/api/editor-documents/${documentId}`, {
+  const response = await apiFetch(`/api/editor-documents/${documentId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -144,7 +145,7 @@ async function updateDocument({
 }
 
 async function deleteDocument(documentId: string): Promise<void> {
-  const response = await fetch(`/api/editor-documents/${documentId}`, {
+  const response = await apiFetch(`/api/editor-documents/${documentId}`, {
     method: "DELETE",
   });
 
@@ -160,7 +161,7 @@ async function publishDocument({
   documentId: string;
   publish: boolean;
 }): Promise<EditorDocument> {
-  const response = await fetch(`/api/editor-documents/${documentId}/publish`, {
+  const response = await apiFetch(`/api/editor-documents/${documentId}/publish`, {
     method: publish ? "POST" : "DELETE",
   });
 
@@ -178,7 +179,7 @@ async function setDocumentPublicEdit({
   documentId: string;
   enable: boolean;
 }): Promise<EditorDocument> {
-  const response = await fetch(
+  const response = await apiFetch(
     `/api/editor-documents/${documentId}/public-edit`,
     {
       method: enable ? "POST" : "DELETE",
@@ -194,7 +195,7 @@ async function setDocumentPublicEdit({
 }
 
 async function duplicateDocument(documentId: string): Promise<EditorDocument> {
-  const response = await fetch(
+  const response = await apiFetch(
     `/api/editor-documents/${documentId}/duplicate`,
     {
       method: "POST",
@@ -215,7 +216,7 @@ async function moveDocument({
   documentId: string;
   parentDocumentId: string | null;
 }): Promise<EditorDocument> {
-  const response = await fetch(`/api/editor-documents/${documentId}/move`, {
+  const response = await apiFetch(`/api/editor-documents/${documentId}/move`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -498,7 +499,7 @@ export function useMoveDocument() {
 }
 
 async function fetchDocumentPath(documentId: string): Promise<string[]> {
-  const response = await fetch(`/api/editor-documents/${documentId}/path`);
+  const response = await apiFetch(`/api/editor-documents/${documentId}/path`);
   if (!response.ok) {
     throw new Error("Failed to fetch document path");
   }
@@ -524,7 +525,7 @@ async function fetchTrashDocuments(
   if (workspaceId) {
     params.append("workspaceId", workspaceId);
   }
-  const response = await fetch(`/api/editor-documents?${params.toString()}`);
+  const response = await apiFetch(`/api/editor-documents?${params.toString()}`);
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.message || "Failed to fetch trash documents");
@@ -533,7 +534,7 @@ async function fetchTrashDocuments(
 }
 
 async function restoreDocument(documentId: string): Promise<EditorDocument> {
-  const response = await fetch(`/api/editor-documents/${documentId}/restore`, {
+  const response = await apiFetch(`/api/editor-documents/${documentId}/restore`, {
     method: "POST",
   });
 
@@ -545,7 +546,7 @@ async function restoreDocument(documentId: string): Promise<EditorDocument> {
 }
 
 async function permanentDeleteDocument(documentId: string): Promise<void> {
-  const response = await fetch(
+  const response = await apiFetch(
     `/api/editor-documents/${documentId}?permanent=true`,
     {
       method: "DELETE",
@@ -630,7 +631,7 @@ async function fetchAllDocuments(
   if (flat) {
     params.append("flat", "true");
   }
-  const response = await fetch(`/api/editor-documents/all?${params.toString()}`);
+  const response = await apiFetch(`/api/editor-documents/all?${params.toString()}`);
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.message || "获取所有文档失败");

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useParams } from "next/navigation";
 import type { Workspace } from "./workspace-switcher";
+import { apiFetch } from "@/lib/api-client";
 
 interface WorkspaceContextValue {
   currentWorkspace: Workspace | null;
@@ -43,7 +44,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const refreshWorkspaces = useCallback(async () => {
     try {
-      const response = await fetch("/api/workspaces");
+      const response = await apiFetch("/api/workspaces");
       if (response.ok) {
         const data = await response.json();
 
@@ -65,7 +66,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const switchWorkspace = useCallback(async (workspace: Workspace) => {
     try {
-      const response = await fetch("/api/workspaces/switch", {
+      const response = await apiFetch("/api/workspaces/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId: workspace.id }),
@@ -82,7 +83,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const createWorkspace = useCallback(
     async (name: string, icon?: string): Promise<Workspace | null> => {
       try {
-        const response = await fetch("/api/workspaces", {
+        const response = await apiFetch("/api/workspaces", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, icon }),

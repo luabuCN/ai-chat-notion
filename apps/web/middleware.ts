@@ -48,12 +48,7 @@ export async function middleware(request: NextRequest) {
     return new Response("pong", { status: 200 });
   }
 
-  if (
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/uploadthing") ||
-    pathname.startsWith("/api/models") ||
-    pathname.startsWith("/api/extension")
-  ) {
+  if (pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
 

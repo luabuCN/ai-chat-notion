@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
-import {
-  webFetchJsonErrorBody,
-  webFetchWithMainSiteCookies,
-} from "@/lib/web-fetch";
-import { WEB_ORIGIN } from "@/lib/web-config";
+import { getApiToken, refreshApiToken } from "@/lib/auth/api-token";
+import { API_ORIGIN } from "@/lib/web-config";
 
-/** 与主站 `app/api/models/route` 中 `ModelInfo` 对齐（扩展内独立类型，避免跨包引用）。 */
+/** 与 apps/server `src/http/routes/models` 中 `ModelInfo` 对齐（扩展内独立类型，避免跨包引用）。 */
 export type ExtensionModelInfo = {
   provider: string;
   model: string;
@@ -27,12 +24,26 @@ export function useExtensionModels() {
       setLoading(true);
       setError(null);
       try {
-        const res = await webFetchWithMainSiteCookies(
-          `${WEB_ORIGIN}/api/models`,
-        );
+        let token = await getApiToken();
+        if (!token) throw new Error("未登录");
+
+        const doFetch = (t: string) =>
+          fetch(`${API_ORIGIN}/api/models`, {
+            headers: { Authorization: `Bearer ${t}` },
+          });
+
+        let res = await doFetch(token);
+        if (res.status === 401) {
+          token = await refreshApiToken();
+          if (token) res = await doFetch(token);
+        }
         if (!res.ok) {
-          const j = await webFetchJsonErrorBody(res);
-          throw new Error(j.message ?? j.cause ?? res.statusText);
+          let msg = res.statusText;
+          try {
+            const j = (await res.json()) as { message?: string; cause?: string };
+            msg = j.message ?? j.cause ?? msg;
+          } catch { /* ignore */ }
+          throw new Error(msg);
         }
         const data = (await res.json()) as ExtensionModelInfo[];
         if (!cancelled) {
@@ -43,15 +54,11 @@ export function useExtensionModels() {
           setError(e instanceof Error ? e.message : "未知错误");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
     void load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   return { models, loading, error };

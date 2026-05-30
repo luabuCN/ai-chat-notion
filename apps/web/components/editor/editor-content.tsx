@@ -6,6 +6,7 @@ import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
 import { EditorLoadingSkeleton, EditorBodyLoadingSkeleton } from "./editor-loading-skeleton";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
+import { apiFetch } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
@@ -150,7 +151,7 @@ export function EditorContent({
 
   // 协同服务器 URL
   const collabServerUrl =
-    process.env.NEXT_PUBLIC_HOCUSPOCUS_URL || "ws://localhost:1234";
+    process.env.NEXT_PUBLIC_HOCUSPOCUS_URL || "ws://localhost:4000/collab";
 
   // 协同配置（null = 本地模式，不连接 WebSocket）
   const collabConfig = useMemo(() => {
@@ -652,7 +653,7 @@ export function EditorContent({
       if (!isConvertTaskPipelineBusy(task)) {
         return;
       }
-      fetch(`/api/editor-documents/${documentId}?permanent=true`, {
+      apiFetch(`/api/editor-documents/${documentId}?permanent=true`, {
         method: "DELETE",
         credentials: "include",
         keepalive: true,

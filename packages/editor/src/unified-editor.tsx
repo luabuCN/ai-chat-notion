@@ -252,7 +252,7 @@ export function UnifiedEditor({
     const serverUrl =
       collabConfig?.serverUrl ||
       process.env.NEXT_PUBLIC_HOCUSPOCUS_URL ||
-      "ws://localhost:1234";
+      "ws://localhost:4000/collab";
 
     const p = new HocuspocusProvider({
       url: serverUrl,
@@ -641,7 +641,7 @@ export function UnifiedEditor({
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
-          <AIPanel editor={editor} />
+          <AIPanel editor={editor} aiApiUrl={aiApiUrl} />
           <SearchReplacePanel editor={editor} readonly={readonly} />
         </>
       )}

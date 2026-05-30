@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { apiFetch } from "@/lib/api-client";
 
 interface UseTrackDocumentVisitProps {
   documentId: string;
@@ -27,7 +28,7 @@ export function useTrackDocumentVisit({
 
     hasTrackedRef.current = true;
 
-    fetch(`/api/editor-documents/${documentId}/visit`, {
+    apiFetch(`/api/editor-documents/${documentId}/visit`, {
       method: "POST",
     }).catch((error) => {
       console.error("[Track Visit] Failed to record visit:", error);

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { HistoryItem, PromptOptions } from "./types";
+import { apiFetch } from "@/lib/api-client";
 
 interface GenerateImagePayload {
   model: string;
@@ -13,7 +14,7 @@ interface GenerateImagePayload {
 export function useImageGeneration() {
   return useMutation({
     mutationFn: async (payload: GenerateImagePayload) => {
-      const response = await fetch("/api/image/generations", {
+      const response = await apiFetch("/api/image/generations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -28,7 +29,7 @@ export function useImageGeneration() {
       return new Promise<string>((resolve, reject) => {
         const poll = async () => {
           try {
-            const pollResponse = await fetch(`/api/image/tasks/${task_id}`);
+            const pollResponse = await apiFetch(`/api/image/tasks/${task_id}`);
 
             if (!pollResponse.ok) {
               throw new Error(
@@ -72,7 +73,7 @@ export function useImageHistory(
         params.set("workspace", workspaceSlug);
       }
 
-      const response = await fetch(`/api/image/history?${params.toString()}`);
+      const response = await apiFetch(`/api/image/history?${params.toString()}`);
       if (!response.ok) {
         throw new Error("加载历史记录失败");
       }
@@ -92,7 +93,7 @@ export function useOptimizePrompt() {
       prompt: string;
       onUpdate: (value: string) => void;
     }) => {
-      const response = await fetch("/api/ai/completion", {
+      const response = await apiFetch("/api/ai/completion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@repo/ui";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
 
 export function JoinButton({ code }: { code: string }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -11,7 +12,7 @@ export function JoinButton({ code }: { code: string }) {
   const handleJoin = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/invite/join", {
+      const res = await apiFetch("/api/invite/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),

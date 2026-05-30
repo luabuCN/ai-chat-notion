@@ -33,7 +33,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @repo/database exec prisma generate
 
 # 前端公共环境变量（Next.js 在构建时内联 NEXT_PUBLIC_*）
-ARG NEXT_PUBLIC_HOCUSPOCUS_URL=ws://localhost:1234
+ARG NEXT_PUBLIC_HOCUSPOCUS_URL=ws://localhost:4000/collab
 ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
 ENV NEXT_PUBLIC_HOCUSPOCUS_URL=$NEXT_PUBLIC_HOCUSPOCUS_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL

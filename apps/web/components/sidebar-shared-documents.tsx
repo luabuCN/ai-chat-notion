@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { ChevronDown, ChevronRight, Users, FileIcon } from "lucide-react";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@repo/ui";
 import { useWorkspace } from "@/components/workspace-provider";
+import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { SidebarDocumentsProvider } from "./sidebar-documents-context";
 import Item from "./sidebar-document-item";
@@ -49,7 +50,7 @@ export function SidebarSharedDocuments() {
         params.set("workspaceId", currentWorkspace.id);
       }
       const url = `/api/editor-documents/shared-with-me${params.toString() ? `?${params}` : ""}`;
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       if (response.ok) {
         const data = (await response.json()) as SharedDocumentsGroup[];
         setSharedGroups(data);
