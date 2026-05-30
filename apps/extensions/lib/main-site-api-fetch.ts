@@ -1,56 +1,46 @@
-import { proxyMainSiteApiViaTab } from "@/lib/auth/proxy-main-site-api-via-tab";
-import type { MainSiteApiProxyResult } from "@/lib/auth/main-site-api-proxy-message";
-import { webFetchWithMainSiteCookies } from "@/lib/web-fetch";
+import { getApiToken, refreshApiToken } from "@/lib/auth/api-token";
 import { API_ORIGIN } from "@/lib/web-config";
 
+export type MainSiteApiResult = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json: unknown;
+};
+
 /**
- * 与 {@link createSidepanelChatTransport} 一致：用 `credentials: "include"` 让浏览器按目标源附带
- * Cookie（配合主站 CORS），避免手拼 `Cookie` 与真实会话不一致（历史/空间等 GET 曾因此 401）。
- * 非 2xx 时再回退到主站标签页内同源代理。
+ * Fetch JSON from the server API using Bearer token auth.
+ * Automatically refreshes the token on 401.
  */
 export async function fetchMainSiteApiJson(
   path: string,
   method: "GET" | "DELETE",
-): Promise<MainSiteApiProxyResult> {
+): Promise<MainSiteApiResult> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${API_ORIGIN}${normalizedPath}`;
 
-  let direct: MainSiteApiProxyResult | null = null;
+  const doFetch = async (token: string) =>
+    fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+  let token = await getApiToken();
+  if (!token) {
+    return { ok: false, status: 401, statusText: "No API token", json: null };
+  }
+
+  let res = await doFetch(token);
+  if (res.status === 401) {
+    token = await refreshApiToken();
+    if (token) res = await doFetch(token);
+  }
+
+  let json: unknown = null;
   try {
-    const res = await webFetchWithMainSiteCookies(url, { method });
-    let json: unknown = null;
-    try {
-      json = (await res.json()) as unknown;
-    } catch {
-      json = null;
-    }
-    direct = {
-      ok: res.ok,
-      status: res.status,
-      statusText: res.statusText,
-      json,
-    };
+    json = (await res.json()) as unknown;
   } catch {
-    direct = null;
+    json = null;
   }
-
-  if (direct?.ok) {
-    return direct;
-  }
-
-  const proxied = await proxyMainSiteApiViaTab(normalizedPath, method);
-  if (proxied !== null) {
-    return proxied;
-  }
-
-  if (direct !== null) {
-    return direct;
-  }
-
-  return {
-    ok: false,
-    status: 0,
-    statusText: "",
-    json: null,
-  };
+  return { ok: res.ok, status: res.status, statusText: res.statusText, json };
 }

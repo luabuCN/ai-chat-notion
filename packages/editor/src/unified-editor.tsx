@@ -641,7 +641,7 @@ export function UnifiedEditor({
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
-          <AIPanel editor={editor} />
+          <AIPanel editor={editor} aiApiUrl={aiApiUrl} />
           <SearchReplacePanel editor={editor} readonly={readonly} />
         </>
       )}

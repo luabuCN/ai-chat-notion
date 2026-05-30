@@ -56,7 +56,7 @@ export interface TiptapEditorProps {
   onUpdate?: (editor: Editor) => void;
   className?: string;
   showAiTools?: boolean;
-  aiApiUrl?: string; // Will use /api/ai/completion by default in AIPanel as per user request
+  aiApiUrl?: string; // 默认 /api/ai/openai，由宿主应用传入完整 URL
   uploadFile?: (file: File) => Promise<string>;
   readonly?: boolean;
   /** SPA 跳转回调，用于文档链接点击。不传则退化为整页跳转 */
@@ -204,7 +204,7 @@ export function TiptapEditor({
           <MediaBubbleMenu editor={editor} />
           <CodeBlockBubbleMenu editor={editor} />
           <TableOfContents editor={editor} />
-          <AIPanel editor={editor} />
+          <AIPanel editor={editor} aiApiUrl={aiApiUrl} />
         </>
       )}
     </div>

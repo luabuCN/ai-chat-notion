@@ -23,7 +23,13 @@ import type { Vote } from "@repo/database";
 import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import {
+  fetcher,
+  fetchWithErrorHandlers,
+  generateUUID,
+  hasAssistantMessageContent,
+  resolveChatErrorMessage,
+} from "@/lib/utils";
 import { apiUrl } from "@/lib/api-client";
 import {
   useChatHistoryQuery,
@@ -118,6 +124,33 @@ export function Chat({
     onError: (error) => {
       console.error("chat error:", error);
 
+      const description =
+        error instanceof ChatSDKError
+          ? error.message
+          : resolveChatErrorMessage(error);
+
+      setMessages((currentMessages) => {
+        const lastMessage = currentMessages.at(-1);
+        if (
+          lastMessage?.role !== "assistant" ||
+          hasAssistantMessageContent(lastMessage)
+        ) {
+          return currentMessages;
+        }
+
+        return [
+          ...currentMessages.slice(0, -1),
+          {
+            ...lastMessage,
+            metadata: {
+              ...lastMessage.metadata,
+              isError: true,
+            },
+            parts: [{ type: "text", text: description }],
+          },
+        ];
+      });
+
       if (error instanceof ChatSDKError) {
         if (
           error.message?.includes("AI Gateway requires a valid credit card")
@@ -126,14 +159,13 @@ export function Chat({
         } else {
           toast({
             type: "error",
-            description: error.message,
+            description,
           });
         }
       } else {
         toast({
           type: "error",
-          description:
-            error.message || "发生错误，请稍后重试",
+          description,
         });
       }
     },

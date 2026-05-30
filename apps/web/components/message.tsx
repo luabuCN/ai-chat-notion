@@ -66,6 +66,7 @@ const PurePreviewMessage = ({
   // 提取引用文档信息
   const metadata = message.metadata as MessageMetadata | undefined;
   const documentRefs = metadata?.documentRefs || [];
+  const isErrorMessage = metadata?.isError === true;
 
   useDataStream();
 
@@ -171,7 +172,9 @@ const PurePreviewMessage = ({
                         "w-fit break-words rounded-2xl px-3 py-2 text-right text-white whitespace-pre-wrap":
                           message.role === "user",
                         "bg-transparent px-2 py-1 text-left":
-                          message.role === "assistant",
+                          message.role === "assistant" && !isErrorMessage,
+                        "rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-left text-destructive":
+                          message.role === "assistant" && isErrorMessage,
                       })}
                       data-testid="message-content"
                       style={
@@ -374,7 +377,7 @@ const PurePreviewMessage = ({
             </div>
           )}
 
-          {!isReadonly && (
+          {!isReadonly && !isErrorMessage && (
             <MessageActions
               chatId={chatId}
               isLoading={isLoading}

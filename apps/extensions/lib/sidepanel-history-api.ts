@@ -1,4 +1,4 @@
-import { fetchMainSiteApiJson } from "@/lib/main-site-api-fetch";
+import { fetchMainSiteApiJson, type MainSiteApiResult } from "@/lib/main-site-api-fetch";
 import type { UIMessage } from "ai";
 
 export type SidepanelChatHistoryItem = {

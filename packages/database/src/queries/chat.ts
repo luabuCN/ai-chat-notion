@@ -195,6 +195,24 @@ export async function getChatTitle({ id }: { id: string }) {
   }
 }
 
+export async function updateChatTitleById({
+  chatId,
+  title,
+}: {
+  chatId: string;
+  title: string;
+}) {
+  try {
+    return await prisma.chat.update({
+      where: { id: chatId },
+      data: { title },
+    });
+  } catch (error) {
+    console.warn("Failed to update title for chat", chatId, error);
+    return;
+  }
+}
+
 export async function updateChatLastContextById({
   chatId,
   context,

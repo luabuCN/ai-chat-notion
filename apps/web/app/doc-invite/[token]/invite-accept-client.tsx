@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card } from "@repo/ui";
 import { FileText, Loader2, CheckCircle, XCircle, LogIn } from "lucide-react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api-client";
 
 interface InviteInfo {
   email: string;
@@ -39,7 +40,7 @@ export function InviteAcceptClient({
   useEffect(() => {
     const fetchInvite = async () => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/editor-documents/collaborator-invite/${token}`
         );
         if (response.ok) {
@@ -63,7 +64,7 @@ export function InviteAcceptClient({
   const handleAccept = async () => {
     setAccepting(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/editor-documents/collaborator-invite/${token}`,
         { method: "POST" }
       );

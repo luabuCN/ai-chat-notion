@@ -1,9 +1,10 @@
 import { MAIN_SITE_STREAM_PORT } from "@/lib/auth/stream-main-site";
+import { getApiToken, refreshApiToken } from "@/lib/auth/api-token";
 import { API_ORIGIN } from "@/lib/web-config";
 
 const ALLOWED_STREAM_PATH_PREFIX = "/api/ai/openai";
 
-function buildMainSiteUrl(path: string): string {
+function buildApiUrl(path: string): string {
   const base = API_ORIGIN.replace(/\/$/, "");
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return `${base}${normalized}`;
@@ -44,15 +45,32 @@ async function handleMainSiteStream(
     port.postMessage({ type: "error", error: "path not allowed" });
     return;
   }
-  const url = buildMainSiteUrl(m.path);
+
+  let token = await getApiToken();
+  if (!token) {
+    port.postMessage({ type: "error", error: "No API token" });
+    return;
+  }
+
+  const url = buildApiUrl(m.path);
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      body: m.body,
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-    });
+    const doFetch = (t: string) =>
+      fetch(url, {
+        method: "POST",
+        body: m.body,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${t}`,
+        },
+        signal: controller.signal,
+      });
+
+    let res = await doFetch(token);
+    if (res.status === 401) {
+      token = await refreshApiToken();
+      if (token) res = await doFetch(token);
+    }
+
     if (!res.ok) {
       let errText = res.statusText;
       try {

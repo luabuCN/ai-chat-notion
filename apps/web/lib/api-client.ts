@@ -27,9 +27,11 @@ export function isServerApiPath(input: string | URL): boolean {
   let pathname: string;
 
   try {
-    pathname = new URL(value, globalThis.location?.origin).pathname;
+    const base =
+      globalThis.location?.origin ?? (API_ORIGIN || "http://localhost");
+    pathname = new URL(value, base).pathname;
   } catch {
-    pathname = value;
+    pathname = value.split("?")[0]?.split("#")[0] ?? value;
   }
 
   return SERVER_API_PREFIXES.some(
@@ -44,7 +46,11 @@ export function apiUrl(path: string | URL): string {
     return value;
   }
 
-  const url = new URL(value, globalThis.location?.origin);
+  if (value.startsWith("/")) {
+    return `${API_ORIGIN}${value}`;
+  }
+
+  const url = new URL(value);
   return `${API_ORIGIN}${url.pathname}${url.search}${url.hash}`;
 }
 

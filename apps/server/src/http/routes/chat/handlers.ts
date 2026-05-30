@@ -25,6 +25,7 @@ import {
   saveChat,
   saveMessages,
   updateChatLastContextById,
+  updateChatTitleById,
 } from "@repo/database";
 import type { Chat, DBMessage } from "@repo/database";
 import {
@@ -39,8 +40,10 @@ import { getSessionFromRequest } from "../../../shared/auth.js";
 import { ApiError } from "../../../shared/errors.js";
 import {
   convertToUIMessages,
+  formatChatStreamError,
   generateUUID,
   getTextFromMessage,
+  hasAssistantMessageContent,
 } from "../../../shared/utils.js";
 import type { ChatMessage } from "../../../shared/types.js";
 import { createDocument } from "../../ai/tools/create-document.js";
@@ -75,6 +78,14 @@ export function getStreamContext() {
   return globalStreamContext;
 }
 
+function fallbackTitleFromMessage(message: ChatMessage): string {
+  const text = getTextFromMessage(message).trim().replace(/\s+/g, " ");
+  if (!text) {
+    return "新对话";
+  }
+  return text.length > 20 ? `${text.slice(0, 20)}…` : text;
+}
+
 async function generateTitleFromUserMessage({
   message,
   modelSlug,
@@ -82,13 +93,20 @@ async function generateTitleFromUserMessage({
   message: ChatMessage;
   modelSlug: string;
 }) {
-  const { text: title } = await generateText({
-    model: getProviderWithModel(modelSlug),
-    system: titlePrompt,
-    prompt: getTextFromMessage(message),
-  });
+  // 标题生成只是锦上添花，失败时绝不能阻断对话本身。
+  try {
+    const { text: title } = await generateText({
+      model: getProviderWithModel(modelSlug),
+      system: titlePrompt,
+      prompt: getTextFromMessage(message),
+    });
 
-  return title;
+    const trimmed = title.trim();
+    return trimmed.length > 0 ? trimmed : fallbackTitleFromMessage(message);
+  } catch (error) {
+    console.warn("Title generation failed, using fallback title:", error);
+    return fallbackTitleFromMessage(message);
+  }
 }
 
 export async function postChatHandler(c: Context) {
@@ -129,7 +147,6 @@ export async function postChatHandler(c: Context) {
       }
       messagesFromDb = await getMessagesByChatId({ id });
     } else {
-      const titleModelSlug = selectedModelSlug || (await getFirstModelSlug());
       const seedUserForTitle = seedMessages?.find((m) => m.role === "user");
       const messageForTitleGeneration: ChatMessage =
         seedUserForTitle !== undefined
@@ -139,10 +156,6 @@ export async function postChatHandler(c: Context) {
               role: "user",
             }
           : (message as ChatMessage);
-      const title = await generateTitleFromUserMessage({
-        message: messageForTitleGeneration,
-        modelSlug: titleModelSlug,
-      });
 
       let workspaceId: string | undefined;
       if (workspaceSlug) {
@@ -152,12 +165,28 @@ export async function postChatHandler(c: Context) {
         }
       }
 
+      // 先用兜底标题秒建会话，避免标题生成的耗时/失败阻塞对话流。
       await saveChat({
         id,
         userId: session.user.id,
-        title,
+        title: fallbackTitleFromMessage(messageForTitleGeneration),
         workspaceId,
       });
+
+      // 标题生成放到后台异步执行，成功后再更新；失败也不影响对话。
+      void (async () => {
+        try {
+          const titleModelSlug =
+            selectedModelSlug || (await getFirstModelSlug());
+          const title = await generateTitleFromUserMessage({
+            message: messageForTitleGeneration,
+            modelSlug: titleModelSlug,
+          });
+          await updateChatTitleById({ chatId: id, title });
+        } catch (err) {
+          console.warn("Background title generation failed for chat", id, err);
+        }
+      })();
     }
 
     if (messagesFromDb.length === 0 && seedMessages?.length) {
@@ -346,7 +375,14 @@ export async function postChatHandler(c: Context) {
         dataStream.merge(result.toUIMessageStream({ sendReasoning: reasoningEnabled }));
       },
       generateId: generateUUID,
-      onFinish: async ({ messages }) => {
+      onFinish: async ({ messages, responseMessage }) => {
+        if (
+          responseMessage.role === "assistant" &&
+          !hasAssistantMessageContent(responseMessage)
+        ) {
+          return;
+        }
+
         await saveMessages({
           messages: messages.map((currentMessage) => ({
             id: currentMessage.id,
@@ -371,13 +407,7 @@ export async function postChatHandler(c: Context) {
       },
       onError: (error) => {
         console.error("stream error:", error);
-        if (error instanceof Error) {
-          if (error.message.includes("token limit")) {
-            return "引用的文档内容过长，超出了模型的上下文长度限制，请尝试缩短文档内容或换用更长上下文的模型。";
-          }
-          return error.message;
-        }
-        return "发生错误，请稍后重试";
+        return formatChatStreamError(error);
       },
     });
 
