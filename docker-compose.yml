@@ -1,90 +1,82 @@
-# 用法:
-#   1. 复制并编辑环境变量: cp .env.docker .env  (或直接编辑 .env.docker)
-#   2. 启动: docker compose --env-file .env.docker up -d --build
-#   3. 访问: http://localhost:3000
+# Dokploy Compose 部署（在面板 Environment 填写变量，部署时生成 .env）
+# - compose 用 ${VAR} 做替换；容器内变量见各服务 environment / env_file
+# - 域名：Dokploy → Domains → web 容器端口 3000，server 容器端口 4000
+# - NEXT_PUBLIC_* 在构建 Web 镜像时打入，修改后需重新 Deploy
+# 本地全栈（含 Postgres/Redis）:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 
+name: ai-chat-notion
+
+x-auth-secret: &auth-secret
+  AUTH_SECRET: ${AUTH_SECRET:-dev-docker-local-auth-secret-min-32-characters}
+
+# Dokploy 托管库请直接填完整连接串；本地合并 docker-compose.local.yml 时可用默认 postgres/redis 主机名
 x-database-url: &database-url
-  POSTGRES_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_chat_notion}
+  POSTGRES_URL: ${POSTGRES_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_chat_notion}}
 
 x-redis-url: &redis-url
-  REDIS_URL: redis://:${REDIS_PASSWORD:-redis}@redis:6379
+  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-redis}@redis:6379}
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: ai-chat-notion-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-ai_chat_notion}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ai_chat_notion}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  redis:
-    image: redis:7-alpine
-    container_name: ai-chat-notion-redis
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis}
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis}
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  db-migrate:
+  server:
     build:
       context: .
-      dockerfile: docker/db-migrate/Dockerfile
-    container_name: ai-chat-notion-db-migrate
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "4000"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      <<: *database-url
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - app-network
-    restart: "no"
+      NODE_ENV: production
+      <<: [*database-url, *redis-url, *auth-secret]
+      API_AUTH_SECRET: ${API_AUTH_SECRET:-}
+      SERVER_HTTP_PORT: 4000
+      SERVER_COLLAB_PATH: ${SERVER_COLLAB_PATH:-/collab}
+      WEB_ORIGIN: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:3000}
+      API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
+      NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
+      API_KEY: ${API_KEY:-}
+      MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
+      UPLOADTHING_SECRET: ${UPLOADTHING_SECRET:-}
+      TZ: ${TZ:-Asia/Shanghai}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.SERVER_HTTP_PORT||4000)+'/ping').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://localhost:4000/collab}
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-        POSTGRES_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_chat_notion}
+        NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:3000}
+        POSTGRES_URL: ${POSTGRES_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_chat_notion}}
         AUTH_SECRET: ${AUTH_SECRET:-build-time-placeholder-secret-min-32-chars}
-    container_name: ai-chat-notion-web
     restart: unless-stopped
-    ports:
-      - "${WEB_PORT:-3000}:3000"
+    expose:
+      - "3000"
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
-      <<: [*database-url, *redis-url]
-      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env.docker}
+      <<: [*database-url, *redis-url, *auth-secret]
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://localhost:4000/collab}
-      NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://localhost:4000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://127.0.0.1:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:3000}
+      NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
+      NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
       API_KEY: ${API_KEY:-}
       MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
       UPLOADTHING_SECRET: ${UPLOADTHING_SECRET:-}
@@ -92,53 +84,7 @@ services:
       AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:-}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      TZ: Asia/Shanghai
+      TZ: ${TZ:-Asia/Shanghai}
     depends_on:
-      postgres:
+      server:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
-    networks:
-      - app-network
-
-  server:
-    build:
-      context: .
-      dockerfile: apps/server/Dockerfile
-    container_name: ai-chat-notion-server
-    restart: unless-stopped
-    ports:
-      - "${SERVER_HTTP_PORT:-4000}:4000"
-    environment:
-      NODE_ENV: production
-      <<: [*database-url, *redis-url]
-      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env.docker}
-      API_AUTH_SECRET: ${API_AUTH_SECRET:-}
-      SERVER_HTTP_PORT: 4000
-      SERVER_COLLAB_PATH: ${SERVER_COLLAB_PATH:-/collab}
-      WEB_ORIGIN: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      API_ORIGIN: ${API_ORIGIN:-http://localhost:4000}
-      NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://localhost:4000}
-      API_KEY: ${API_KEY:-}
-      MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
-      UPLOADTHING_SECRET: ${UPLOADTHING_SECRET:-}
-      TZ: Asia/Shanghai
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
-    networks:
-      - app-network
-
-volumes:
-  postgres_data:
-  redis_data:
-
-networks:
-  app-network:
-    driver: bridge

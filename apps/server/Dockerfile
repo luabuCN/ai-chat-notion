@@ -35,10 +35,14 @@ COPY --from=base /app/packages/database ./packages/database
 COPY --from=base /app/apps/server/dist ./apps/server/dist
 COPY --from=base /app/apps/server/package.json ./apps/server/
 
+COPY docker/entrypoint-server.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 ENV NODE_ENV=production
 ENV SERVER_HTTP_PORT=4000
 ENV TZ=Asia/Shanghai
 
 EXPOSE 4000
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "apps/server/dist/index.js"]
