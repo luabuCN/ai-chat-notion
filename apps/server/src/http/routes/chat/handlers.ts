@@ -152,7 +152,7 @@ export async function postChatHandler(c: Context) {
         seedUserForTitle !== undefined
           ? {
               id: seedUserForTitle.id,
-              parts: seedUserForTitle.parts,
+              parts: seedUserForTitle.parts as ChatMessage["parts"],
               role: "user",
             }
           : (message as ChatMessage);

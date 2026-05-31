@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM docker.1ms.run/library/node:20-alpine AS base
 
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV npm_config_registry=${NPM_REGISTRY}
@@ -34,7 +34,7 @@ RUN pnpm --filter @repo/database exec prisma generate
 
 # 前端公共环境变量（Next.js 在构建时内联 NEXT_PUBLIC_*）
 ARG NEXT_PUBLIC_HOCUSPOCUS_URL=ws://localhost:4000/collab
-ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ARG NEXT_PUBLIC_APP_URL=http://localhost:8080
 ENV NEXT_PUBLIC_HOCUSPOCUS_URL=$NEXT_PUBLIC_HOCUSPOCUS_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
@@ -52,7 +52,7 @@ ENV NODE_ENV=production
 RUN pnpm build --filter=@repo/web
 
 # 生产阶段 - 使用 standalone 模式
-FROM node:20-alpine AS production
+FROM docker.1ms.run/library/node:20-alpine AS production
 
 WORKDIR /app
 
@@ -66,7 +66,7 @@ COPY --from=base /app/apps/web/messages ./apps/web/messages
 ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
 
-EXPOSE 3000
+EXPOSE 8080
 
 # standalone 模式使用 server.js 启动
 CMD ["node", "apps/web/server.js"]

@@ -1,16 +1,20 @@
 # Dokploy Compose 部署（在面板 Environment 填写变量，部署时生成 .env）
 # - compose 用 ${VAR} 做替换；容器内变量见各服务 environment / env_file
-# - 域名：Dokploy → Domains → web 容器端口 3000，server 容器端口 4000
+# - 域名：Dokploy → Domains → web 容器端口 8080，server 容器端口 4000
 # - NEXT_PUBLIC_* 在构建 Web 镜像时打入，修改后需重新 Deploy
-# 本地全栈（含 Postgres/Redis）:
-#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# 生产部署（连接外部 Postgres/Redis）:
+#   docker compose up -d --build
+#
+# 本地开发（自带 Postgres/Redis）:
+#   docker compose --profile local up -d --build
 
 name: ai-chat-notion
 
 x-auth-secret: &auth-secret
   AUTH_SECRET: ${AUTH_SECRET:-dev-docker-local-auth-secret-min-32-characters}
 
-# Dokploy 托管库请直接填完整连接串；本地合并 docker-compose.local.yml 时可用默认 postgres/redis 主机名
+# Dokploy 托管库请直接填完整连接串；本地可用默认 postgres/redis 主机名
 x-database-url: &database-url
   POSTGRES_URL: ${POSTGRES_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_chat_notion}}
 
@@ -18,13 +22,50 @@ x-redis-url: &redis-url
   REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-redis}@redis:6379}
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    profiles:
+      - local
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_chat_notion}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ai_chat_notion}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles:
+      - local
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   server:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
     restart: unless-stopped
-    expose:
-      - "4000"
+    ports:
+      - "${SERVER_HTTP_PORT:-4000}:4000"
     env_file:
       - path: .env
         required: false
@@ -34,13 +75,20 @@ services:
       API_AUTH_SECRET: ${API_AUTH_SECRET:-}
       SERVER_HTTP_PORT: 4000
       SERVER_COLLAB_PATH: ${SERVER_COLLAB_PATH:-/collab}
-      WEB_ORIGIN: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:3000}
+      WEB_ORIGIN: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
       API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
       NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
       API_KEY: ${API_KEY:-}
       MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
       UPLOADTHING_SECRET: ${UPLOADTHING_SECRET:-}
       TZ: ${TZ:-Asia/Shanghai}
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
     healthcheck:
       test:
         [
@@ -60,12 +108,12 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:3000}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
         POSTGRES_URL: ${POSTGRES_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_chat_notion}}
         AUTH_SECRET: ${AUTH_SECRET:-build-time-placeholder-secret-min-32-chars}
     restart: unless-stopped
-    expose:
-      - "3000"
+    ports:
+      - "${WEB_PORT:-8080}:8080"
     env_file:
       - path: .env
         required: false
@@ -73,10 +121,11 @@ services:
       NODE_ENV: production
       <<: [*database-url, *redis-url, *auth-secret]
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://127.0.0.1:3000}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://127.0.0.1:8080}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
       NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
       NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
+      PORT: 8080
       API_KEY: ${API_KEY:-}
       MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
       UPLOADTHING_SECRET: ${UPLOADTHING_SECRET:-}
@@ -86,5 +135,15 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       TZ: ${TZ:-Asia/Shanghai}
     depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
       server:
         condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

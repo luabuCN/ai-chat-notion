@@ -11,7 +11,17 @@
       "Bash(pnpm --filter @repo/extensions typecheck)",
       "Bash(rtk tsc *)",
       "Bash(python -)",
-      "Bash(pnpm run *)"
+      "Bash(pnpm run *)",
+      "Bash(docker compose *)",
+      "Bash(docker info *)",
+      "Bash(docker pull *)",
+      "Bash(docker history *)",
+      "Bash(docker run *)",
+      "Bash(xxd d:/code/ai-chat-notion/docker/entrypoint-server.sh)",
+      "Bash(sed -i 's/\\\\r$//' d:/code/ai-chat-notion/docker/entrypoint-server.sh)"
+    ],
+    "additionalDirectories": [
+      "d:\\code\\ai-chat-notion\\docker"
     ]
   }
 }
