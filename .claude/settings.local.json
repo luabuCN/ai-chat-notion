@@ -10,7 +10,8 @@
       "Bash(rtk git *)",
       "Bash(pnpm --filter @repo/extensions typecheck)",
       "Bash(rtk tsc *)",
-      "Bash(python -)"
+      "Bash(python -)",
+      "Bash(pnpm run *)"
     ]
   }
 }
