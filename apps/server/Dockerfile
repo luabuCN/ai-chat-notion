@@ -3,7 +3,9 @@ FROM node:20-alpine AS base
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV npm_config_registry=${NPM_REGISTRY}
 
-RUN npm config set registry ${NPM_REGISTRY} && npm install -g pnpm@9.12.3
+RUN npm config set registry ${NPM_REGISTRY} \
+  && npm install -g pnpm@9.12.3 \
+  && npm cache clean --force
 
 WORKDIR /app
 
@@ -29,7 +31,9 @@ FROM node:20-alpine AS production
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV npm_config_registry=${NPM_REGISTRY}
 
-RUN npm config set registry ${NPM_REGISTRY} && npm install -g pnpm@9.12.3
+RUN npm config set registry ${NPM_REGISTRY} \
+  && npm install -g pnpm@9.12.3 \
+  && npm cache clean --force
 
 WORKDIR /app
 
@@ -39,7 +43,7 @@ COPY packages/ai/package.json ./packages/ai/
 COPY apps/server/package.json ./apps/server/
 
 ENV NODE_ENV=production
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --filter @repo/server...
 
 COPY --from=base /app/packages/database/prisma ./packages/database/prisma
 COPY --from=base /app/packages/database/dist ./packages/database/dist
@@ -50,7 +54,9 @@ COPY --from=base /app/apps/server/dist ./apps/server/dist
 COPY --from=base /app/apps/server/package.json ./apps/server/
 
 # Generate Prisma Client from production dependencies instead of copying dev node_modules.
-RUN pnpm --filter @repo/database exec prisma generate
+RUN pnpm --filter @repo/database exec prisma generate \
+  && pnpm store prune \
+  && rm -rf /root/.cache /root/.npm /root/.local/share/pnpm/store
 
 COPY docker/entrypoint-server.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
