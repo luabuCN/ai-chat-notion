@@ -5,7 +5,6 @@ import { ArrowRight } from "lucide-react";
 
 export default async function Page() {
   const session = await auth();
-  console.log(session, "session======");
   if (!session?.user) {
     // 未登录显示欢迎页面
     return (

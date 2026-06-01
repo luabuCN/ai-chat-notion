@@ -13,3 +13,4 @@ README.md
 LICENSE
 playwright-report
 test-results
+*.tsbuildinfo
