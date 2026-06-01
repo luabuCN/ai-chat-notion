@@ -8,6 +8,7 @@ name: ai-chat-notion
 services:
   server:
     image: ghcr.io/${GHCR_OWNER:-luabucn}/ai-chat-notion/server:${IMAGE_TAG:-dev}
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "${SERVER_HTTP_PORT:-4000}:4000"
@@ -44,6 +45,7 @@ services:
 
   web:
     image: ghcr.io/${GHCR_OWNER:-luabucn}/ai-chat-notion/web:${IMAGE_TAG:-dev}
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:8080"
