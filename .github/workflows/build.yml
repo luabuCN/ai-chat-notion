@@ -73,3 +73,19 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/ai-chat-notion/web:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # GHCR 镜像推送完成后，打 tag 触发 Dokploy（Provider 须设为 On Tag，勿用 On Push）
+  deploy-trigger:
+    needs: [build-server, build-web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push deploy tag for Dokploy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -fa "deploy/${{ github.ref_name }}" -m "ci ok ${{ github.sha }}"
+          git push origin "refs/tags/deploy/${{ github.ref_name }}" --force
