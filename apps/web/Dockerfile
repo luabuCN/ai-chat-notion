@@ -33,12 +33,8 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @repo/database exec prisma generate
 
 # 前端公共环境变量（Next.js 在构建时内联 NEXT_PUBLIC_*）
-ARG NEXT_PUBLIC_HOCUSPOCUS_URL=ws://localhost:4000/collab
 ARG NEXT_PUBLIC_APP_URL=http://localhost:8080
-ARG NEXT_PUBLIC_API_ORIGIN=http://localhost:4000
-ENV NEXT_PUBLIC_HOCUSPOCUS_URL=$NEXT_PUBLIC_HOCUSPOCUS_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN
 
 # 构建时 Prisma 客户端在模块加载阶段即校验 POSTGRES_URL（Collecting page data）
 # 此处仅满足 Next.js 构建静态分析，不会真正连接数据库；运行时由 compose 注入真实值
@@ -69,6 +65,8 @@ ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
 # Next.js standalone 默认只监听 localhost，需要设为 0.0.0.0 才能在容器外访问
 ENV HOSTNAME=0.0.0.0
+# API 代理目标（Docker 内部通过服务名访问 server 容器）
+ENV API_PROXY_URL=http://server:4000
 
 EXPOSE 8080
 
