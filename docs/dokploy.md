@@ -42,6 +42,8 @@ AUTH_TRUST_HOST=true
 
 | 变量 | 说明 |
 |------|------|
+| `GHCR_OWNER` | GitHub 用户名小写（如 `luabucn`），须与 GHCR 包路径一致 |
+| `IMAGE_TAG` | 与 Actions 推送的分支标签一致（`dev` / `master`），不要用 `latest` |
 | `POSTGRES_URL` | 完整 URL，优先于 `POSTGRES_USER` 等分项变量 |
 | `REDIS_URL` | 完整 URL，优先于 `REDIS_PASSWORD` |
 | `NEXT_PUBLIC_*` | 未设置时用上表默认；修改后需 **重新 Deploy** |
