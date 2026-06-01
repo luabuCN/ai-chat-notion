@@ -26,6 +26,8 @@ function normalizeCollabPath(path: string) {
 
 export function isLocalHttpEnvironment() {
   return (
+    process.env.AUTH_TRUST_HOST === "true" ||
+    serverConfig.webOrigin.startsWith("http://") ||
     serverConfig.webOrigin.startsWith("http://localhost") ||
     serverConfig.webOrigin.startsWith("http://127.0.0.1")
   );
