@@ -1,4 +1,4 @@
-FROM docker.1ms.run/library/node:20-alpine AS base
+FROM node:20-alpine AS base
 
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV npm_config_registry=${NPM_REGISTRY}
@@ -25,7 +25,7 @@ RUN pnpm --filter @repo/database build
 RUN pnpm --filter @repo/ai build
 RUN cd apps/server && npx tsc --skipLibCheck
 
-FROM docker.1ms.run/library/node:20-alpine AS production
+FROM node:20-alpine AS production
 
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV npm_config_registry=${NPM_REGISTRY}

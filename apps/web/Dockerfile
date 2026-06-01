@@ -1,4 +1,4 @@
-FROM docker.1ms.run/library/node:20-alpine AS base
+FROM node:20-alpine AS base
 
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV npm_config_registry=${NPM_REGISTRY}
@@ -50,7 +50,7 @@ ENV NODE_ENV=production
 RUN pnpm build --filter=@repo/web
 
 # 生产阶段 - 使用 standalone 模式
-FROM docker.1ms.run/library/node:20-alpine AS production
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
