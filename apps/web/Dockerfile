@@ -65,6 +65,8 @@ COPY --from=base /app/apps/web/messages ./apps/web/messages
 
 ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
+# Next.js standalone 默认只监听 localhost，需要设为 0.0.0.0 才能在容器外访问
+ENV HOSTNAME=0.0.0.0
 
 EXPOSE 8080
 
