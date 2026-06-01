@@ -41,18 +41,6 @@ const THEME_COLOR_SCRIPT = `\
   updateThemeColor();
 })();`;
 
-function buildRuntimeApiOriginScript(): string | null {
-  const origin = (
-    process.env.API_ORIGIN ||
-    process.env.NEXT_PUBLIC_API_ORIGIN ||
-    ""
-  ).replace(/\/$/, "");
-  if (!origin) {
-    return null;
-  }
-  return `window.__API_ORIGIN__=${JSON.stringify(origin)};`;
-}
-
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -60,7 +48,6 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const messages = await getMessages();
-  const runtimeApiOriginScript = buildRuntimeApiOriginScript();
   return (
     <html
       className={`${GeistSans.variable} ${GeistMono.variable}`}
@@ -72,12 +59,6 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {runtimeApiOriginScript ? (
-          <script
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: runtime API origin for client fetch
-            dangerouslySetInnerHTML={{ __html: runtimeApiOriginScript }}
-          />
-        ) : null}
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: "Required"
           dangerouslySetInnerHTML={{

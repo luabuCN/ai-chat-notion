@@ -35,10 +35,8 @@ RUN pnpm --filter @repo/database exec prisma generate
 # 前端公共环境变量（Next.js 在构建时内联 NEXT_PUBLIC_*）
 ARG NEXT_PUBLIC_HOCUSPOCUS_URL=ws://localhost:4000/collab
 ARG NEXT_PUBLIC_APP_URL=http://localhost:8080
-ARG NEXT_PUBLIC_API_ORIGIN=http://127.0.0.1:4000
 ENV NEXT_PUBLIC_HOCUSPOCUS_URL=$NEXT_PUBLIC_HOCUSPOCUS_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN
 
 # 构建时 Prisma 客户端在模块加载阶段即校验 POSTGRES_URL（Collecting page data）
 # 此处仅满足 Next.js 构建静态分析，不会真正连接数据库；运行时由 compose 注入真实值

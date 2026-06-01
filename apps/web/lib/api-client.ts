@@ -19,21 +19,8 @@ const SERVER_API_PREFIXES = [
   "/api/unsplash",
 ] as const;
 
-type WindowWithApiOrigin = Window & { __API_ORIGIN__?: string };
-
-/** 部署时优先读运行时 API_ORIGIN（layout 注入）；构建期回退 NEXT_PUBLIC_API_ORIGIN */
-export function getApiOrigin(): string {
-  if (typeof window !== "undefined") {
-    const injected = (window as WindowWithApiOrigin).__API_ORIGIN__;
-    if (injected) {
-      return injected.replace(/\/$/, "");
-    }
-  }
-
-  const fromEnv =
-    process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_ORIGIN || "";
-  return fromEnv.replace(/\/$/, "");
-}
+export const API_ORIGIN =
+  process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/$/, "") || "";
 
 export function isServerApiPath(input: string | URL): boolean {
   const value = typeof input === "string" ? input : input.href;
@@ -41,7 +28,7 @@ export function isServerApiPath(input: string | URL): boolean {
 
   try {
     const base =
-      globalThis.location?.origin ?? (getApiOrigin() || "http://localhost");
+      globalThis.location?.origin ?? (API_ORIGIN || "http://localhost");
     pathname = new URL(value, base).pathname;
   } catch {
     pathname = value.split("?")[0]?.split("#")[0] ?? value;
@@ -55,17 +42,16 @@ export function isServerApiPath(input: string | URL): boolean {
 export function apiUrl(path: string | URL): string {
   const value = typeof path === "string" ? path : path.href;
 
-  const origin = getApiOrigin();
-  if (!origin || !isServerApiPath(value)) {
+  if (!API_ORIGIN || !isServerApiPath(value)) {
     return value;
   }
 
   if (value.startsWith("/")) {
-    return `${origin}${value}`;
+    return `${API_ORIGIN}${value}`;
   }
 
   const url = new URL(value);
-  return `${origin}${url.pathname}${url.search}${url.hash}`;
+  return `${API_ORIGIN}${url.pathname}${url.search}${url.hash}`;
 }
 
 export async function apiFetch(
