@@ -149,9 +149,21 @@ export function EditorContent({
   const useHttpPersistence =
     !shouldConnectCollab || collabPersistenceFallback || isCollabTokenError;
 
-  // 协同服务器 URL
-  const collabServerUrl =
-    process.env.NEXT_PUBLIC_HOCUSPOCUS_URL || "ws://localhost:4000/collab";
+  // 协同服务器 URL：直接连接 server 容器的 WebSocket 端口
+  const collabServerUrl = (() => {
+    const envUrl = process.env.NEXT_PUBLIC_HOCUSPOCUS_URL;
+    if (envUrl) return envUrl;
+    // 从 NEXT_PUBLIC_APP_URL 推导：替换 http→ws，端口改为 4000，加 /collab
+    try {
+      const u = new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:8080");
+      u.protocol = u.protocol.replace("http", "ws");
+      u.port = "4000";
+      u.pathname = "/collab";
+      return u.toString();
+    } catch {
+      return "ws://localhost:4000/collab";
+    }
+  })();
 
   // 协同配置（null = 本地模式，不连接 WebSocket）
   const collabConfig = useMemo(() => {

@@ -5,7 +5,6 @@ import { ArrowRight } from "lucide-react";
 
 export default async function Page() {
   const session = await auth();
-  console.log(session, "session======");
   if (!session?.user) {
     // 未登录显示欢迎页面
     return (
@@ -14,7 +13,7 @@ export default async function Page() {
           <h1 className="text-4xl font-bold tracking-tight">
             欢迎使用 AI Chat
           </h1>
-          <p className="mt-2 text-muted-foreground">智能对话，让创意更简单</p>
+          <p className="mt-2 text-muted-foreground">智能对话，让创意更简单，点击开始。</p>
         </div>
         <a
           href="/login"

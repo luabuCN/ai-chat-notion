@@ -12,7 +12,15 @@ export async function fetchAuthStatusViaMainSiteTab(): Promise<AuthStatusPayload
   } catch {
     return null;
   }
-  const tabs = await browser.tabs.query({ url: `${origin}/*` });
+  const activeTabs = await browser.tabs.query({
+    url: `${origin}/*`,
+    active: true,
+    currentWindow: true,
+  });
+  const tabs =
+    activeTabs.length > 0
+      ? activeTabs
+      : await browser.tabs.query({ url: `${origin}/*` });
   for (const tab of tabs) {
     if (tab.id === undefined) {
       continue;

@@ -40,6 +40,7 @@
     "next-auth": "5.0.0-beta.25",
     "openai": "^4.77.0",
     "pdfjs-dist": "^5.5.207",
+    "redis": "^5.0.0",
     "resumable-stream": "^2.0.0",
     "sharp": "^0.34.5",
     "uploadthing": "7.7.4",

@@ -144,6 +144,7 @@ export function Chat({
             ...lastMessage,
             metadata: {
               ...lastMessage.metadata,
+              createdAt: lastMessage.metadata?.createdAt || new Date().toISOString(),
               isError: true,
             },
             parts: [{ type: "text", text: description }],

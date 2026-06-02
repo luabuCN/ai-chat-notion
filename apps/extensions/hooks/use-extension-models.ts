@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { getApiToken, refreshApiToken } from "@/lib/auth/api-token";
 import { API_ORIGIN } from "@/lib/web-config";
 
 /** 与 apps/server `src/http/routes/models` 中 `ModelInfo` 对齐（扩展内独立类型，避免跨包引用）。 */
@@ -24,19 +23,8 @@ export function useExtensionModels() {
       setLoading(true);
       setError(null);
       try {
-        let token = await getApiToken();
-        if (!token) throw new Error("未登录");
-
-        const doFetch = (t: string) =>
-          fetch(`${API_ORIGIN}/api/models`, {
-            headers: { Authorization: `Bearer ${t}` },
-          });
-
-        let res = await doFetch(token);
-        if (res.status === 401) {
-          token = await refreshApiToken();
-          if (token) res = await doFetch(token);
-        }
+        // 与主站 use-models 一致：/api/models 由 server 提供且无需登录
+        const res = await fetch(`${API_ORIGIN}/api/models`);
         if (!res.ok) {
           let msg = res.statusText;
           try {
