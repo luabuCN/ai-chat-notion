@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getAuthStatus,
   refreshAuthStatus,
@@ -16,11 +16,17 @@ const LOGGED_OUT_PAYLOAD: AuthStatusPayload = {
   user: null,
 };
 
+/** 未登录时的兜底轮询（主站登录事件 + storage.watch 已覆盖常见路径） */
+const LOGGED_OUT_POLL_MS = 60_000;
+/** focus / visibility 触发的刷新防抖 */
+const REFRESH_DEBOUNCE_MS = 2_000;
+
 export function useMainSiteAuth() {
   const [auth, setAuth] = useState<MainSiteAuthState>({
     loading: true,
     data: null,
   });
+  const lastRefreshAtRef = useRef(0);
 
   const load = useCallback(async () => {
     setAuth((s) => ({ ...s, loading: true }));
@@ -44,6 +50,11 @@ export function useMainSiteAuth() {
   }, []);
 
   const refreshSilently = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastRefreshAtRef.current < REFRESH_DEBOUNCE_MS) {
+      return;
+    }
+    lastRefreshAtRef.current = now;
     try {
       const data = await refreshAuthStatus();
       setAuth((s) => ({ ...s, loading: false, data }));
@@ -85,18 +96,18 @@ export function useMainSiteAuth() {
   }, [refreshSilently]);
 
   useEffect(() => {
-    if (auth.data?.authenticated) {
+    if (auth.loading || auth.data?.authenticated) {
       return;
     }
 
     const id = window.setInterval(() => {
       void refreshSilently();
-    }, 4000);
+    }, LOGGED_OUT_POLL_MS);
 
     return () => {
       window.clearInterval(id);
     };
-  }, [auth.data?.authenticated, refreshSilently]);
+  }, [auth.loading, auth.data?.authenticated, refreshSilently]);
 
   return { auth, refresh };
 }

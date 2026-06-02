@@ -8,15 +8,31 @@ const matchPattern =
     ? import.meta.env.WXT_WEB_MATCH_PATTERN
     : "http://localhost:3000/*";
 const MAIN_SITE_AUTH_CHANGED_EVENT = "WiseWrite:MainSiteAuthChanged";
+const AUTH_FETCH_DEBOUNCE_MS = 1_000;
+
+let lastFetchAt = 0;
+let lastFetchPayload: AuthStatusPayload | null = null;
+let syncDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 async function fetchAuthPayloadFromPage(): Promise<AuthStatusPayload> {
+  if (
+    lastFetchPayload !== null &&
+    Date.now() - lastFetchAt < AUTH_FETCH_DEBOUNCE_MS
+  ) {
+    return lastFetchPayload;
+  }
+
   const res = await fetch(`${location.origin}/api/extension/auth-status`, {
     credentials: "same-origin",
   });
   if (!res.ok) {
-    return { authenticated: false, user: null };
+    lastFetchPayload = { authenticated: false, user: null };
+    lastFetchAt = Date.now();
+    return lastFetchPayload;
   }
-  return (await res.json()) as AuthStatusPayload;
+  lastFetchPayload = (await res.json()) as AuthStatusPayload;
+  lastFetchAt = Date.now();
+  return lastFetchPayload;
 }
 
 async function persistAuthPayload(payload: AuthStatusPayload): Promise<void> {
@@ -24,6 +40,16 @@ async function persistAuthPayload(payload: AuthStatusPayload): Promise<void> {
     payload,
     syncedAt: Date.now(),
   });
+}
+
+function scheduleSyncAuthStatusToStorage(): void {
+  if (syncDebounceTimer !== undefined) {
+    clearTimeout(syncDebounceTimer);
+  }
+  syncDebounceTimer = setTimeout(() => {
+    syncDebounceTimer = undefined;
+    void syncAuthStatusToStorage();
+  }, AUTH_FETCH_DEBOUNCE_MS);
 }
 
 async function syncAuthStatusToStorage(): Promise<void> {
@@ -84,11 +110,11 @@ export default defineContentScript({
     void syncAuthStatusToStorage();
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
-        void syncAuthStatusToStorage();
+        scheduleSyncAuthStatusToStorage();
       }
     });
     window.addEventListener(MAIN_SITE_AUTH_CHANGED_EVENT, () => {
-      void syncAuthStatusToStorage();
+      scheduleSyncAuthStatusToStorage();
     });
   },
 });

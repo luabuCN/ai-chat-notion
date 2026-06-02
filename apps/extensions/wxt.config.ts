@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
@@ -6,12 +7,34 @@ import { defineConfig } from "wxt";
 /** 扩展根目录（wxt.config.ts 所在目录），用于固定 React 单实例，避免与 @repo/ui 重复打包导致 useState 报错 */
 const extensionRoot = path.dirname(fileURLToPath(import.meta.url));
 
-// 与 apps/web 一致；用于 host_permissions、import.meta.env.WXT_WEB_ORIGIN
+// 主站（登录、extension/api-token、auth-status）；与 apps/web 一致
 const webOrigin = process.env.WXT_WEB_ORIGIN ?? "http://localhost:3000";
+// 业务 API 直连 server（除 extension/* 外）；可与仓库根 API_ORIGIN 对齐
+const apiOrigin =
+  process.env.WXT_API_ORIGIN ??
+  process.env.API_ORIGIN ??
+  process.env.NEXT_PUBLIC_API_ORIGIN ??
+  "http://localhost:4000";
 
-const chromeBinary =
-  process.env.WXT_CHROME_BINARY ??
-  "C:/Users/Administrator/AppData/Local/Google/Chrome/Application/chrome.exe";
+function resolveChromeBinary(): string {
+  if (process.env.WXT_CHROME_BINARY) {
+    return process.env.WXT_CHROME_BINARY;
+  }
+
+  const localAppData = process.env.LOCALAPPDATA;
+  const candidates = [
+    "C:/Program Files/Google/Chrome/Application/chrome.exe",
+    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+    localAppData
+      ? path.join(localAppData, "Google/Chrome/Application/chrome.exe")
+      : null,
+  ].filter((p): p is string => p !== null);
+
+  const found = candidates.find((p) => existsSync(p));
+  return found ?? candidates[0];
+}
+
+const chromeBinary = resolveChromeBinary();
 
 function webOriginToHostPermission(origin: string): string {
   try {
@@ -41,6 +64,7 @@ export default defineConfig({
     plugins: [react()],
     define: {
       "import.meta.env.WXT_WEB_ORIGIN": JSON.stringify(webOrigin),
+      "import.meta.env.WXT_API_ORIGIN": JSON.stringify(apiOrigin),
       "import.meta.env.WXT_WEB_MATCH_PATTERN": JSON.stringify(
         webOriginToContentMatchPattern(webOrigin),
       ),
@@ -79,6 +103,7 @@ export default defineConfig({
      */
     host_permissions: [
       webOriginToHostPermission(webOrigin),
+      webOriginToHostPermission(apiOrigin),
       "http://*/*",
       "https://*/*",
     ],

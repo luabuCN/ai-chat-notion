@@ -8,6 +8,8 @@ import {
 
 /** 无主站标签且 SW 兜底不可靠时，在此时间内保留「已登录」缓存，避免被误覆盖为未登录 */
 const SESSION_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
+/** 侧栏轮询 / focus 刷新时，近期已同步则不再打主站 auth-status */
+const AUTH_STATUS_REFRESH_MIN_INTERVAL_MS = 5_000;
 
 function shouldKeepCachedSessionWhenFallbackSaysLoggedOut(
   previous: MainSiteAuthRecord | null,
@@ -53,6 +55,14 @@ export async function fetchAuthStatus(): Promise<AuthStatusPayload> {
 
 /** 优先主站标签页；无主站时兜底不可靠，勿用「未登录」覆盖仍在 TTL 内的已登录缓存 */
 export async function refreshAuthStatus(): Promise<AuthStatusPayload> {
+  const cached = await mainSiteAuthStorage.getValue();
+  if (
+    cached !== null &&
+    Date.now() - cached.syncedAt < AUTH_STATUS_REFRESH_MIN_INTERVAL_MS
+  ) {
+    return cached.payload;
+  }
+
   const fromTab = await fetchAuthStatusViaMainSiteTab();
   if (fromTab !== null) {
     await mainSiteAuthStorage.setValue({

@@ -1,7 +1,7 @@
 export const MAIN_SITE_STREAM_PORT = "WiseWrite:MAIN_SITE_TEXT_STREAM";
 
 /**
- * 由 background 对主站发起流式 POST，经 port 将 UTF-8 增量回传（content script 无可靠跨域 Cookie 流式读取）。
+ * 由 background 对 server API 发起流式 POST（Bearer），经 port 将 UTF-8 增量回传。
  */
 export function streamMainSitePost(
   path: string,
