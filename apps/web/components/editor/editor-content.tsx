@@ -100,6 +100,8 @@ export function EditorContent({
   /** 本地 PATCH yjsState 去重：避免与服务端往返后与防抖快照误判重复写入 */
   const prevLocalYjsStateB64Ref = useRef<string | null>(null);
   const [permissionRevoked, setPermissionRevoked] = useState(false);
+  /** PDF 转换完成后递增，强制重挂载编辑器以应用新 initialContent */
+  const [editorContentEpoch, setEditorContentEpoch] = useState(0);
   /** 协同 WS 不可用时走 HTTP 落库（content + yjsState） */
   const [collabPersistenceFallback, setCollabPersistenceFallback] =
     useState(false);
@@ -126,6 +128,8 @@ export function EditorContent({
    */
   const shouldConnectCollab = useMemo(() => {
     if (forcePlainLocalPersistence) return false;
+    /** PDF 转换流水线中禁止连协同，否则空 yjs 会覆盖后续 PATCH 的正文 */
+    if (conversionLocked) return false;
     if (!document) return false;
     if (permissionRevoked) return false;
     if (document.id !== documentId) return false;
@@ -137,7 +141,13 @@ export function EditorContent({
     if (accessLevel === "view") return false;
 
     return true;
-  }, [document, documentId, forcePlainLocalPersistence, permissionRevoked]);
+  }, [
+    conversionLocked,
+    document,
+    documentId,
+    forcePlainLocalPersistence,
+    permissionRevoked,
+  ]);
 
   // 协同编辑 token（仅在需要连接协同时获取）
   const {
@@ -181,8 +191,8 @@ export function EditorContent({
     () =>
       `${documentId}:${shouldConnectCollab ? "collab" : "plain"}:${
         permissionRevoked ? "revoked" : "active"
-      }`,
-    [documentId, permissionRevoked, shouldConnectCollab]
+      }:e${editorContentEpoch}`,
+    [documentId, editorContentEpoch, permissionRevoked, shouldConnectCollab]
   );
 
   /** 供异步回调读取：关闭协同后仍可能收到「已断开」，此时不应再更新顶栏状态 */
@@ -391,26 +401,31 @@ export function EditorContent({
     }
   }, [error]);
 
+  const applyPdfConvertedContent = useCallback((markdown: string) => {
+    const tiptapJson = markdownToTiptap(markdown);
+    const jsonStr = JSON.stringify(tiptapJson);
+    setContent(jsonStr);
+    prevContentRef.current = jsonStr;
+    isInitializedRef.current = true;
+    setEditorContentEpoch((epoch) => epoch + 1);
+  }, []);
+
   // 订阅 PDF 转换完成事件
   useEffect(() => {
     const existing = getConvertTask(documentId);
     if (existing?.status === "done" && existing.markdown) {
-      const tiptapJson = markdownToTiptap(existing.markdown);
-      const jsonStr = JSON.stringify(tiptapJson);
-      setContent(jsonStr);
-      prevContentRef.current = jsonStr;
-      isInitializedRef.current = true;
+      applyPdfConvertedContent(existing.markdown);
     }
 
     return subscribeConvertTask(documentId, (task) => {
       if (task?.status === "done" && task.markdown) {
-        const tiptapJson = markdownToTiptap(task.markdown);
-        const jsonStr = JSON.stringify(tiptapJson);
-        setContent(jsonStr);
-        prevContentRef.current = jsonStr;
-        isInitializedRef.current = true;
+        applyPdfConvertedContent(task.markdown);
       }
     });
+  }, [applyPdfConvertedContent, documentId]);
+
+  useEffect(() => {
+    setEditorContentEpoch(0);
   }, [documentId]);
 
   // 防抖保存标题

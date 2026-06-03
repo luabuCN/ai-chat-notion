@@ -12,7 +12,7 @@
  * 任务状态存在 convert-store（模块级 Map），编辑器页面订阅并展示 overlay。
  */
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { toast } from "sonner";
@@ -51,13 +51,16 @@ async function createDocument(
   return res.json() as Promise<CreatedDoc>;
 }
 
-/** 将 markdown 转为 Tiptap JSON 并保存到文档 */
+/** 将 markdown 转为 Tiptap JSON 并保存到文档（清空 yjsState，避免协同层沿用空 CRDT） */
 async function saveDocumentContent(docId: string, markdown: string) {
   const doc = markdownToTiptap(markdown);
   const res = await apiFetch(`/api/editor-documents/${docId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: JSON.stringify(doc) }),
+    body: JSON.stringify({
+      content: JSON.stringify(doc),
+      yjsState: null,
+    }),
   });
   if (!res.ok) throw new Error("保存文档失败");
 }
@@ -66,9 +69,13 @@ async function saveDocumentContent(docId: string, markdown: string) {
  * 后台运行 PDF 转换（不 await，跳转后继续执行）。
  * 通过 convert-store 广播进度，编辑器 overlay 订阅展示。
  */
-async function runConvertInBackground(file: File, docId: string) {
+async function runConvertInBackground(
+  file: File,
+  docId: string,
+  queryClient: QueryClient
+) {
   try {
-    startConvertTask(docId, "正在提取 PDF 文字和图片位置...");
+    updateConvertProgress(docId, "正在提取 PDF 文字和图片位置...");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -118,6 +125,10 @@ async function runConvertInBackground(file: File, docId: string) {
 
     updateConvertProgress(docId, "正在保存文档...");
     await saveDocumentContent(docId, finalMarkdown);
+
+    await queryClient.invalidateQueries({
+      queryKey: documentKeys.detail(docId),
+    });
 
     toast.success("PDF 已转换并保存到文档");
     clearConvertTask(docId);
@@ -192,14 +203,16 @@ export function usePdfUpload({ workspaceSlug }: { workspaceSlug?: string }) {
 
         toast.dismiss(toastId);
 
-        // 2. 跳转到编辑器
+        // 2. 先标记转换任务，再跳转——避免编辑器首帧误连协同 WS 写入空 yjsState
+        startConvertTask(doc.id, "正在准备转换...");
+
         const editorPath = workspaceSlug
           ? `/${workspaceSlug}/editor/${doc.id}`
           : `/editor/${doc.id}`;
         router.push(editorPath);
 
         // 3. 后台转换（不 await，跳转后继续）
-        void runConvertInBackground(file, doc.id);
+        void runConvertInBackground(file, doc.id, queryClient);
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "操作失败，请重试",
