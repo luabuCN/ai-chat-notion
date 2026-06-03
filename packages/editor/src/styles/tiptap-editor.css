@@ -223,3 +223,8 @@
   margin-top: 1.5em;
   margin-bottom: 1.5em;
 }
+
+:where(img):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
