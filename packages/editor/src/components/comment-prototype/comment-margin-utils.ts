@@ -1,3 +1,4 @@
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { ResolvedPos } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import type { CommentMarginCueGeom } from "./comment-margin-types";
@@ -31,12 +32,24 @@ export function findCommentAnchorDepth($pos: ResolvedPos): number | null {
   return 1;
 }
 
+/** 块内无可见文字时不展示 hover 评论入口（已有评论的块仍由持久图标负责）。 */
+export function isEmptyCommentAnchorNode(node: ProseMirrorNode): boolean {
+  if (SKIP_BLOCK_TYPES.has(node.type.name)) {
+    return true;
+  }
+  if (node.type.name === "table") {
+    return false;
+  }
+  return node.textContent.trim().length === 0;
+}
+
 export function getCommentAnchorFromPos(
   view: EditorView,
   pos: number
 ): {
   anchorPos: number;
   blockId: string | null;
+  isEmpty: boolean;
   rect: DOMRect | null;
 } | null {
   const { doc } = view.state;
@@ -76,6 +89,7 @@ export function getCommentAnchorFromPos(
   return {
     anchorPos,
     blockId,
+    isEmpty: isEmptyCommentAnchorNode(anchorNode),
     rect: element.getBoundingClientRect(),
   };
 }

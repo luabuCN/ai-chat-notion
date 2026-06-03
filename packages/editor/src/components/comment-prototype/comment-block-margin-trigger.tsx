@@ -29,6 +29,7 @@ import { useCommentSelectionHandoffStore } from "./comment-selection-handoff-sto
 import {
   addCommentToBlock,
   deleteCommentFromBlock,
+  purgeOrphanedCommentThreads,
   useCommentThreadsByBlockId,
 } from "./comment-store-yjs";
 
@@ -389,8 +390,31 @@ function CommentBlockMarginTriggerInner({
   }, [cancelScheduledHideLiveCue]);
 
   useEffect(() => {
+    if (!ydoc) {
+      return;
+    }
+
+    const onTransaction = ({
+      transaction,
+    }: {
+      transaction: { doc: typeof editor.state.doc; docChanged: boolean };
+    }) => {
+      if (!transaction.docChanged) {
+        return;
+      }
+      purgeOrphanedCommentThreads(ydoc, transaction.doc);
+    };
+
+    editor.on("transaction", onTransaction);
+    return () => {
+      editor.off("transaction", onTransaction);
+    };
+  }, [editor, ydoc]);
+
+  useEffect(() => {
     const view = editor.view;
     const root = view.dom;
+    const commentedIds = commentedBlockIdSet;
 
     const pickCue = (clientX: number, clientY: number) => {
       if (!(editor.isEditable && !isAiBusy)) {
@@ -407,6 +431,13 @@ function CommentBlockMarginTriggerInner({
 
       const anchorInfo = getCommentAnchorFromPos(view, coords.pos);
       if (!anchorInfo?.rect) {
+        return null;
+      }
+
+      if (
+        anchorInfo.isEmpty &&
+        !(anchorInfo.blockId && commentedIds.has(anchorInfo.blockId))
+      ) {
         return null;
       }
 
@@ -455,7 +486,13 @@ function CommentBlockMarginTriggerInner({
       root.removeEventListener("pointerleave", onPointerLeaveEditor);
       root.removeEventListener("pointercancel", onPointerLeaveEditor);
     };
-  }, [cancelScheduledHideLiveCue, editor, isAiBusy, scheduleHideLiveCue]);
+  }, [
+    cancelScheduledHideLiveCue,
+    commentedBlockIdSet,
+    editor,
+    isAiBusy,
+    scheduleHideLiveCue,
+  ]);
 
   /** 滚动、视口缩放、编辑器布局变化后按 blockId 重算图标/面板位置 */
   useLayoutEffect(() => {
