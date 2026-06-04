@@ -17,8 +17,10 @@ import {
   unpublishEditorDocument,
   restoreEditorDocument,
   prisma,
+  createNotification,
 } from "@repo/database";
 import { getSessionFromRequest } from "../../../shared/auth.js";
+import { broadcast } from "../../../ws/connection-pool.js";
 import { ApiError } from "../../../shared/errors.js";
 import { verifyDocumentAccess } from "../../../shared/document-access.js";
 import { verifyWorkspaceAccess } from "../../../shared/workspace-access.js";
@@ -951,6 +953,31 @@ export async function addCollaboratorHandler(c: Context) {
       },
     });
 
+    // Send notification to the invited user if they have an account
+    if (invitedUser) {
+      const doc = await prisma.editorDocument.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+
+      const notification = await createNotification({
+        receiverId: invitedUser.id,
+        senderId: session.user.id,
+        type: "DOC_SHARE",
+        title: `${session.user.name} 分享了文档给你`,
+        content: doc?.title ?? null,
+        payload: {
+          documentId,
+          documentTitle: doc?.title,
+        },
+      });
+
+      broadcast(invitedUser.id, {
+        type: "new_notification",
+        notification,
+      });
+    }
+
     return c.json(collaborator, 201);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -992,6 +1019,12 @@ export async function updateCollaboratorHandler(c: Context) {
       ).toResponse();
     }
 
+    const existingCollaborator = await prisma.documentCollaborator.findUnique({
+      where: {
+        documentId_email: { documentId, email },
+      },
+    });
+
     const collaborator = await prisma.documentCollaborator.update({
       where: {
         documentId_email: {
@@ -1001,6 +1034,33 @@ export async function updateCollaboratorHandler(c: Context) {
       },
       data: { permission },
     });
+
+    // Notify the collaborator about permission change
+    if (collaborator.userId) {
+      const doc = await prisma.editorDocument.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+
+      const notification = await createNotification({
+        receiverId: collaborator.userId,
+        senderId: session.user.id,
+        type: "DOC_PERMISSION_CHANGED",
+        title: `你的文档权限已变更`,
+        content: `${doc?.title ?? "文档"}: ${existingCollaborator?.permission ?? ""} → ${permission}`,
+        payload: {
+          documentId,
+          documentTitle: doc?.title,
+          oldPermission: existingCollaborator?.permission,
+          newPermission: permission,
+        },
+      });
+
+      broadcast(collaborator.userId, {
+        type: "new_notification",
+        notification,
+      });
+    }
 
     return c.json(collaborator, 200);
   } catch (error) {
@@ -1040,6 +1100,12 @@ export async function removeCollaboratorHandler(c: Context) {
       email: session.user.email,
     });
 
+    const collaboratorToRemove = await prisma.documentCollaborator.findUnique({
+      where: {
+        documentId_email: { documentId, email },
+      },
+    });
+
     await prisma.documentCollaborator.delete({
       where: {
         documentId_email: {
@@ -1048,6 +1114,31 @@ export async function removeCollaboratorHandler(c: Context) {
         },
       },
     });
+
+    // Notify the removed collaborator
+    if (collaboratorToRemove?.userId) {
+      const doc = await prisma.editorDocument.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+
+      const notification = await createNotification({
+        receiverId: collaboratorToRemove.userId,
+        senderId: session.user.id,
+        type: "DOC_REMOVED",
+        title: `你已被移出文档`,
+        content: doc?.title ?? null,
+        payload: {
+          documentId,
+          documentTitle: doc?.title,
+        },
+      });
+
+      broadcast(collaboratorToRemove.userId, {
+        type: "new_notification",
+        notification,
+      });
+    }
 
     return c.json({ success: true }, 200);
   } catch (error) {
