@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
+import type { User } from "next-auth";
 import { ChatHeader } from "@/components/chat-header";
 import {
   AlertDialog,
@@ -50,6 +51,7 @@ export function Chat({
   isReadonly,
   autoResume,
   initialLastContext,
+  user,
 }: {
   id: string;
   initialMessages: ChatMessage[];
@@ -57,6 +59,7 @@ export function Chat({
   isReadonly: boolean;
   autoResume: boolean;
   initialLastContext?: AppUsage;
+  user?: User;
 }) {
   const invalidateChatHistory = useInvalidateChatHistory();
   const { setDataStream } = useDataStream();
@@ -221,7 +224,7 @@ export function Chat({
   return (
     <>
       <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col overflow-hidden bg-background">
-        <ChatHeader chatId={id} />
+        <ChatHeader chatId={id} user={user} />
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <AnimatePresence initial={false} mode="wait">

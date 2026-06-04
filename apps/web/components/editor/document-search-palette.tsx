@@ -147,7 +147,7 @@ export function DocumentSearchPalette({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[min(480px,70vh)] max-w-xl gap-0 overflow-hidden p-0 sm:max-w-xl"
+        className="flex flex-col max-h-[min(480px,70vh)] max-w-xl gap-0 overflow-hidden p-0 sm:max-w-xl"
         onKeyDown={handlePaletteKeyDown}
       >
         <DialogTitle className="sr-only">文档搜索</DialogTitle>

@@ -1,22 +1,22 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { useState } from "react";
 import type { User } from "next-auth";
 
-import { BotIcon, ClockRewind, ImageIcon } from "@/components/icons";
-import { FileText } from "lucide-react";
-import { SidebarHistory } from "@/components/sidebar-history";
+import { BotIcon, ImageIcon } from "@/components/icons";
+import { FileText, Search } from "lucide-react";
 import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarSharedDocuments } from "@/components/sidebar-shared-documents";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { SidebarTrash } from "@/components/sidebar-trash";
+import { QuickSearchPalette } from "@/components/quick-search-palette";
 import {
   WorkspaceSwitcher,
   type Workspace,
 } from "@/components/workspace-switcher";
 import { useWorkspace } from "@/components/workspace-provider";
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import {
   Sidebar,
   SidebarContent,
@@ -25,7 +25,6 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -36,6 +35,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
   const { currentWorkspace, workspaces, refreshWorkspaces } = useWorkspace();
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false);
 
   const isChatActive = /\/[^\/]+\/chat(\/|$)/.test(pathname ?? "");
   const isImageActive = /\/[^\/]+\/image(\/|$)/.test(pathname ?? "");
@@ -74,6 +74,18 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    isActive={false}
+                    onClick={() => {
+                      setOpenMobile(false);
+                      setQuickSearchOpen(true);
+                    }}
+                  >
+                    <Search className="size-4" />
+                    <span>快速搜索</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
                     isActive={isChatActive}
                     onClick={() => {
                       setOpenMobile(false);
@@ -88,17 +100,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     <BotIcon />
                     <span>AI 灵感助手</span>
                   </SidebarMenuButton>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <SidebarMenuAction showOnHover>
-                        <ClockRewind />
-                        <span className="sr-only">History</span>
-                      </SidebarMenuAction>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-80 p-0">
-                      <SidebarHistory user={user} />
-                    </PopoverContent>
-                  </Popover>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -134,6 +135,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     <span>所有文档</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+              
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -143,6 +145,12 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
       </Sidebar>
+      <QuickSearchPalette
+        open={quickSearchOpen}
+        onOpenChange={setQuickSearchOpen}
+        workspaceId={currentWorkspace?.id}
+        workspaceSlug={currentWorkspace?.slug ?? (workspaces[0]?.slug ?? "")}
+      />
     </>
   );
 }
