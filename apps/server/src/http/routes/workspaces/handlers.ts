@@ -13,7 +13,9 @@ import {
   generateWorkspaceSlug,
   updateUserCurrentWorkspace,
   hasWorkspaceAccess,
+  createNotification,
 } from "@repo/database";
+import { broadcast } from "../../../ws/connection-pool.js";
 import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 import { prisma } from "@repo/database";
 import { randomBytes } from "node:crypto";
@@ -379,6 +381,33 @@ export async function updateMemberHandler(c: Context) {
       role,
       permission: nextRole === "admin" ? "edit" : permission,
     });
+
+    const workspaceInfo = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { name: true },
+    });
+
+    const notification = await createNotification({
+      receiverId: userId,
+      senderId: session.user.id,
+      type: "SPACE_PERMISSION_CHANGED",
+      title: `你的空间权限已变更`,
+      content: `${workspaceInfo?.name ?? "空间"}: ${targetMember.role ?? ""} → ${nextRole ?? targetMember.role}`,
+      payload: {
+        workspaceId,
+        workspaceName: workspaceInfo?.name,
+        oldRole: targetMember.role,
+        newRole: nextRole,
+        oldPermission: targetMember.permission,
+        newPermission: nextRole === "admin" ? "edit" : permission,
+      },
+    });
+
+    broadcast(userId, {
+      type: "new_notification",
+      notification,
+    });
+
     return c.json(member);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -443,6 +472,29 @@ export async function removeMemberHandler(c: Context) {
     }
 
     await removeWorkspaceMember({ workspaceId, userId });
+
+    const workspaceInfo = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { name: true },
+    });
+
+    const notification = await createNotification({
+      receiverId: userId,
+      senderId: session.user.id,
+      type: "SPACE_REMOVED",
+      title: `你已被移出空间`,
+      content: workspaceInfo?.name ?? null,
+      payload: {
+        workspaceId,
+        workspaceName: workspaceInfo?.name,
+      },
+    });
+
+    broadcast(userId, {
+      type: "new_notification",
+      notification,
+    });
+
     return c.json({ success: true });
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -489,6 +541,39 @@ export async function createInviteHandler(c: Context) {
       expiresAt: addDays(new Date(), 7), // 7 days expiration
     },
   });
+
+  // Look up invited user by email to send notification
+  const invitedUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (invitedUser) {
+    const ws = await prisma.workspace.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+
+    const notification = await createNotification({
+      receiverId: invitedUser.id,
+      senderId: session.user.id,
+      type: "SPACE_INVITE",
+      title: `${session.user.name} 邀请你加入空间「${ws?.name ?? "未知空间"}」`,
+      content: ws?.name ?? null,
+      payload: {
+        workspaceId: id,
+        workspaceName: ws?.name,
+        inviteToken: invite.token,
+        role: role || "member",
+        permission: permission || "view",
+      },
+    });
+
+    broadcast(invitedUser.id, {
+      type: "new_notification",
+      notification,
+    });
+  }
 
   return c.json({
     token: invite.token,
