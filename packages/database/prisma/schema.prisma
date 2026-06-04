@@ -22,6 +22,8 @@ model User {
   memberships        WorkspaceMember[]
   accounts           Account[]
   sessions           Session[]
+  receivedNotifications Notification[] @relation("receivedNotifications")
+  sentNotifications     Notification[] @relation("sentNotifications")
 }
 
 model Account {
@@ -334,4 +336,35 @@ model DocumentVisitor {
   @@index([userId])
   @@index([documentId])
   @@map("DocumentVisitor")
+}
+
+enum NotificationType {
+  SPACE_INVITE
+  DOC_SHARE
+  DOC_PERMISSION_CHANGED
+  SPACE_PERMISSION_CHANGED
+  DOC_REMOVED
+  SPACE_REMOVED
+  COMMENT
+  MENTION
+  SYSTEM
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  receiverId String           @db.Uuid
+  senderId   String?          @db.Uuid
+  type       NotificationType
+  title      String
+  content    String?
+  payload    Json?
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  receiver   User             @relation("receivedNotifications", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User?            @relation("sentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([receiverId, isRead])
+  @@index([receiverId, createdAt(sort: Desc)])
+  @@map("notifications")
 }
