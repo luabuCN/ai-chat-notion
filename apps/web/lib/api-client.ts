@@ -17,6 +17,7 @@ const SERVER_API_PREFIXES = [
   "/api/pdf",
   "/api/files",
   "/api/unsplash",
+  "/api/notifications",
 ] as const;
 
 export const API_ORIGIN =
