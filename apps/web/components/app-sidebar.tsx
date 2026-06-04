@@ -12,6 +12,7 @@ import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { SidebarTrash } from "@/components/sidebar-trash";
 import { QuickSearchPalette } from "@/components/quick-search-palette";
+import { NotificationCenter } from "@/components/notification/notification-center";
 import {
   WorkspaceSwitcher,
   type Workspace,
@@ -135,7 +136,12 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     <span>所有文档</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NotificationCenter />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
