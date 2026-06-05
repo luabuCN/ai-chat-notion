@@ -122,8 +122,9 @@ export function EditorContent({
   const isOwner = (document as any)?.accessLevel === "owner";
 
   /**
-   * 工作台编辑页：默认可编辑文档一律走协同 WS（持久化由 collab-server 写 yjsState）。
-   * 预览只读分享仍走 `PreviewEditorClient` + `content` JSON，不经此组件。
+   * 工作台编辑页：有访问权限的文档一律走协同 WS（持久化由 collab-server 写 yjsState）。
+   * view 权限在服务端会以 readOnly 连接，只同步正文、不可写入。
+   * 公开预览页仍走 `PreviewEditorClient` + `content` JSON，不经此组件。
    * `forcePlainLocalPersistence` 为极少数需强制 HTTP-only 的场景保留降级开关。
    */
   const shouldConnectCollab = useMemo(() => {
@@ -136,9 +137,6 @@ export function EditorContent({
 
     const accessLevel = (document as any)?.accessLevel;
     if (!accessLevel) return false;
-
-    // 只读权限：不建立协同连接（也无编辑保存）
-    if (accessLevel === "view") return false;
 
     return true;
   }, [

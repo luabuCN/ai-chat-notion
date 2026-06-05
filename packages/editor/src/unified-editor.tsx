@@ -514,16 +514,26 @@ export function UnifiedEditor({
     }
 
     if (initialContent) {
-      const xmlFragment = ydoc.get("default", Y.XmlFragment);
-      const shouldApplyInitialContent =
-        editor.isEmpty || xmlFragment.length === 0;
-
-      if (shouldApplyInitialContent) {
+      if (!collabConfig) {
+        // 本地 / HTTP 降级：Collaboration 会先写入空段落，旧 isEmpty/xmlFragment 判断会误判为「已有内容」而跳过
         try {
           const contentJson = JSON.parse(initialContent);
           editor.commands.setContent(contentJson, { emitUpdate: false });
         } catch {
           // 保持空文档并继续展示，避免整页卡住
+        }
+      } else {
+        const xmlFragment = ydoc.get("default", Y.XmlFragment);
+        const shouldApplyInitialContent =
+          editor.isEmpty || xmlFragment.length === 0;
+
+        if (shouldApplyInitialContent) {
+          try {
+            const contentJson = JSON.parse(initialContent);
+            editor.commands.setContent(contentJson, { emitUpdate: false });
+          } catch {
+            // 保持空文档并继续展示，避免整页卡住
+          }
         }
       }
     }
