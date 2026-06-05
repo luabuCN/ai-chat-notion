@@ -16,6 +16,8 @@ build
 #serve
 dist
 
+docs
+
 # misc
 .DS_Store
 *.pem

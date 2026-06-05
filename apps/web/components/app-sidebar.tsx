@@ -136,11 +136,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     <span>所有文档</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NotificationCenter />
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <NotificationCenter />
 
               </SidebarMenu>
             </SidebarGroupContent>
