@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, getApiErrorMessage } from "@/lib/api-client";
 import { usePublicEditDocument } from "@/hooks/use-document-query";
 import { useCollaboration } from "./collaboration-context";
 import { generateUserColor } from "@repo/editor";
@@ -261,7 +261,7 @@ export function DocumentSharePopover({
         }
       } else {
         const error = await response.json();
-        toast.error(error.message || "邀请失败");
+        toast.error(getApiErrorMessage(error, "邀请失败"));
       }
     } catch (error) {
       toast.error("邀请失败，请重试");
@@ -293,7 +293,7 @@ export function DocumentSharePopover({
         toast.success("权限已更新");
       } else {
         const error = await response.json();
-        toast.error(error.message || "更新失败");
+        toast.error(getApiErrorMessage(error, "更新失败"));
       }
     } catch (error) {
       toast.error("更新失败");

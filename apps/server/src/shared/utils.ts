@@ -8,6 +8,16 @@ export function generateUUID(): string {
   return uuidv4();
 }
 
+export function isSameEmail(
+  a: string,
+  b: string | null | undefined
+): boolean {
+  if (!b) {
+    return false;
+  }
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
   return messages.map((message) => {
     const attachments = message.attachments as any[];

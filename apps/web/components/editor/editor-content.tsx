@@ -134,6 +134,8 @@ export function EditorContent({
     if (!document) return false;
     if (permissionRevoked) return false;
     if (document.id !== documentId) return false;
+    /** 回收站文档只走 HTTP CRUD，不连协同 WS */
+    if (document.deletedAt) return false;
 
     const accessLevel = (document as any)?.accessLevel;
     if (!accessLevel) return false;
@@ -183,6 +185,18 @@ export function EditorContent({
       token: collabData.token,
     };
   }, [shouldConnectCollab, collabData?.token, collabServerUrl]);
+
+  /** 非协同模式时从 API 返回的 yjsState（base64）恢复正文 */
+  const initialYjsStateB64 = useMemo(() => {
+    if (collabConfig) {
+      return null;
+    }
+    const raw = (document as { yjsState?: string | null } | undefined)?.yjsState;
+    if (typeof raw === "string" && raw.length > 0) {
+      return raw;
+    }
+    return null;
+  }, [collabConfig, document]);
 
   /** 文档或协同模式切换时需重新等待编辑器就绪（勿把 token 放进 key，避免 token 就绪后整页重挂载） */
   const editorMountKey = useMemo(
@@ -854,6 +868,7 @@ export function EditorContent({
                 key={editorMountKey}
                 documentId={documentId}
                 initialContent={content}
+                initialYjsStateB64={initialYjsStateB64}
                 user={user}
                 collabConfig={collabConfig}
                 readonly={effectiveReadOnly || conversionLocked}

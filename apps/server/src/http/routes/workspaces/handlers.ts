@@ -22,6 +22,7 @@ import { randomBytes } from "node:crypto";
 import { addDays } from "date-fns";
 import { getSessionFromRequest } from "../../../shared/auth.js";
 import { ApiError } from "../../../shared/errors.js";
+import { isSameEmail } from "../../../shared/utils.js";
 import {
   assertWorkspaceCanManage,
   isPermissionChangedError,
@@ -536,6 +537,17 @@ export async function createInviteHandler(c: Context) {
 
   const id = c.req.param("id")!;
   const { email, role, permission } = await c.req.json();
+
+  if (!email) {
+    return new ApiError("bad_request:api", "Email is required").toResponse();
+  }
+
+  if (isSameEmail(email, session.user.email)) {
+    return new ApiError(
+      "bad_request:api",
+      "不能邀请自己的邮箱"
+    ).toResponse();
+  }
 
   try {
     await assertWorkspaceCanManage(id, session.user.id);

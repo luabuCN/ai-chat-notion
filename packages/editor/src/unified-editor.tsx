@@ -73,9 +73,20 @@ export type ConnectionStatus =
   | "disconnected"
   | "idle";
 
+function decodeBase64ToUint8Array(b64: string): Uint8Array {
+  const binary = globalThis.atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export interface UnifiedEditorProps {
   documentId: string;
   initialContent?: string;
+  /** 非协同模式下从数据库 yjsState 恢复正文（base64，服务端已解压） */
+  initialYjsStateB64?: string | null;
   placeholder?: string;
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
@@ -120,6 +131,7 @@ export interface UnifiedEditorProps {
 export function UnifiedEditor({
   documentId,
   initialContent,
+  initialYjsStateB64,
   placeholder,
   onCreate,
   onUpdate,
@@ -210,8 +222,18 @@ export function UnifiedEditor({
     [documentId, collabConfig]
   );
 
-  // 创建 Yjs 文档
-  const ydoc = useMemo(() => new Y.Doc(), [documentId]);
+  // 创建 Yjs 文档；非协同模式可从 initialYjsStateB64 预灌正文
+  const ydoc = useMemo(() => {
+    const doc = new Y.Doc();
+    if (!collabConfig && initialYjsStateB64) {
+      try {
+        Y.applyUpdate(doc, decodeBase64ToUint8Array(initialYjsStateB64));
+      } catch {
+        // 解码失败时回退到 initialContent
+      }
+    }
+    return doc;
+  }, [collabConfig, documentId, initialYjsStateB64]);
 
   const [isWebSocketSynced, setIsWebSocketSynced] = useState(!collabConfig);
 
@@ -515,12 +537,15 @@ export function UnifiedEditor({
 
     if (initialContent) {
       if (!collabConfig) {
-        // 本地 / HTTP 降级：Collaboration 会先写入空段落，旧 isEmpty/xmlFragment 判断会误判为「已有内容」而跳过
-        try {
-          const contentJson = JSON.parse(initialContent);
-          editor.commands.setContent(contentJson, { emitUpdate: false });
-        } catch {
-          // 保持空文档并继续展示，避免整页卡住
+        const xmlFragment = ydoc.get("default", Y.XmlFragment);
+        if (xmlFragment.length === 0) {
+          // 本地 / HTTP 降级：yjsState 未恢复时再落 content JSON
+          try {
+            const contentJson = JSON.parse(initialContent);
+            editor.commands.setContent(contentJson, { emitUpdate: false });
+          } catch {
+            // 保持空文档并继续展示，避免整页卡住
+          }
         }
       } else {
         const xmlFragment = ydoc.get("default", Y.XmlFragment);

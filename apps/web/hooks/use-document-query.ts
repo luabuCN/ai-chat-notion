@@ -49,6 +49,7 @@ interface FetchDocumentError {
   message: string;
   code?: string;
   statusCode: number;
+  cause?: string;
 }
 
 type ApiMutationError = Error & {
@@ -75,6 +76,7 @@ async function fetchDocument(documentId: string): Promise<EditorDocument> {
       message: errorData.message || "获取文档失败",
       code: errorData.code,
       statusCode: response.status,
+      cause: errorData.cause,
     };
     throw error;
   }

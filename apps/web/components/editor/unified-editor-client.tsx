@@ -20,6 +20,8 @@ interface UnifiedEditorClientProps {
   documentId: string;
   /** 初始内容（JSON 字符串） */
   initialContent?: string;
+  /** 非协同模式下从数据库 yjsState 恢复正文（base64） */
+  initialYjsStateB64?: string | null;
   /** 用户信息（用于协同光标） */
   user?: CollaborativeUser;
   /** 协同服务器配置（null = 本地模式） */
@@ -52,6 +54,7 @@ export const UnifiedEditorClient = memo(
   function UnifiedEditorClient({
     documentId,
     initialContent,
+    initialYjsStateB64,
     user,
     collabConfig,
     readonly,
@@ -109,6 +112,7 @@ export const UnifiedEditorClient = memo(
       <UnifiedEditor
         documentId={documentId}
         initialContent={initialContent}
+        initialYjsStateB64={initialYjsStateB64}
         user={user}
         collabConfig={stableCollabConfig}
         placeholder={placeholder ?? "Type / for commands, or press Space for AI..."}

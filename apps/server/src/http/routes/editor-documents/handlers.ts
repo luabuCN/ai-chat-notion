@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import crypto from "node:crypto";
+import { gunzipSync } from "node:zlib";
 import {
   createEditorDocument,
   getEditorDocumentById,
@@ -22,6 +23,7 @@ import {
 import { getSessionFromRequest } from "../../../shared/auth.js";
 import { broadcast } from "../../../ws/connection-pool.js";
 import { ApiError } from "../../../shared/errors.js";
+import { isSameEmail } from "../../../shared/utils.js";
 import { verifyDocumentAccess } from "../../../shared/document-access.js";
 import { verifyWorkspaceAccess } from "../../../shared/workspace-access.js";
 import {
@@ -30,6 +32,23 @@ import {
   isPermissionChangedError,
   permissionChangedResponse,
 } from "../../../shared/permission-assert.js";
+
+function isGzipCompressed(buffer: Buffer): boolean {
+  return buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+}
+
+function serializeYjsStateForApi(
+  yjsState: Buffer | Uint8Array | null | undefined
+): string | null {
+  if (!yjsState || yjsState.length === 0) {
+    return null;
+  }
+  let buf = Buffer.from(yjsState);
+  if (isGzipCompressed(buf)) {
+    buf = gunzipSync(buf);
+  }
+  return buf.toString("base64");
+}
 
 function permissionToChinese(perm: string | null | undefined): string {
   switch (perm) {
@@ -703,8 +722,19 @@ export async function getEditorDocumentHandler(c: Context) {
     } = await verifyDocumentAccess(
       id,
       session?.user.id,
-      session?.user.email
+      session?.user.email,
+      { ignoreDeletedAt: true }
     );
+
+    if (document?.deletedAt) {
+      const canViewTrash = access === "owner" || canManage;
+      if (!canViewTrash) {
+        if (!session) {
+          return new ApiError("unauthorized:document").toResponse();
+        }
+        return new ApiError("forbidden:document", "document_deleted").toResponse();
+      }
+    }
 
     if (access === "none") {
       if (!session) {
@@ -713,9 +743,12 @@ export async function getEditorDocumentHandler(c: Context) {
       return new ApiError("forbidden:document").toResponse();
     }
 
+    const { yjsState: yjsStateBuffer, ...documentFields } = document;
+
     return c.json(
       {
-        ...document,
+        ...documentFields,
+        yjsState: serializeYjsStateForApi(yjsStateBuffer),
         accessLevel: access,
         canManage,
         hasCollaborators,
@@ -922,6 +955,13 @@ export async function addCollaboratorHandler(c: Context) {
       return new ApiError(
         "bad_request:api",
         "Email is required"
+      ).toResponse();
+    }
+
+    if (isSameEmail(email, session.user.email)) {
+      return new ApiError(
+        "bad_request:api",
+        "不能邀请自己的邮箱"
       ).toResponse();
     }
 
@@ -1257,7 +1297,19 @@ export async function getEditorDocumentPathHandler(c: Context) {
   const id = c.req.param("id")!;
 
   try {
-    const { access } = await verifyDocumentAccess(id, session.user.id);
+    const { access, document, canManage } = await verifyDocumentAccess(
+      id,
+      session.user.id,
+      session.user.email,
+      { ignoreDeletedAt: true }
+    );
+
+    if (document?.deletedAt) {
+      const canViewTrash = access === "owner" || canManage;
+      if (!canViewTrash) {
+        return new ApiError("forbidden:document").toResponse();
+      }
+    }
 
     if (access === "none") {
       return new ApiError("forbidden:document").toResponse();

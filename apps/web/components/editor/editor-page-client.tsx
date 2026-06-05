@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { CollaborationProvider } from "./collaboration-context";
 import { EditorHeaderWrapper } from "./editor-header-wrapper";
 import { EditorContent } from "./editor-content";
@@ -41,6 +41,7 @@ export function EditorPageClient({
   const { data: document, isPending: isDocumentPending, error } =
     useGetDocument(documentId);
   const { currentWorkspace } = useWorkspace();
+  const router = useRouter();
   const params = useParams();
   const { state, isMobile } = useSidebar();
   const [mounted, setMounted] = useState(false);
@@ -98,6 +99,19 @@ export function EditorPageClient({
     : state === "collapsed"
     ? "0"
     : "var(--sidebar-width)";
+
+  // 文档已被移到回收站（非所有者），自动跳转到空编辑器
+  useEffect(() => {
+    const docError = error as any;
+    if (
+      docError &&
+      !isDocumentPending &&
+      docError.statusCode === 403 &&
+      docError.cause === "document_deleted"
+    ) {
+      router.replace("/editor");
+    }
+  }, [error, isDocumentPending, router]);
 
   // 文档加载出错（无权限 / 不存在）
   const docError = error as any;
