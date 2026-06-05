@@ -31,6 +31,14 @@ import {
   permissionChangedResponse,
 } from "../../../shared/permission-assert.js";
 
+function permissionToChinese(perm: string | null | undefined): string {
+  switch (perm) {
+    case "edit": return "编辑";
+    case "view": return "查看";
+    default: return perm ?? "查看";
+  }
+}
+
 // ─── Root CRUD ───────────────────────────────────────────────────────────────
 
 export async function listEditorDocumentsHandler(c: Context) {
@@ -969,6 +977,7 @@ export async function addCollaboratorHandler(c: Context) {
         payload: {
           documentId,
           documentTitle: doc?.title,
+          inviteToken: token,
         },
       });
 
@@ -1047,7 +1056,7 @@ export async function updateCollaboratorHandler(c: Context) {
         senderId: session.user.id,
         type: "DOC_PERMISSION_CHANGED",
         title: `你的文档权限已变更`,
-        content: `${doc?.title ?? "文档"}: ${existingCollaborator?.permission ?? ""} → ${permission}`,
+        content: `${doc?.title ?? "文档"}: ${permissionToChinese(existingCollaborator?.permission)} → ${permissionToChinese(permission)}`,
         payload: {
           documentId,
           documentTitle: doc?.title,

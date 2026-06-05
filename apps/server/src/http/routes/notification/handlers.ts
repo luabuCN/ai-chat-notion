@@ -5,10 +5,11 @@ import {
   getUnreadCount,
   markAsRead,
   markAllAsRead,
+  deleteNotification,
+  markNotificationActionTaken,
 } from "@repo/database";
 import { getSessionFromRequest } from "../../../shared/auth.js";
 import { ApiError } from "../../../shared/errors.js";
-import type { NotificationType } from "@prisma/client";
 
 export async function listNotificationsHandler(c: Context) {
   const session = await getSessionFromRequest(c.req.raw);
@@ -22,7 +23,12 @@ export async function listNotificationsHandler(c: Context) {
     const pageSize = Number(searchParams.get("pageSize") || "20");
     const typeParam = searchParams.get("type");
 
-    const type = typeParam ? (typeParam as NotificationType) : undefined;
+    // Support comma-separated types: "DOC_PERMISSION_CHANGED,SPACE_PERMISSION_CHANGED,DOC_REMOVED,SPACE_REMOVED"
+    const type = typeParam
+      ? typeParam.includes(",")
+        ? typeParam.split(",").map((t) => t.trim()) as string[]
+        : typeParam
+      : undefined;
 
     const result = await getNotifications({
       userId: session.user.id,
@@ -118,4 +124,45 @@ export async function createWsTokenHandler(c: Context) {
   );
 
   return c.json({ token, expiresIn: 24 * 60 * 60 });
+}
+
+export async function deleteNotificationHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const id = c.req.param("id")!;
+    await deleteNotification({ notificationId: id, userId: session.user.id });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete notification:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to delete notification"
+    ).toResponse();
+  }
+}
+
+export async function markActionTakenHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:chat").toResponse();
+  }
+
+  try {
+    const id = c.req.param("id")!;
+    await markNotificationActionTaken({
+      notificationId: id,
+      userId: session.user.id,
+    });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Failed to mark notification action taken:", error);
+    return new ApiError(
+      "bad_request:api",
+      "Failed to mark notification action taken"
+    ).toResponse();
+  }
 }

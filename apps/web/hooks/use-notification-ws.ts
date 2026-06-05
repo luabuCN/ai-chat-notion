@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter } from "next/navigation";
 import { notificationKeys } from "./use-notifications";
 
 const MAX_RECONNECT_DELAY = 30_000;
@@ -13,6 +14,12 @@ export function useNotificationWs(token: string | null) {
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Keep a ref to always have the latest pathname
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   const connect = useCallback(() => {
     if (!token || !mountedRef.current) return;
@@ -37,9 +44,51 @@ export function useNotificationWs(token: string | null) {
           return;
         }
         if (data.type === "new_notification") {
+          const notification = data.notification;
+          const currentPath = pathnameRef.current;
+
           queryClient.invalidateQueries({
             queryKey: notificationKeys.all,
           });
+
+          if (!notification) return;
+
+          const nType = notification.type;
+          const payload = notification.payload as Record<string, unknown> | null;
+
+          // 文档权限变更：在该文档页 → 刷新
+          if (nType === "DOC_PERMISSION_CHANGED" && payload?.documentId) {
+            const docId = payload.documentId as string;
+            if (currentPath?.startsWith(`/editor/${docId}`)) {
+              window.location.reload();
+            }
+          }
+
+          // 文档移除：在该文档页 → 刷新页面
+          if (nType === "DOC_REMOVED" && payload?.documentId) {
+            const docId = payload.documentId as string;
+            if (currentPath?.startsWith(`/editor/${docId}`)) {
+              window.location.reload();
+            }
+          }
+
+          // 空间权限变更：在该空间 → refresh；不在 → 刷新空间列表
+          if (nType === "SPACE_PERMISSION_CHANGED" && payload?.workspaceId) {
+            if (currentPath?.startsWith(`/${payload.workspaceSlug ?? "__none__"}/`)) {
+              router.refresh();
+            } else {
+              window.dispatchEvent(new CustomEvent("refresh-workspaces"));
+            }
+          }
+
+          // 空间移除：在该空间 → 跳转到首页（初始空间）
+          if (nType === "SPACE_REMOVED" && payload?.workspaceSlug) {
+            const wsSlug = payload.workspaceSlug as string;
+            if (currentPath?.startsWith(`/${wsSlug}/`)) {
+              router.push("/");
+              router.refresh();
+            }
+          }
         }
       } catch {
         // ignore malformed messages
@@ -61,7 +110,7 @@ export function useNotificationWs(token: string | null) {
     ws.onerror = () => {
       ws.close();
     };
-  }, [token, queryClient]);
+  }, [token, queryClient, router]);
 
   useEffect(() => {
     mountedRef.current = true;

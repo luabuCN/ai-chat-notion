@@ -413,7 +413,7 @@ export function DocumentSharePopover({
           )}
         >
           <Users className={cn( 'size-4',isPubliclyEditable || hasCollaborators ? "text-primary" : "text-muted-foreground")} />
-          <span className="text-xs hidden sm:inline">分享</span>
+          <span className={cn( 'text-xs hidden sm:inline ',isPubliclyEditable || hasCollaborators ? "text-primary" : "text-muted-foreground")}>分享</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent

@@ -17,7 +17,7 @@ function getTabType(tabKey: string | undefined): string | undefined {
     case "invite":
       return "SPACE_INVITE";
     case "permission":
-      return "DOC_PERMISSION_CHANGED";
+      return "DOC_PERMISSION_CHANGED,SPACE_PERMISSION_CHANGED,DOC_REMOVED,SPACE_REMOVED";
     default:
       return undefined;
   }

@@ -28,6 +28,22 @@ import {
   permissionChangedResponse,
 } from "../../../shared/permission-assert.js";
 
+function roleToChinese(role: string | null | undefined): string {
+  switch (role) {
+    case "admin": return "管理员";
+    case "member": return "成员";
+    default: return role ?? "成员";
+  }
+}
+
+function permissionToChinese(perm: string | null | undefined): string {
+  switch (perm) {
+    case "edit": return "编辑";
+    case "view": return "查看";
+    default: return perm ?? "查看";
+  }
+}
+
 // ─── Root routes ─────────────────────────────────────────────────────────────
 
 export async function listWorkspacesHandler(c: Context) {
@@ -384,7 +400,7 @@ export async function updateMemberHandler(c: Context) {
 
     const workspaceInfo = await prisma.workspace.findUnique({
       where: { id: workspaceId },
-      select: { name: true },
+      select: { name: true, slug: true },
     });
 
     const notification = await createNotification({
@@ -392,10 +408,11 @@ export async function updateMemberHandler(c: Context) {
       senderId: session.user.id,
       type: "SPACE_PERMISSION_CHANGED",
       title: `你的空间权限已变更`,
-      content: `${workspaceInfo?.name ?? "空间"}: ${targetMember.role ?? ""} → ${nextRole ?? targetMember.role}`,
+      content: `${workspaceInfo?.name ?? "空间"}: ${roleToChinese(targetMember.role)} → ${roleToChinese(nextRole ?? targetMember.role)}, ${permissionToChinese(targetMember.permission)} → ${permissionToChinese(nextRole === "admin" ? "edit" : permission)}`,
       payload: {
         workspaceId,
         workspaceName: workspaceInfo?.name,
+        workspaceSlug: workspaceInfo?.slug,
         oldRole: targetMember.role,
         newRole: nextRole,
         oldPermission: targetMember.permission,
@@ -475,7 +492,7 @@ export async function removeMemberHandler(c: Context) {
 
     const workspaceInfo = await prisma.workspace.findUnique({
       where: { id: workspaceId },
-      select: { name: true },
+      select: { name: true, slug: true },
     });
 
     const notification = await createNotification({
@@ -487,6 +504,7 @@ export async function removeMemberHandler(c: Context) {
       payload: {
         workspaceId,
         workspaceName: workspaceInfo?.name,
+        workspaceSlug: workspaceInfo?.slug,
       },
     });
 

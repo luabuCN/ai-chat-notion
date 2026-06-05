@@ -86,6 +86,29 @@ async function markAllNotificationsAsRead(): Promise<void> {
   }
 }
 
+async function deleteNotificationById(
+  notificationId: string
+): Promise<void> {
+  const response = await apiFetch(`/api/notifications/${notificationId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to delete notification");
+  }
+}
+
+async function markNotificationActionTakenById(
+  notificationId: string
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/notifications/${notificationId}/action`,
+    { method: "PATCH" }
+  );
+  if (!response.ok) {
+    throw new Error("Failed to mark notification action taken");
+  }
+}
+
 // Hooks
 export function useNotifications(params?: {
   page?: number;
@@ -121,6 +144,28 @@ export function useMarkAllAsRead() {
 
   return useMutation({
     mutationFn: markAllNotificationsAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteNotificationById,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+}
+
+export function useMarkActionTaken() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: markNotificationActionTakenById,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },

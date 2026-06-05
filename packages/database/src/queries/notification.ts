@@ -13,12 +13,19 @@ export async function getNotifications({
   userId: string;
   page?: number;
   pageSize?: number;
-  type?: NotificationType;
+  type?: string | string[];
 }) {
   try {
+    const typeFilter = (() => {
+      if (!type) return {};
+      const types = Array.isArray(type) ? type : [type];
+      if (types.length === 1) return { type: types[0] as NotificationType };
+      return { type: { in: types as NotificationType[] } };
+    })();
+
     const where = {
       receiverId: userId,
-      ...(type ? { type } : {}),
+      ...typeFilter,
     };
 
     const [list, total, unreadCount] = await Promise.all([
@@ -136,6 +143,56 @@ export async function markAllAsRead({ userId }: { userId: string }) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to mark all notifications as read"
+    );
+  }
+}
+
+export async function deleteNotification({
+  notificationId,
+  userId,
+}: {
+  notificationId: string;
+  userId: string;
+}) {
+  try {
+    return await prisma.notification.deleteMany({
+      where: {
+        id: notificationId,
+        receiverId: userId,
+      },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete notification"
+    );
+  }
+}
+
+export async function markNotificationActionTaken({
+  notificationId,
+  userId,
+}: {
+  notificationId: string;
+  userId: string;
+}) {
+  try {
+    const notification = await prisma.notification.findFirst({
+      where: { id: notificationId, receiverId: userId },
+    });
+    if (!notification) return null;
+
+    const payload = (notification.payload as Record<string, unknown>) ?? {};
+    return await prisma.notification.update({
+      where: { id: notificationId },
+      data: {
+        payload: { ...payload, actionTaken: true } as Prisma.InputJsonValue,
+      },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to update notification action"
     );
   }
 }
