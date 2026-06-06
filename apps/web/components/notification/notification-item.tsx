@@ -82,6 +82,20 @@ export function NotificationItem({
         }
         break;
       }
+      case "MENTION": {
+        const documentId = payload?.documentId as string | undefined;
+        const commentId = payload?.commentId as string | undefined;
+        const blockId = payload?.blockId as string | undefined;
+        if (documentId) {
+          onClose();
+          const params = new URLSearchParams();
+          if (commentId) params.set("comment", commentId);
+          if (blockId) params.set("block", blockId);
+          const qs = params.toString();
+          router.push(`/editor/${documentId}${qs ? `?${qs}` : ""}`);
+        }
+        break;
+      }
       default:
         break;
     }
@@ -91,6 +105,11 @@ export function NotificationItem({
     if (isRejected) return;
 
     if (notification.type === "DOC_PERMISSION_CHANGED") {
+      handleNavigate();
+      return;
+    }
+
+    if (notification.type === "MENTION") {
       handleNavigate();
       return;
     }
@@ -181,6 +200,7 @@ export function NotificationItem({
   const isClickable =
     !isRejected &&
     (notification.type === "DOC_PERMISSION_CHANGED" ||
+      notification.type === "MENTION" ||
       (isInviteType(notification.type) && isAccepted));
 
   return (

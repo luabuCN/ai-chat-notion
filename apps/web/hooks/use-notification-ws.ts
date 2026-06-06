@@ -72,6 +72,9 @@ export function useNotificationWs(token: string | null) {
             }
           }
 
+          // MENTION: cache invalidation above is sufficient;
+          // navigation is handled by notification-item.tsx
+
           // 空间权限变更：在该空间 → refresh；不在 → 刷新空间列表
           if (nType === "SPACE_PERMISSION_CHANGED" && payload?.workspaceId) {
             if (currentPath?.startsWith(`/${payload.workspaceSlug ?? "__none__"}/`)) {
