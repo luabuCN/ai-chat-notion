@@ -21,6 +21,15 @@ export type MentionUser = {
   avatar?: string;
 };
 
+/** 提交评论含 @提及时，由宿主层调用服务端通知 API */
+export type CommentMentionNotifyParams = {
+  documentId: string;
+  blockId: string;
+  commentId: string;
+  body: string;
+  mentions: MentionUser[];
+};
+
 export type CommentPrototypeEntry = {
   id: string;
   authorName: string;
@@ -100,6 +109,8 @@ type CommentPrototypeFormProps = {
   mentionableUsers?: MentionableUser[];
   /** 高亮目标评论 ID（从通知跳转时使用） */
   highlightCommentId?: string;
+  /** 通知跳转时的目标 block ID；有值时跳过评论列表内滚动 */
+  highlightBlockId?: string;
 };
 
 function CommentBody({
@@ -143,6 +154,7 @@ export function CommentPrototypeForm({
   documentId,
   mentionableUsers = [],
   highlightCommentId,
+  highlightBlockId,
 }: CommentPrototypeFormProps) {
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -153,23 +165,45 @@ export function CommentPrototypeForm({
   const [mentionFilter, setMentionFilter] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
   const [selectedMentions, setSelectedMentions] = useState<MentionUser[]>([]);
+  /** 通知跳转高亮：闪 3 次（~1.8s），不再使用 animate-pulse 无限循环 */
+  const [flashingCommentId, setFlashingCommentId] = useState<
+    string | undefined
+  >();
 
   useEffect(() => {
     if (!autoFocus) {
       return;
     }
-    inputRef.current?.focus();
+    // 评论面板为 fixed 定位；默认 focus 会触发浏览器 scrollIntoView，导致页面异常下滚
+    inputRef.current?.focus({ preventScroll: true });
   }, [autoFocus]);
 
-  // Auto-scroll to highlighted comment
   useEffect(() => {
-    if (highlightCommentId && highlightRef.current) {
-      highlightRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    if (!highlightCommentId) {
+      return;
     }
-  }, [highlightCommentId, comments.length]);
+    setFlashingCommentId(highlightCommentId);
+    const timer = window.setTimeout(() => {
+      setFlashingCommentId(undefined);
+    }, 1800);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [highlightCommentId]);
+
+  // Auto-scroll to highlighted comment
+  // Skipped when highlightBlockId is set (notification jump) — the parent
+  // CommentBlockMarginTrigger already scrolls to the target block; scrolling
+  // here would fight that and push the page downward.
+  useEffect(() => {
+    if (!highlightCommentId || highlightBlockId || !highlightRef.current) {
+      return;
+    }
+    highlightRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [highlightCommentId, highlightBlockId, comments.length]);
 
   const filteredUsers = filterMentionableUsers(mentionableUsers, mentionFilter);
 
@@ -275,8 +309,7 @@ export function CommentPrototypeForm({
               <li
                 className={cn(
                   "group",
-                  c.id === highlightCommentId &&
-                    "animate-pulse rounded bg-primary/5"
+                  c.id === flashingCommentId && "flash-highlight"
                 )}
                 key={c.id}
                 ref={c.id === highlightCommentId ? highlightRef : undefined}

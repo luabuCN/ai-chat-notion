@@ -12,6 +12,8 @@ import {
 import type { Notification } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
+import { useWorkspace } from "@/components/workspace-provider";
+import { toast } from "sonner";
 import { Check, Trash2, X } from "lucide-react";
 
 interface NotificationItemProps {
@@ -33,12 +35,29 @@ function isOnWorkspace(pathname: string | null, workspaceSlug: string): boolean 
   return pathname.startsWith(`/${workspaceSlug}/`);
 }
 
+function buildMentionEditorUrl(
+  documentId: string,
+  workspaceSlug: string | undefined,
+  commentId?: string,
+  blockId?: string
+) {
+  const params = new URLSearchParams();
+  if (commentId) params.set("comment", commentId);
+  if (blockId) params.set("block", blockId);
+  const qs = params.toString();
+  const base = workspaceSlug
+    ? `/${workspaceSlug}/editor/${documentId}`
+    : `/editor/${documentId}`;
+  return `${base}${qs ? `?${qs}` : ""}`;
+}
+
 export function NotificationItem({
   notification,
   onClose,
 }: NotificationItemProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace();
   const markAsRead = useMarkAsRead();
   const deleteNotification = useDeleteNotification();
   const markActionTaken = useMarkActionTaken();
@@ -56,6 +75,83 @@ export function NotificationItem({
     e.stopPropagation();
     if (!notification.isRead) {
       markAsRead.mutate(notification.id);
+    }
+  };
+
+  const handleMentionNavigate = async () => {
+    const documentId = payload?.documentId as string | undefined;
+    const commentId = payload?.commentId as string | undefined;
+    const blockId = payload?.blockId as string | undefined;
+    if (!documentId) {
+      return;
+    }
+
+    let targetSlug = payload?.workspaceSlug as string | undefined;
+    let targetName = payload?.workspaceName as string | undefined;
+
+    if (!targetSlug) {
+      try {
+        const res = await apiFetch(`/api/editor-documents/${documentId}`);
+        if (res.ok) {
+          const doc = (await res.json()) as { workspaceId?: string | null };
+          if (doc.workspaceId) {
+            const ws = workspaces.find((w) => w.id === doc.workspaceId);
+            targetSlug = ws?.slug;
+            targetName = ws?.name;
+          }
+        }
+      } catch {
+        // 回退失败时仍尝试直接打开文档
+      }
+    }
+
+    const currentSlug = currentWorkspace?.slug;
+    if (targetSlug && currentSlug && targetSlug !== currentSlug) {
+      const targetWorkspace = workspaces.find((w) => w.slug === targetSlug);
+      const displayName = targetName || targetSlug;
+      toast.warning(`该文档在「${displayName}」空间`, {
+        description: "请先切换空间，再点击通知打开文档",
+        duration: 6000,
+        action: targetWorkspace
+          ? {
+              label: "切换并打开",
+              onClick: () => {
+                void (async () => {
+                  await switchWorkspace(targetWorkspace);
+                  onClose();
+                  if (!notification.isRead) {
+                    markAsRead.mutate(notification.id);
+                  }
+                  router.push(
+                    buildMentionEditorUrl(
+                      documentId,
+                      targetSlug,
+                      commentId,
+                      blockId
+                    )
+                  );
+                })();
+              },
+            }
+          : undefined,
+      });
+      return;
+    }
+
+    onClose();
+    if (!notification.isRead) {
+      markAsRead.mutate(notification.id);
+    }
+    const url = buildMentionEditorUrl(
+      documentId,
+      targetSlug ?? currentSlug,
+      commentId,
+      blockId
+    );
+    if (isOnDocument(pathname, documentId)) {
+      router.replace(url);
+    } else {
+      router.push(url);
     }
   };
 
@@ -83,17 +179,7 @@ export function NotificationItem({
         break;
       }
       case "MENTION": {
-        const documentId = payload?.documentId as string | undefined;
-        const commentId = payload?.commentId as string | undefined;
-        const blockId = payload?.blockId as string | undefined;
-        if (documentId) {
-          onClose();
-          const params = new URLSearchParams();
-          if (commentId) params.set("comment", commentId);
-          if (blockId) params.set("block", blockId);
-          const qs = params.toString();
-          router.push(`/editor/${documentId}${qs ? `?${qs}` : ""}`);
-        }
+        void handleMentionNavigate();
         break;
       }
       default:
@@ -110,7 +196,7 @@ export function NotificationItem({
     }
 
     if (notification.type === "MENTION") {
-      handleNavigate();
+      void handleMentionNavigate();
       return;
     }
 

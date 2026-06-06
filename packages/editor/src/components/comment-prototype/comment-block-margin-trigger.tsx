@@ -19,10 +19,12 @@ import {
   buildMarginCueGeomForBlockId,
   COMMENT_MARGIN_GAP_PX,
   getCommentAnchorFromPos,
+  scrollBlockIntoViewIfNeeded,
   shouldShowTrailingCommentCue,
 } from "./comment-margin-utils";
 import {
   CommentPrototypeForm,
+  type CommentMentionNotifyParams,
   type CommentPrototypeEntry,
 } from "./comment-prototype-form";
 import { useCommentSelectionHandoffStore } from "./comment-selection-handoff-store";
@@ -63,6 +65,10 @@ type CommentBlockMarginTriggerProps = {
   highlightBlockId?: string;
   /** 可提及的用户列表（由外部提供） */
   mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
+  /** 评论含 @提及时通知服务端（由 apps/web 注入 apiFetch） */
+  onCommentMentionNotify?: (
+    params: CommentMentionNotifyParams
+  ) => void | Promise<void>;
 };
 
 const PANEL_WIDTH_PX = 320;
@@ -101,6 +107,7 @@ function CommentBlockMarginTriggerInner({
   highlightCommentId,
   highlightBlockId,
   mentionableUsers,
+  onCommentMentionNotify,
 }: CommentBlockMarginTriggerProps) {
   const isAiBusy = useAIPanelStore(
     (state) =>
@@ -343,6 +350,20 @@ function CommentBlockMarginTriggerInner({
       if (!blockId || !ydoc) {
         return;
       }
+      const commentId = generateUUID();
+      if (
+        mentions.length > 0 &&
+        documentId &&
+        onCommentMentionNotify
+      ) {
+        void onCommentMentionNotify({
+          documentId,
+          blockId,
+          commentId,
+          body,
+          mentions,
+        });
+      }
       addCommentToBlock(ydoc, blockId, {
         authorAvatar: currentUser?.avatar,
         authorColor: currentUser?.color,
@@ -350,10 +371,17 @@ function CommentBlockMarginTriggerInner({
         body,
         mentions: mentions.length > 0 ? mentions : undefined,
         createdAtMs: Date.now(),
-        id: generateUUID(),
+        id: commentId,
       });
     },
-    [currentUser?.avatar, currentUser?.color, currentUser?.name, ydoc]
+    [
+      currentUser?.avatar,
+      currentUser?.color,
+      currentUser?.name,
+      documentId,
+      onCommentMentionNotify,
+      ydoc,
+    ]
   );
 
   const handlePrototypeDelete = useCallback(
@@ -396,26 +424,14 @@ function CommentBlockMarginTriggerInner({
     setMounted(true);
   }, []);
 
-  // Auto-scroll to highlighted block and pin its comment panel
+  // Pin comment panel first, then scroll only if the block is off-screen.
   useEffect(() => {
     if (!highlightCommentId || !highlightBlockId || !editor?.view) return;
 
-    const geom = buildMarginCueGeomForBlockId(
-      editor.view,
-      highlightBlockId,
-      COMMENT_MARGIN_GAP_PX
-    );
-    if (geom) {
-      try {
-        const { node } = editor.view.domAtPos(geom.anchorPos);
-        const el = node instanceof HTMLElement ? node : node.parentElement;
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      } catch {
-        // pos may be invalid if document changed; ignore
-      }
-    }
-
     setPinnedBlockId(highlightBlockId);
+    requestAnimationFrame(() => {
+      scrollBlockIntoViewIfNeeded(editor.view, highlightBlockId);
+    });
   }, [highlightCommentId, highlightBlockId, editor]);
 
   useEffect(() => {
@@ -796,6 +812,7 @@ function CommentBlockMarginTriggerInner({
             documentId={documentId}
             mentionableUsers={mentionableUsers}
             highlightCommentId={highlightCommentId}
+            highlightBlockId={highlightBlockId}
           />
         </div>
       )}

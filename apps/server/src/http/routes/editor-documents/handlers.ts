@@ -1718,26 +1718,32 @@ export async function getMentionableUsersHandler(c: Context) {
       }
     }
 
-    // Document collaborators (status=accepted)
+    // Document collaborators (status=accepted) — no User relation on model; lookup by userId
     const collaborators = await prisma.documentCollaborator.findMany({
-      where: { documentId, status: "accepted" },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, avatarUrl: true },
-        },
-      },
+      where: { documentId, status: "accepted", userId: { not: null } },
+      select: { userId: true },
     });
-    for (const collab of collaborators) {
-      if (
-        collab.userId &&
-        collab.userId !== session.user.id &&
-        !usersMap.has(collab.userId)
-      ) {
-        usersMap.set(collab.userId, {
-          id: collab.userId,
-          name: collab.user.name,
-          email: collab.user.email,
-          avatarUrl: collab.user.avatarUrl,
+    const collabUserIds = [
+      ...new Set(
+        collaborators
+          .map((collab) => collab.userId)
+          .filter(
+            (id): id is string =>
+              id != null && id !== session.user.id && !usersMap.has(id)
+          )
+      ),
+    ];
+    if (collabUserIds.length > 0) {
+      const collabUsers = await prisma.user.findMany({
+        where: { id: { in: collabUserIds } },
+        select: { id: true, name: true, email: true, avatarUrl: true },
+      });
+      for (const user of collabUsers) {
+        usersMap.set(user.id, {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatarUrl: user.avatarUrl,
         });
       }
     }
@@ -1779,11 +1785,13 @@ export async function createCommentNotificationHandler(c: Context) {
       return new ApiError("forbidden:document").toResponse();
     }
 
-    const { blockId, body, mentions } = (await c.req.json()) as {
-      blockId: string;
-      body: string;
-      mentions: Array<{ id: string; name: string; avatar?: string }>;
-    };
+    const { blockId, body, mentions, commentId: clientCommentId } =
+      (await c.req.json()) as {
+        blockId: string;
+        body: string;
+        mentions: Array<{ id: string; name: string; avatar?: string }>;
+        commentId?: string;
+      };
 
     if (!blockId || !body) {
       return new ApiError(
@@ -1792,12 +1800,23 @@ export async function createCommentNotificationHandler(c: Context) {
       ).toResponse();
     }
 
-    const commentId = crypto.randomUUID();
+    const commentId =
+      typeof clientCommentId === "string" && clientCommentId.length > 0
+        ? clientCommentId
+        : crypto.randomUUID();
     const notifiedUserIds: string[] = [];
+
+    const doc = await prisma.editorDocument.findUnique({
+      where: { id: documentId },
+      select: {
+        workspaceId: true,
+        workspace: { select: { slug: true, name: true } },
+      },
+    });
 
     if (Array.isArray(mentions) && mentions.length > 0) {
       for (const mention of mentions) {
-        if (!mention.id) continue;
+        if (!mention.id || mention.id === session.user.id) continue;
 
         const notification = await createNotification({
           senderId: session.user.id,
@@ -1810,6 +1829,9 @@ export async function createCommentNotificationHandler(c: Context) {
             documentId,
             blockId,
             commentId,
+            workspaceId: doc?.workspaceId ?? null,
+            workspaceSlug: doc?.workspace?.slug ?? null,
+            workspaceName: doc?.workspace?.name ?? null,
           },
         });
 

@@ -7,6 +7,7 @@ export {
   type UnifiedEditorProps,
   type CollaborativeUser,
   type ConnectionStatus,
+  type CommentMentionNotifyParams,
 } from "./unified-editor";
 export {
   EDITOR_SELECT_FROM_MATERIAL_LIBRARY,

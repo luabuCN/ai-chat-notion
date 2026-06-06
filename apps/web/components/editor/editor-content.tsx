@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EditorPageHeader } from "./editor-page-header";
 import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
@@ -15,6 +15,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import {
   generateUserColor,
   markdownToTiptap,
+  type CommentMentionNotifyParams,
   type ConnectionStatus as EditorConnectionStatus,
 } from "@repo/editor";
 import {
@@ -99,9 +100,51 @@ export function EditorContent({
   });
   const mentionableUsers = mentionableUsersData?.users ?? [];
 
+  const handleCommentMentionNotify = useCallback(
+    async ({
+      documentId: docId,
+      blockId,
+      commentId,
+      body,
+      mentions,
+    }: CommentMentionNotifyParams) => {
+      if (mentions.length === 0) {
+        return;
+      }
+      try {
+        const res = await apiFetch(`/api/editor-documents/${docId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blockId, body, mentions, commentId }),
+        });
+        if (!res.ok) {
+          toast.error("提及通知发送失败");
+        }
+      } catch {
+        toast.error("提及通知发送失败");
+      }
+    },
+    []
+  );
+
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const highlightCommentId = searchParams.get("comment") || undefined;
   const highlightBlockId = searchParams.get("block") || undefined;
+
+  // 通知跳转高亮 1s 后清除 URL 参数，避免刷新或重渲染再次触发闪烁
+  useEffect(() => {
+    if (!highlightCommentId && !highlightBlockId) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      router.replace(pathname);
+    }, 1000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [highlightBlockId, highlightCommentId, pathname, router]);
 
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
@@ -891,6 +934,7 @@ export function EditorContent({
                 mentionableUsers={mentionableUsers}
                 highlightCommentId={highlightCommentId}
                 highlightBlockId={highlightBlockId}
+                onCommentMentionNotify={handleCommentMentionNotify}
                 onConnectedUsersChange={setConnectedUsers}
                 onConnectionStatusChange={handleConnectionStatusChange}
                 onPermissionRevoked={handlePermissionRevoked}

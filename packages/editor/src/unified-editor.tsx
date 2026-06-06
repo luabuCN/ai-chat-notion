@@ -27,6 +27,7 @@ import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { CommentBlockMarginTrigger } from "./components/comment-prototype/comment-block-margin-trigger";
+import type { CommentMentionNotifyParams } from "./components/comment-prototype/comment-prototype-form";
 import { BlockDragHandleToolbar } from "./components/block-drag-handle-toolbar";
 import AIPanel from "./components/ai-panel";
 import { TableOfContents } from "./components/table-of-contents";
@@ -122,7 +123,13 @@ export interface UnifiedEditorProps {
   highlightCommentId?: string;
   /** 通知跳转：目标评论所在 block ID */
   highlightBlockId?: string;
+  /** 评论含 @提及时通知服务端（由宿主层注入） */
+  onCommentMentionNotify?: (
+    params: CommentMentionNotifyParams
+  ) => void | Promise<void>;
 }
+
+export type { CommentMentionNotifyParams };
 
 /**
  * 统一编辑器组件
@@ -160,6 +167,7 @@ export function UnifiedEditor({
   mentionableUsers,
   highlightCommentId,
   highlightBlockId,
+  onCommentMentionNotify,
 }: UnifiedEditorProps) {
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
@@ -672,6 +680,7 @@ export function UnifiedEditor({
             highlightBlockId={highlightBlockId}
             highlightCommentId={highlightCommentId}
             mentionableUsers={mentionableUsers}
+            onCommentMentionNotify={onCommentMentionNotify}
             uiEnabled={isCommentUiEnabled}
             ydoc={ydoc}
           />

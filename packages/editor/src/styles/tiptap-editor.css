@@ -228,3 +228,20 @@
   margin-top: 1em;
   margin-bottom: 1em;
 }
+
+/* 通知跳转高亮：闪烁 3 次后停止 */
+@keyframes flash-highlight {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  16.67%,
+  50%,
+  83.33% {
+    background-color: oklch(from var(--primary) l c h / 0.05);
+  }
+}
+.flash-highlight {
+  animation: flash-highlight 1.8s ease-in-out forwards;
+  border-radius: 0.25rem;
+}

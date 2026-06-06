@@ -8,6 +8,7 @@ import { apiUrl } from "@/lib/api-client";
 import "@repo/editor/styles";
 import type {
   CollaborativeUser,
+  CommentMentionNotifyParams,
   ConnectionStatus,
 } from "@repo/editor";
 
@@ -54,6 +55,10 @@ interface UnifiedEditorClientProps {
   highlightCommentId?: string;
   /** 通知跳转：目标评论所在 block ID */
   highlightBlockId?: string;
+  /** 评论含 @提及时通知服务端 */
+  onCommentMentionNotify?: (
+    params: CommentMentionNotifyParams
+  ) => void | Promise<void>;
 }
 
 export const UnifiedEditorClient = memo(
@@ -77,6 +82,7 @@ export const UnifiedEditorClient = memo(
     mentionableUsers,
     highlightCommentId,
     highlightBlockId,
+    onCommentMentionNotify,
   }: UnifiedEditorClientProps) {
     const router = useRouter();
     const navigate = useCallback(
@@ -142,6 +148,7 @@ export const UnifiedEditorClient = memo(
         mentionableUsers={mentionableUsers}
         highlightCommentId={highlightCommentId}
         highlightBlockId={highlightBlockId}
+        onCommentMentionNotify={onCommentMentionNotify}
       />
     );
   }
