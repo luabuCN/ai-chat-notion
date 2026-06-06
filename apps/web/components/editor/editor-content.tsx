@@ -7,7 +7,7 @@ import { PdfConvertingOverlay } from "./pdf-converting-overlay";
 import { EditorLoadingSkeleton, EditorBodyLoadingSkeleton } from "./editor-loading-skeleton";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { apiFetch } from "@/lib/api-client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -86,6 +86,17 @@ export function EditorContent({
   const updateDocumentMutation = useUpdateDocument();
   const { connectedUsers, setConnectedUsers, setConnectionStatus } = useCollaboration();
   const queryClient = useQueryClient();
+
+  const { data: mentionableUsersData } = useQuery({
+    queryKey: ["mentionable-users", documentId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/editor-documents/${documentId}/mentionable-users`);
+      if (!res.ok) return { users: [] };
+      return res.json() as Promise<{ users: Array<{ id: string; name: string; email?: string; avatar?: string }> }>;
+    },
+    staleTime: 60_000,
+  });
+  const mentionableUsers = mentionableUsersData?.users ?? [];
 
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
@@ -872,6 +883,7 @@ export function EditorContent({
                 user={user}
                 collabConfig={collabConfig}
                 readonly={effectiveReadOnly || conversionLocked}
+                mentionableUsers={mentionableUsers}
                 onConnectedUsersChange={setConnectedUsers}
                 onConnectionStatusChange={handleConnectionStatusChange}
                 onPermissionRevoked={handlePermissionRevoked}

@@ -116,6 +116,8 @@ export interface UnifiedEditorProps {
   onLocalYjsState?: (state: Uint8Array) => void;
   /** 协同 WS 不可用时仍通过 HTTP 上报 yjs 快照（与 onLocalYjsState 配合） */
   enableHttpPersistence?: boolean;
+  /** 可提及的用户列表（由外部提供，透传给评论组件） */
+  mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
 }
 
 /**
@@ -151,6 +153,7 @@ export function UnifiedEditor({
   collabConfig,
   onLocalYjsState,
   enableHttpPersistence = false,
+  mentionableUsers,
 }: UnifiedEditorProps) {
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
@@ -658,7 +661,9 @@ export function UnifiedEditor({
         <>
           <CommentBlockMarginTrigger
             currentUser={user}
+            documentId={documentId}
             editor={editor}
+            mentionableUsers={mentionableUsers}
             uiEnabled={isCommentUiEnabled}
             ydoc={ydoc}
           />

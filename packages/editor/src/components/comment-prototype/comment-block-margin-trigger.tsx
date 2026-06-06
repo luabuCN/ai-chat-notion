@@ -55,6 +55,14 @@ type CommentBlockMarginTriggerProps = {
   uiEnabled?: boolean;
   /** 用作评论作者占位 */
   currentUser?: CommentPrototypeUser;
+  /** 文档 ID，透传给 CommentPrototypeForm 以获取可提及用户 */
+  documentId?: string;
+  /** 通知跳转：目标评论 ID */
+  highlightCommentId?: string;
+  /** 通知跳转：目标评论所在 block ID */
+  highlightBlockId?: string;
+  /** 可提及的用户列表（由外部提供） */
+  mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
 };
 
 const PANEL_WIDTH_PX = 320;
@@ -89,6 +97,10 @@ function CommentBlockMarginTriggerInner({
   ydoc,
   uiEnabled = false,
   currentUser,
+  documentId,
+  highlightCommentId,
+  highlightBlockId,
+  mentionableUsers,
 }: CommentBlockMarginTriggerProps) {
   const isAiBusy = useAIPanelStore(
     (state) =>
@@ -326,7 +338,7 @@ function CommentBlockMarginTriggerInner({
   );
 
   const handlePrototypeAdd = useCallback(
-    (body: string) => {
+    (body: string, mentions: import("./comment-prototype-form").MentionUser[] = []) => {
       const blockId = activeBlockIdRef.current;
       if (!blockId || !ydoc) {
         return;
@@ -336,6 +348,7 @@ function CommentBlockMarginTriggerInner({
         authorColor: currentUser?.color,
         authorName: currentUser?.name ?? "原型用户",
         body,
+        mentions: mentions.length > 0 ? mentions : undefined,
         createdAtMs: Date.now(),
         id: generateUUID(),
       });
@@ -382,6 +395,28 @@ function CommentBlockMarginTriggerInner({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Auto-scroll to highlighted block and pin its comment panel
+  useEffect(() => {
+    if (!highlightCommentId || !highlightBlockId || !editor?.view) return;
+
+    const geom = buildMarginCueGeomForBlockId(
+      editor.view,
+      highlightBlockId,
+      COMMENT_MARGIN_GAP_PX
+    );
+    if (geom) {
+      try {
+        const { node } = editor.view.domAtPos(geom.anchorPos);
+        const el = node instanceof HTMLElement ? node : node.parentElement;
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch {
+        // pos may be invalid if document changed; ignore
+      }
+    }
+
+    setPinnedBlockId(highlightBlockId);
+  }, [highlightCommentId, highlightBlockId, editor]);
 
   useEffect(() => {
     return () => {
@@ -758,6 +793,9 @@ function CommentBlockMarginTriggerInner({
             comments={activeComments}
             onAddComment={handlePrototypeAdd}
             onDeleteComment={handlePrototypeDelete}
+            documentId={documentId}
+            mentionableUsers={mentionableUsers}
+            highlightCommentId={highlightCommentId}
           />
         </div>
       )}

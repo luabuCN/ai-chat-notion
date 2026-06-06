@@ -48,6 +48,8 @@ interface UnifiedEditorClientProps {
   onLocalYjsState?: (state: Uint8Array) => void;
   /** 协同断开时仍通过 HTTP 持久化 yjs 快照 */
   enableHttpPersistence?: boolean;
+  /** 可提及的用户列表（由外部提供，透传给评论组件） */
+  mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
 }
 
 export const UnifiedEditorClient = memo(
@@ -68,6 +70,7 @@ export const UnifiedEditorClient = memo(
     onEditorReady,
     onLocalYjsState,
     enableHttpPersistence,
+    mentionableUsers,
   }: UnifiedEditorClientProps) {
     const router = useRouter();
     const navigate = useCallback(
@@ -130,6 +133,7 @@ export const UnifiedEditorClient = memo(
         onEditorReady={onEditorReady}
         onLocalYjsState={onLocalYjsState}
         enableHttpPersistence={enableHttpPersistence}
+        mentionableUsers={mentionableUsers}
       />
     );
   }
