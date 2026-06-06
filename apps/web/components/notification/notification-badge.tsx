@@ -8,7 +8,7 @@ export function NotificationBadge() {
   if (count === 0) return null;
 
   return (
-    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
+    <span className="ml-auto inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-destructive/10 px-0.5 text-[9px] font-medium leading-none tabular-nums text-destructive/70">
       {count > 99 ? "99+" : count}
     </span>
   );

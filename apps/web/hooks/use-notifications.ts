@@ -97,12 +97,27 @@ async function deleteNotificationById(
   }
 }
 
+export type NotificationActionStatus = "accepted" | "rejected";
+
+export interface MarkActionTakenParams {
+  notificationId: string;
+  status?: NotificationActionStatus;
+  extraPayload?: Record<string, unknown>;
+}
+
 async function markNotificationActionTakenById(
-  notificationId: string
+  params: MarkActionTakenParams
 ): Promise<void> {
   const response = await apiFetch(
-    `/api/notifications/${notificationId}/action`,
-    { method: "PATCH" }
+    `/api/notifications/${params.notificationId}/action`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: params.status ?? "accepted",
+        extraPayload: params.extraPayload,
+      }),
+    }
   );
   if (!response.ok) {
     throw new Error("Failed to mark notification action taken");
@@ -170,4 +185,17 @@ export function useMarkActionTaken() {
       queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
   });
+}
+
+export function getNotificationActionStatus(
+  notification: Notification
+): NotificationActionStatus | null {
+  const payload = notification.payload;
+  if (payload?.actionStatus === "accepted" || payload?.actionStatus === "rejected") {
+    return payload.actionStatus;
+  }
+  if (payload?.actionTaken) {
+    return "accepted";
+  }
+  return null;
 }

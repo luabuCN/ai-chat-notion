@@ -169,12 +169,18 @@ export async function deleteNotification({
   }
 }
 
+export type NotificationActionStatus = "accepted" | "rejected";
+
 export async function markNotificationActionTaken({
   notificationId,
   userId,
+  status = "accepted",
+  extraPayload,
 }: {
   notificationId: string;
   userId: string;
+  status?: NotificationActionStatus;
+  extraPayload?: Record<string, unknown>;
 }) {
   try {
     const notification = await prisma.notification.findFirst({
@@ -186,7 +192,12 @@ export async function markNotificationActionTaken({
     return await prisma.notification.update({
       where: { id: notificationId },
       data: {
-        payload: { ...payload, actionTaken: true } as Prisma.InputJsonValue,
+        payload: {
+          ...payload,
+          ...extraPayload,
+          actionTaken: true,
+          actionStatus: status,
+        } as Prisma.InputJsonValue,
       },
     });
   } catch (_error) {

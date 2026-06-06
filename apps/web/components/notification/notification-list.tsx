@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useNotifications, useMarkAllAsRead } from "@/hooks/use-notifications";
 import { NotificationItem } from "./notification-item";
+import { NotificationEmptyState } from "./notification-empty-state";
 import { Button, ScrollArea } from "@repo/ui";
+import { cn } from "@/lib/utils";
 
 const TABS = [
   { key: undefined, label: "全部" },
@@ -11,11 +13,10 @@ const TABS = [
   { key: "permission", label: "权限" },
 ] as const;
 
-// Map tab key to NotificationType filter values
 function getTabType(tabKey: string | undefined): string | undefined {
   switch (tabKey) {
     case "invite":
-      return "SPACE_INVITE";
+      return "SPACE_INVITE,DOC_SHARE";
     case "permission":
       return "DOC_PERMISSION_CHANGED,SPACE_PERMISSION_CHANGED,DOC_REMOVED,SPACE_REMOVED";
     default:
@@ -37,15 +38,14 @@ export function NotificationList({ onClose }: NotificationListProps) {
   const unreadCount = data?.unreadCount ?? 0;
 
   return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h3 className="text-sm font-semibold">通知</h3>
+    <div className="flex flex-col overflow-hidden rounded-lg">
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <h3 className="text-sm font-semibold tracking-tight">通知</h3>
         {unreadCount > 0 && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto px-2 py-1 text-xs text-muted-foreground"
+            className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
             onClick={() => markAllAsRead.mutate()}
           >
             全部已读
@@ -53,35 +53,39 @@ export function NotificationList({ onClose }: NotificationListProps) {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b px-4 py-2">
+      <div className="flex gap-1 border-b px-3 py-2">
         {TABS.map((tab) => (
           <button
             key={tab.key ?? "all"}
+            type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
               activeTab === tab.key
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
-      {/* List */}
-      <ScrollArea className="h-[380px]">
+      <ScrollArea className="h-[400px]">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            加载中...
+          <div className="space-y-0 divide-y">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="animate-pulse px-4 py-3">
+                <div className="mb-2 h-3.5 w-3/4 rounded bg-muted" />
+                <div className="mb-2 h-3 w-1/2 rounded bg-muted/70" />
+                <div className="h-2.5 w-16 rounded bg-muted/50" />
+              </div>
+            ))}
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            暂无通知
-          </div>
+          <NotificationEmptyState />
         ) : (
-          <div className="divide-y">
+          <div className="divide-y divide-border/60">
             {notifications.map((notification) => (
               <NotificationItem
                 key={notification.id}

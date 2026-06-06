@@ -153,9 +153,19 @@ export async function markActionTakenHandler(c: Context) {
 
   try {
     const id = c.req.param("id")!;
+    const body = await c.req.json().catch(() => ({}));
+    const status =
+      body.status === "rejected" ? ("rejected" as const) : ("accepted" as const);
+    const extraPayload =
+      body.extraPayload && typeof body.extraPayload === "object"
+        ? (body.extraPayload as Record<string, unknown>)
+        : undefined;
+
     await markNotificationActionTaken({
       notificationId: id,
       userId: session.user.id,
+      status,
+      extraPayload,
     });
     return c.json({ success: true });
   } catch (error) {

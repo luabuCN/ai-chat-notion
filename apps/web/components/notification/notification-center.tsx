@@ -29,7 +29,7 @@ export function NotificationCenter() {
           align="start"
           side="right"
           sideOffset={8}
-          className="w-[380px] p-0"
+          className="w-[400px] overflow-hidden p-0 shadow-lg"
         >
           <NotificationList onClose={() => setOpen(false)} />
         </PopoverContent>
