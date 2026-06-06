@@ -1662,3 +1662,174 @@ export async function acceptCollaboratorInviteHandler(c: Context) {
     ).toResponse();
   }
 }
+
+// ─── Comment @mention ────────────────────────────────────────────────────────
+
+export async function getMentionableUsersHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:document").toResponse();
+  }
+
+  const documentId = c.req.param("id")!;
+
+  try {
+    const { access } = await verifyDocumentAccess(
+      documentId,
+      session.user.id,
+      session.user.email
+    );
+    if (access === "none") {
+      return new ApiError("forbidden:document").toResponse();
+    }
+
+    const doc = await prisma.editorDocument.findUnique({
+      where: { id: documentId },
+      select: { workspaceId: true },
+    });
+    if (!doc) {
+      return new ApiError("not_found:document").toResponse();
+    }
+
+    const usersMap = new Map<
+      string,
+      { id: string; name: string; email: string; avatarUrl: string | null }
+    >();
+
+    // Workspace members
+    if (doc.workspaceId) {
+      const members = await prisma.workspaceMember.findMany({
+        where: { workspaceId: doc.workspaceId },
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+        },
+      });
+      for (const m of members) {
+        if (m.userId !== session.user.id) {
+          usersMap.set(m.userId, {
+            id: m.userId,
+            name: m.user.name,
+            email: m.user.email,
+            avatarUrl: m.user.avatarUrl,
+          });
+        }
+      }
+    }
+
+    // Document collaborators (status=accepted)
+    const collaborators = await prisma.documentCollaborator.findMany({
+      where: { documentId, status: "accepted" },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, avatarUrl: true },
+        },
+      },
+    });
+    for (const collab of collaborators) {
+      if (
+        collab.userId &&
+        collab.userId !== session.user.id &&
+        !usersMap.has(collab.userId)
+      ) {
+        usersMap.set(collab.userId, {
+          id: collab.userId,
+          name: collab.user.name,
+          email: collab.user.email,
+          avatarUrl: collab.user.avatarUrl,
+        });
+      }
+    }
+
+    const users = Array.from(usersMap.values()).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      avatar: u.avatarUrl ?? undefined,
+    }));
+
+    return c.json({ users }, 200);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return error.toResponse();
+    }
+    return new ApiError(
+      "bad_request:api",
+      "Failed to get mentionable users"
+    ).toResponse();
+  }
+}
+
+export async function createCommentNotificationHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:document").toResponse();
+  }
+
+  const documentId = c.req.param("id")!;
+
+  try {
+    const { access } = await verifyDocumentAccess(
+      documentId,
+      session.user.id,
+      session.user.email
+    );
+    if (access === "none") {
+      return new ApiError("forbidden:document").toResponse();
+    }
+
+    const { blockId, body, mentions } = (await c.req.json()) as {
+      blockId: string;
+      body: string;
+      mentions: Array<{ id: string; name: string; avatar?: string }>;
+    };
+
+    if (!blockId || !body) {
+      return new ApiError(
+        "bad_request:api",
+        "blockId and body are required"
+      ).toResponse();
+    }
+
+    const commentId = crypto.randomUUID();
+    const notifiedUserIds: string[] = [];
+
+    if (Array.isArray(mentions) && mentions.length > 0) {
+      for (const mention of mentions) {
+        if (!mention.id) continue;
+
+        const notification = await createNotification({
+          senderId: session.user.id,
+          receiverId: mention.id,
+          type: "MENTION",
+          title: `${session.user.name} 在评论中提到了你`,
+          content:
+            body.length > 100 ? body.slice(0, 100) + "..." : body,
+          payload: {
+            documentId,
+            blockId,
+            commentId,
+          },
+        });
+
+        broadcast(mention.id, {
+          type: "new_notification",
+          notification,
+        });
+
+        notifiedUserIds.push(mention.id);
+      }
+    }
+
+    return c.json({ commentId, notifiedUserIds }, 200);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return error.toResponse();
+    }
+    return new ApiError(
+      "bad_request:api",
+      "Failed to create comment notification"
+    ).toResponse();
+  }
+}
