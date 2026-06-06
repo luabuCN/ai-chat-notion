@@ -118,6 +118,10 @@ export interface UnifiedEditorProps {
   enableHttpPersistence?: boolean;
   /** 可提及的用户列表（由外部提供，透传给评论组件） */
   mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
+  /** 通知跳转：目标评论 ID */
+  highlightCommentId?: string;
+  /** 通知跳转：目标评论所在 block ID */
+  highlightBlockId?: string;
 }
 
 /**
@@ -154,6 +158,8 @@ export function UnifiedEditor({
   onLocalYjsState,
   enableHttpPersistence = false,
   mentionableUsers,
+  highlightCommentId,
+  highlightBlockId,
 }: UnifiedEditorProps) {
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
@@ -663,6 +669,8 @@ export function UnifiedEditor({
             currentUser={user}
             documentId={documentId}
             editor={editor}
+            highlightBlockId={highlightBlockId}
+            highlightCommentId={highlightCommentId}
             mentionableUsers={mentionableUsers}
             uiEnabled={isCommentUiEnabled}
             ydoc={ydoc}

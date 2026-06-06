@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { EditorPageHeader } from "./editor-page-header";
 import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
@@ -97,6 +98,10 @@ export function EditorContent({
     staleTime: 60_000,
   });
   const mentionableUsers = mentionableUsersData?.users ?? [];
+
+  const searchParams = useSearchParams();
+  const highlightCommentId = searchParams.get("comment") || undefined;
+  const highlightBlockId = searchParams.get("block") || undefined;
 
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
@@ -884,6 +889,8 @@ export function EditorContent({
                 collabConfig={collabConfig}
                 readonly={effectiveReadOnly || conversionLocked}
                 mentionableUsers={mentionableUsers}
+                highlightCommentId={highlightCommentId}
+                highlightBlockId={highlightBlockId}
                 onConnectedUsersChange={setConnectedUsers}
                 onConnectionStatusChange={handleConnectionStatusChange}
                 onPermissionRevoked={handlePermissionRevoked}

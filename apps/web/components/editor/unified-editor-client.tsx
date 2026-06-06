@@ -50,6 +50,10 @@ interface UnifiedEditorClientProps {
   enableHttpPersistence?: boolean;
   /** 可提及的用户列表（由外部提供，透传给评论组件） */
   mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
+  /** 通知跳转：目标评论 ID */
+  highlightCommentId?: string;
+  /** 通知跳转：目标评论所在 block ID */
+  highlightBlockId?: string;
 }
 
 export const UnifiedEditorClient = memo(
@@ -71,6 +75,8 @@ export const UnifiedEditorClient = memo(
     onLocalYjsState,
     enableHttpPersistence,
     mentionableUsers,
+    highlightCommentId,
+    highlightBlockId,
   }: UnifiedEditorClientProps) {
     const router = useRouter();
     const navigate = useCallback(
@@ -134,6 +140,8 @@ export const UnifiedEditorClient = memo(
         onLocalYjsState={onLocalYjsState}
         enableHttpPersistence={enableHttpPersistence}
         mentionableUsers={mentionableUsers}
+        highlightCommentId={highlightCommentId}
+        highlightBlockId={highlightBlockId}
       />
     );
   }
