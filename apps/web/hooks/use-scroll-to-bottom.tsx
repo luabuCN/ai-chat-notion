@@ -7,6 +7,7 @@ export function useScrollToBottom() {
   const containerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const isAtBottomRef = useRef(true);
 
   const { data: scrollBehavior = false, mutate: setScrollBehavior } =
     useSWR<ScrollFlag>("messages:should-scroll", null, { fallbackData: false });
@@ -18,7 +19,9 @@ export function useScrollToBottom() {
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
 
     // Check if we are within 100px of the bottom (like v0 does)
-    setIsAtBottom(scrollTop + clientHeight >= scrollHeight - 100);
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 100;
+    isAtBottomRef.current = atBottom;
+    setIsAtBottom(atBottom);
   }, []);
 
   useEffect(() => {
@@ -28,14 +31,23 @@ export function useScrollToBottom() {
 
     const container = containerRef.current;
 
+    // 内容增长时（流式输出），如果用户停留在底部就自动跟随滚动
+    const followToBottom = () => {
+      if (isAtBottomRef.current) {
+        container.scrollTop = container.scrollHeight;
+      }
+    };
+
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
+        followToBottom();
         handleScroll();
       });
     });
 
     const mutationObserver = new MutationObserver(() => {
       requestAnimationFrame(() => {
+        followToBottom();
         requestAnimationFrame(() => {
           handleScroll();
         });
@@ -92,10 +104,12 @@ export function useScrollToBottom() {
   );
 
   function onViewportEnter() {
+    isAtBottomRef.current = true;
     setIsAtBottom(true);
   }
 
   function onViewportLeave() {
+    isAtBottomRef.current = false;
     setIsAtBottom(false);
   }
 

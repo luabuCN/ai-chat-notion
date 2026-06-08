@@ -39,7 +39,6 @@ const PurePreviewMessage = ({
   setMessages,
   regenerate,
   isReadonly,
-  requiresScrollPadding,
 }: {
   chatId: string;
   message: ChatMessage;
@@ -48,7 +47,6 @@ const PurePreviewMessage = ({
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
-  requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const params = useParams();
@@ -92,10 +90,6 @@ const PurePreviewMessage = ({
 
         <div
           className={cn("flex flex-col min-w-0", {
-            "gap-2 md:gap-4": message.parts?.some(
-              (p) => p.type === "text" && p.text?.trim()
-            ),
-            "min-h-96": message.role === "assistant" && requiresScrollPadding,
             "w-full": message.role === "assistant" || mode === "edit",
             "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]":
               message.role === "user" && mode !== "edit",
@@ -169,7 +163,7 @@ const PurePreviewMessage = ({
                   <div key={key}>
                     <MessageContent
                       className={cn({
-                        "w-fit break-words rounded-2xl px-3 py-2 text-right text-white whitespace-pre-wrap":
+                        "w-fit wrap-break-word rounded-2xl px-3 py-2 text-right text-white whitespace-pre-wrap":
                           message.role === "user",
                         "bg-transparent px-2 py-1 text-left":
                           message.role === "assistant" && !isErrorMessage,
@@ -183,7 +177,18 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      <Response className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground">
+                      <Response
+                        animated
+                        caret={
+                          message.role === "assistant" && isLoading
+                            ? "circle"
+                            : undefined
+                        }
+                        className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                        isAnimating={
+                          message.role === "assistant" && isLoading
+                        }
+                      >
                         {sanitizeText(part.text)}
                       </Response>
                     </MessageContent>
@@ -402,9 +407,6 @@ export const PreviewMessage = memo(
     if (prevProps.message.id !== nextProps.message.id) {
       return false;
     }
-    if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding) {
-      return false;
-    }
     if (!equal(prevProps.message.parts, nextProps.message.parts)) {
       return false;
     }
@@ -434,7 +436,7 @@ export const ThinkingMessage = () => {
           <SparklesIcon size={14} />
         </div>
 
-        <div className="flex w-full flex-col gap-2 md:gap-4">
+        <div className="flex w-full flex-col gap-1 md:gap-2">
           <div className="p-0 text-muted-foreground text-sm">
             Thinking
             {[0, 1, 2].map((index) => (

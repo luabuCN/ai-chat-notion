@@ -7,8 +7,17 @@ import type { User } from "next-auth";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { SidebarHistory } from "@/components/sidebar-history";
 import { ClockRewind, PlusIcon } from "./icons";
-import { Button, Sheet, SheetContent, SheetTitle } from "@repo/ui";
-import { useSidebar } from "@repo/ui";
+import {
+  Button,
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  useSidebar,
+} from "@repo/ui";
 
 function PureChatHeader({ chatId, user }: { chatId: string; user?: User }) {
   const router = useRouter();
@@ -43,16 +52,40 @@ function PureChatHeader({ chatId, user }: { chatId: string; user?: User }) {
             </Button>
           </>
         )}
-        <div className="ml-auto flex items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setHistoryOpen(true)}
-          >
-            <ClockRewind />
-            <span className="sr-only">History</span>
-          </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => {
+                    router.push(`/${workspaceSlug}/chat`);
+                    router.refresh();
+                  }}
+                >
+                  <PlusIcon />
+                  <span className="sr-only">新建对话</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>新建对话</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <ClockRewind />
+                  <span className="sr-only">历史记录</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>历史记录</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </header>
 

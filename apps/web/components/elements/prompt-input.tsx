@@ -3,11 +3,12 @@
 import type { ChatStatus } from "ai";
 import { Loader2Icon, SendIcon, SquareIcon, XIcon } from "lucide-react";
 import type {
+  ChangeEventHandler,
   ComponentProps,
   HTMLAttributes,
   KeyboardEventHandler,
 } from "react";
-import { Children } from "react";
+import { Children, forwardRef, useCallback, useEffect } from "react";
 import { Button } from "@repo/ui";
 import {
   Select,
@@ -38,16 +39,54 @@ export type PromptInputTextareaProps = ComponentProps<typeof Textarea> & {
   resizeOnNewLinesOnly?: boolean;
 };
 
-export const PromptInputTextarea = ({
-  onChange,
-  className,
-  placeholder = "What would you like to know?",
-  minHeight = 48,
-  maxHeight = 164,
-  disableAutoResize = false,
-  resizeOnNewLinesOnly = false,
-  ...props
-}: PromptInputTextareaProps) => {
+export const PromptInputTextarea = forwardRef<
+  HTMLTextAreaElement,
+  PromptInputTextareaProps
+>(function PromptInputTextarea(
+  {
+    onChange,
+    className,
+    placeholder = "What would you like to know?",
+    minHeight = 48,
+    maxHeight = 164,
+    disableAutoResize = false,
+    resizeOnNewLinesOnly = false,
+    style,
+    value,
+    ...props
+  },
+  ref
+) {
+  const adjustHeight = useCallback(
+    (element: HTMLTextAreaElement) => {
+      element.style.height = "auto";
+      const scrollHeight = element.scrollHeight;
+      const nextHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+      element.style.height = `${nextHeight}px`;
+      element.style.overflowY = scrollHeight > maxHeight ? "auto" : "hidden";
+    },
+    [minHeight, maxHeight]
+  );
+
+  useEffect(() => {
+    if (!disableAutoResize) {
+      return;
+    }
+
+    const element =
+      typeof ref === "object" && ref !== null ? ref.current : null;
+    if (element) {
+      adjustHeight(element);
+    }
+  }, [adjustHeight, disableAutoResize, ref, value]);
+
+  const handleChange: ChangeEventHandler<HTMLTextAreaElement> = (event) => {
+    if (disableAutoResize) {
+      adjustHeight(event.currentTarget);
+    }
+    onChange?.(event);
+  };
+
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
     if (e.key === "Enter") {
       // Don't submit if IME composition is in progress
@@ -77,21 +116,26 @@ export const PromptInputTextarea = ({
           ? "field-sizing-fixed"
           : resizeOnNewLinesOnly
             ? "field-sizing-fixed"
-            : "field-sizing-content max-h-[6lh]",
+            : "field-sizing-content",
         "bg-transparent dark:bg-transparent",
         "focus-visible:ring-0",
         className
       )}
       name="message"
-      onChange={(e) => {
-        onChange?.(e);
-      }}
+      onChange={handleChange}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
+      ref={ref}
+      style={{
+        minHeight: `${minHeight}px`,
+        maxHeight: `${maxHeight}px`,
+        ...style,
+      }}
+      value={value}
       {...props}
     />
   );
-};
+});
 
 export type PromptInputToolbarProps = HTMLAttributes<HTMLDivElement>;
 

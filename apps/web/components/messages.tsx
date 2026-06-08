@@ -37,14 +37,9 @@ function PureMessages({
     endRef: messagesEndRef,
     isAtBottom,
     scrollToBottom,
-    hasSentMessage,
-  } = useMessages({
-    status,
-  });
+  } = useMessages();
 
   useDataStream();
-  console.log(messages, "messages=======");
-
   useEffect(() => {
     if (status === "submitted") {
       requestAnimationFrame(() => {
@@ -52,7 +47,7 @@ function PureMessages({
         if (container) {
           container.scrollTo({
             top: container.scrollHeight,
-            behavior: "smooth",
+            behavior: "auto",
           });
         }
       });
@@ -95,7 +90,6 @@ function PureMessages({
                 key={message.id}
                 message={message}
                 regenerate={regenerate}
-                requiresScrollPadding={hasSentMessage && isLastMessage}
                 setMessages={setMessages}
                 vote={
                   votes
