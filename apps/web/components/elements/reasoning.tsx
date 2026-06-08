@@ -154,7 +154,7 @@ export const ReasoningContent = memo(
     return (
       <CollapsibleContent
         className={cn(
-          "mt-2 text-muted-foreground text-xs",
+          "mt-1 text-muted-foreground text-xs",
           "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 outline-hidden data-[state=closed]:animate-out data-[state=open]:animate-in",
           className
         )}
@@ -163,7 +163,7 @@ export const ReasoningContent = memo(
         <Response
           animated
           caret={isStreaming ? "circle" : undefined}
-          className="grid gap-2"
+          className="space-y-1 leading-snug"
           isAnimating={isStreaming}
         >
           {children}

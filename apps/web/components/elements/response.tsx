@@ -21,7 +21,7 @@ export const Response = memo(
   ({ className, plugins = defaultPlugins, ...props }: ResponseProps) => (
     <Streamdown
       className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_code]:whitespace-pre-wrap [&_code]:wrap-break-word [&_pre]:max-w-full [&_pre]:overflow-x-auto",
+        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_h2]:text-[20px] [&_code]:whitespace-pre-wrap [&_code]:wrap-break-word [&_pre]:max-w-full [&_pre]:overflow-x-auto",
         className
       )}
       plugins={plugins}

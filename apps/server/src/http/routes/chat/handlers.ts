@@ -330,6 +330,9 @@ export async function postChatHandler(c: Context) {
 
     const modelMessages = await convertToModelMessages(sanitizedMessages);
 
+    // 本次请求内由 createDocument 创建的文档 id，供 updateDocument 短路使用，避免刚创建即更新的重复生成。
+    const createdDocumentIds = new Set<string>();
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
@@ -349,8 +352,16 @@ export async function postChatHandler(c: Context) {
           tools: {
             getWeather,
             viewDocument,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
+            createDocument: createDocument({
+              session,
+              dataStream,
+              createdDocumentIds,
+            }),
+            updateDocument: updateDocument({
+              session,
+              dataStream,
+              createdDocumentIds,
+            }),
             requestSuggestions: requestSuggestions({ session, dataStream }),
           },
           experimental_telemetry: {

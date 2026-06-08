@@ -17,6 +17,23 @@ export async function saveDocument({
   userId: string;
 }) {
   try {
+    // 幂等保护：若最新版本与本次内容完全一致，则复用现有版本，避免重复创建相同的版本行
+    // （例如模型在 createDocument 后又对同一文档触发了 updateDocument，重新生成出几乎相同的内容）。
+    const latest = await prisma.document.findFirst({
+      where: { id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (
+      latest &&
+      latest.userId === userId &&
+      latest.title === title &&
+      latest.kind === kind &&
+      latest.content === content
+    ) {
+      return [latest];
+    }
+
     return [
       await prisma.document.create({
         data: {

@@ -68,6 +68,9 @@ const PurePreviewMessage = ({
 
   useDataStream();
 
+  // 同一条助手消息里，同一个文档 id 只渲染一个预览框，避免 create + update（或重复工具调用）导致重复预览。
+  const renderedDocumentIds = new Set<string>();
+
   return (
     <motion.div
       animate={{ opacity: 1 }}
@@ -241,6 +244,17 @@ const PurePreviewMessage = ({
             if (type === "tool-createDocument") {
               const { toolCallId } = part;
 
+              const createdDocId =
+                part.output && !("error" in part.output)
+                  ? part.output.id
+                  : undefined;
+              if (createdDocId) {
+                if (renderedDocumentIds.has(createdDocId)) {
+                  return null;
+                }
+                renderedDocumentIds.add(createdDocId);
+              }
+
               if (part.output && "error" in part.output) {
                 return (
                   <div
@@ -263,6 +277,17 @@ const PurePreviewMessage = ({
 
             if (type === "tool-updateDocument") {
               const { toolCallId } = part;
+
+              const updatedDocId =
+                part.output && !("error" in part.output)
+                  ? part.output.id
+                  : undefined;
+              if (updatedDocId) {
+                if (renderedDocumentIds.has(updatedDocId)) {
+                  return null;
+                }
+                renderedDocumentIds.add(updatedDocId);
+              }
 
               if (part.output && "error" in part.output) {
                 return (
