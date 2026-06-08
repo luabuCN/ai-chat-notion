@@ -62,7 +62,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
             className={cn(
               "rounded-full px-3 py-1 text-xs font-medium transition-colors",
               activeTab === tab.key
-                ? "bg-foreground text-background"
+                ? "bg-primary text-background"
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >

@@ -616,6 +616,9 @@ export interface AllDocumentItem {
   deletedAt: string | null;
   hasChildren: boolean;
   isFavorite: boolean;
+  coverImage?: string | null;
+  coverImageType?: "color" | "url" | null;
+  coverImagePosition?: number | null;
 }
 
 async function fetchAllDocuments(

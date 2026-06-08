@@ -256,7 +256,7 @@ export function Chat({
             <motion.div
               className={
                 isHomeState
-                  ? "mx-auto flex w-full max-w-4xl flex-1 flex-col px-2 pt-8 pb-8 md:px-4 md:pt-10 md:pb-10"
+                  ? "mx-auto flex w-full max-w-4xl flex-1 flex-col px-2 pt-6 pb-8 md:px-4 md:pt-8 md:pb-10"
                   : "shrink-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4"
               }
               transition={{ duration: 0.24 }}
@@ -282,7 +282,7 @@ export function Chat({
                     ) : undefined
                   }
                   input={input}
-                  landingInputOffsetClassName="mt-4 md:mt-6"
+                  landingInputOffsetClassName="mt-3 md:mt-4"
                   landingPanelsPosition={isHomeState ? "bottom" : "inline"}
                   messages={messages}
                   onModelChange={setCurrentModelId}

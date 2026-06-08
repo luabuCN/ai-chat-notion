@@ -279,6 +279,9 @@ export async function getAllDocumentsHandler(c: Context) {
           parentDocumentId: true,
           updatedAt: true,
           isFavorite: true,
+          coverImage: true,
+          coverImageType: true,
+          coverImagePosition: true,
         },
         orderBy: { updatedAt: "desc" },
       });
@@ -312,6 +315,9 @@ export async function getAllDocumentsHandler(c: Context) {
           deletedAt: null,
           hasChildren: flatHasChildrenMap.get(doc.id) ?? false,
           isFavorite: doc.isFavorite,
+          coverImage: doc.coverImage,
+          coverImageType: doc.coverImageType,
+          coverImagePosition: doc.coverImagePosition,
         });
       }
     } else {

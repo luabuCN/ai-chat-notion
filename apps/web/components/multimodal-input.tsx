@@ -54,6 +54,7 @@ import {
   TooltipTrigger,
 } from "@repo/ui";
 import { Brain, Clock3, FileUp, Image, Video, XIcon } from "lucide-react";
+import { RecentDocumentsCarousel } from "./recent-documents-carousel";
 
 type RecentChat = {
   id: string;
@@ -470,7 +471,14 @@ function PureMultimodalInput({
   const centeredContent = (
     <>
       {greeting && (
-        <div className="mb-6 w-full md:mb-8">{greeting}</div>
+        <div
+          className={cn(
+            "w-full",
+            showLandingPanels ? "mb-4 md:mb-5" : "mb-6 md:mb-8"
+          )}
+        >
+          {greeting}
+        </div>
       )}
       {showSuggestedActions &&
         messages.length === 0 &&
@@ -612,6 +620,13 @@ function PureMultimodalInput({
   );
 
  
+  const showRecentDocumentsCarousel =
+    showLandingPanels && messages.length === 0 && status === "ready";
+
+  const recentDocumentsCarousel = showRecentDocumentsCarousel && (
+    <RecentDocumentsCarousel workspaceSlug={workspaceSlug} />
+  );
+
   const landingPanels = showLandingPanels &&
     messages.length === 0 &&
     status === "ready" && (
@@ -661,9 +676,12 @@ function PureMultimodalInput({
 
       {isPanelsAtBottom ? (
         <>
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+          <div className="flex shrink-0 flex-col items-center justify-start pt-16 md:pt-20">
             <div className="w-full">{centeredContent}</div>
           </div>
+          {recentDocumentsCarousel ? (
+            <div className="shrink-0 pt-5 md:pt-6">{recentDocumentsCarousel}</div>
+          ) : null}
           <div className="shrink-0 pt-5">
             <AnimatePresence initial={false}>
               {landingPanels}
