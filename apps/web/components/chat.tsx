@@ -32,6 +32,7 @@ import {
   resolveChatErrorMessage,
 } from "@/lib/utils";
 import { apiUrl } from "@/lib/api-client";
+import { setPageTitle } from "@/lib/page-metadata";
 import {
   useChatHistoryQuery,
   useInvalidateChatHistory,
@@ -187,7 +188,7 @@ export function Chat({
       const allChats = history.pages.flatMap((page) => page.chats);
       const currentChat = allChats.find((c) => c.id === id);
       if (currentChat?.title) {
-        window.document.title = `${currentChat.title} - 知作`;
+        setPageTitle(`${currentChat.title} - 知作`);
       }
     }
   }, [id, history]);
