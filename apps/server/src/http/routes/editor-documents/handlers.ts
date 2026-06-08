@@ -1716,7 +1716,7 @@ export async function getMentionableUsersHandler(c: Context) {
         if (m.userId !== session.user.id) {
           usersMap.set(m.userId, {
             id: m.userId,
-            name: m.user.name,
+            name: m.user.name ?? m.user.email,
             email: m.user.email,
             avatarUrl: m.user.avatarUrl,
           });
@@ -1747,7 +1747,7 @@ export async function getMentionableUsersHandler(c: Context) {
       for (const user of collabUsers) {
         usersMap.set(user.id, {
           id: user.id,
-          name: user.name,
+          name: user.name ?? user.email,
           email: user.email,
           avatarUrl: user.avatarUrl,
         });
