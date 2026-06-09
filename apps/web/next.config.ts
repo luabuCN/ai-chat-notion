@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
-// Server API 代理目标（本地默认 localhost:4000；Docker 镜像内由 API_PROXY_URL=http://server:4000 覆盖）
+// Server API 代理目标（本地 dev 默认 localhost:4000；Docker 镜像 build 时写入 http://server:4000）
 const API_PROXY = process.env.API_PROXY_URL || "http://localhost:4000";
 
 const nextConfig: NextConfig = {
@@ -59,6 +59,7 @@ const nextConfig: NextConfig = {
       { source: "/api/pdf/:path*", destination: `${server}/api/pdf/:path*` },
       { source: "/api/image/:path*", destination: `${server}/api/image/:path*` },
       { source: "/api/unsplash/:path*", destination: `${server}/api/unsplash/:path*` },
+      { source: "/api/notifications/:path*", destination: `${server}/api/notifications/:path*` },
     ];
   },
 };

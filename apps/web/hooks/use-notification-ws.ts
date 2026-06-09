@@ -24,10 +24,25 @@ export function useNotificationWs(token: string | null) {
   const connect = useCallback(() => {
     if (!token || !mountedRef.current) return;
 
-    const wsOrigin =
-      process.env.NEXT_PUBLIC_WS_ORIGIN ||
-      process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/^http/, "ws") ||
-      "ws://localhost:4000";
+    const wsOrigin = (() => {
+      if (process.env.NEXT_PUBLIC_WS_ORIGIN) {
+        return process.env.NEXT_PUBLIC_WS_ORIGIN;
+      }
+      if (process.env.NEXT_PUBLIC_HOCUSPOCUS_URL) {
+        return process.env.NEXT_PUBLIC_HOCUSPOCUS_URL.replace(/\/collab\/?$/, "");
+      }
+      try {
+        const u = new URL(
+          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:8080"
+        );
+        u.protocol = u.protocol.replace("http", "ws");
+        u.port = "4000";
+        u.pathname = "";
+        return u.origin;
+      } catch {
+        return "ws://localhost:4000";
+      }
+    })();
 
     const ws = new WebSocket(`${wsOrigin}/ws/notifications?token=${token}`);
     wsRef.current = ws;
