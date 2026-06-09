@@ -248,7 +248,7 @@ const DocumentContent = ({ document }: { document: Document }) => {
   const containerClassName = cn(
     "h-[257px] overflow-y-scroll rounded-b-2xl border border-t-0 dark:border-zinc-700 dark:bg-muted",
     {
-      "p-4 sm:px-14 sm:py-16": document.kind === "text",
+      "p-4 sm:py-10": document.kind === "text",
       "p-0": document.kind === "code",
     }
   );

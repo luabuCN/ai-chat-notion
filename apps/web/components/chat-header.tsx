@@ -39,17 +39,6 @@ function PureChatHeader({ chatId, user }: { chatId: string; user?: User }) {
         {(!open || windowWidth < 768) && (
           <>
             <SidebarToggle variant="outline" />
-            <Button
-              className="order-2 ml-auto h-8 px-2 md:order-1 md:ml-0 md:h-fit md:px-2"
-              onClick={() => {
-                router.push(`/${workspaceSlug}/chat`);
-                router.refresh();
-              }}
-              variant="outline"
-            >
-              <PlusIcon />
-              <span className="md:sr-only">New Chat</span>
-            </Button>
           </>
         )}
         <div className="ml-auto flex items-center gap-1">

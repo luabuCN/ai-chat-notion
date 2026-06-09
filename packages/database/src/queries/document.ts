@@ -3,6 +3,75 @@ import { prisma } from "../client.js";
 import { ArtifactKind } from "../types.js";
 import { Document } from "./types.js";
 
+const ARTIFACT_DOCUMENT_TOOL_TYPES = new Set([
+  "tool-createDocument",
+  "tool-updateDocument",
+  "tool-requestSuggestions",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function extractArtifactDocumentIdsFromMessages(
+  messages: Array<{ parts: unknown }>
+): string[] {
+  const ids = new Set<string>();
+
+  for (const message of messages) {
+    if (!Array.isArray(message.parts)) {
+      continue;
+    }
+
+    for (const part of message.parts) {
+      if (!isRecord(part)) {
+        continue;
+      }
+
+      const type = part.type;
+      if (
+        typeof type !== "string" ||
+        !ARTIFACT_DOCUMENT_TOOL_TYPES.has(type)
+      ) {
+        continue;
+      }
+
+      const output = part.output;
+      if (!isRecord(output) || "error" in output) {
+        continue;
+      }
+
+      const id = output.id;
+      if (typeof id === "string") {
+        ids.add(id);
+      }
+    }
+  }
+
+  return [...ids];
+}
+
+export async function deleteDocumentsByIds({ ids }: { ids: string[] }) {
+  if (ids.length === 0) {
+    return;
+  }
+
+  try {
+    await prisma.suggestion.deleteMany({
+      where: { documentId: { in: ids } },
+    });
+
+    await prisma.document.deleteMany({
+      where: { id: { in: ids } },
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete documents by ids"
+    );
+  }
+}
+
 export async function saveDocument({
   id,
   title,

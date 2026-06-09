@@ -339,7 +339,7 @@ export async function postChatHandler(c: Context) {
           model: modelProvider,
           system: sysPrompt,
           messages: modelMessages,
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(3),
           maxOutputTokens: 5000,
           experimental_activeTools: [
             "getWeather",
