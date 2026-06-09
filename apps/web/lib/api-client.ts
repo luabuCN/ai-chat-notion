@@ -20,8 +20,7 @@ const SERVER_API_PREFIXES = [
   "/api/notifications",
 ] as const;
 
-export const API_ORIGIN =
-  process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/$/, "") || "";
+export const API_ORIGIN = process.env.API_ORIGIN?.replace(/\/$/, "") || "";
 
 export function isServerApiPath(input: string | URL): boolean {
   const value = typeof input === "string" ? input : input.href;
