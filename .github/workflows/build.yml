@@ -67,6 +67,7 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL || 'http://127.0.0.1:8080' }}
+            API_ORIGIN=${{ vars.API_ORIGIN || '' }}
           tags: |
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/ai-chat-notion/web:${{ github.ref_name }}
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/ai-chat-notion/web:${{ github.sha }}

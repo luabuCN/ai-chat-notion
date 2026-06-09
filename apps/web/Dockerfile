@@ -28,8 +28,9 @@ RUN pnpm --filter @repo/database exec prisma generate
 ARG NEXT_PUBLIC_APP_URL=http://localhost:8080
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
-# Rewrite 目标在 build 时写入路由表；固定走 compose 内网服务名，无需外部配置
-ENV API_PROXY_URL=http://server:4000
+# 生产由 CI 传入公网 API_ORIGIN；留空则本地 dev 走同源 rewrite
+ARG API_ORIGIN=
+ENV API_ORIGIN=$API_ORIGIN
 
 # Build-time placeholders only. Runtime values are injected by compose/Dokploy.
 ARG POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/ai_chat_notion
@@ -51,7 +52,6 @@ COPY --from=base /app/apps/web/messages ./apps/web/messages
 ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
 ENV HOSTNAME=0.0.0.0
-ENV API_PROXY_URL=http://server:4000
 
 EXPOSE 8080
 

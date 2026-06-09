@@ -1,6 +1,6 @@
 # Dokploy Compose 部署（在 Dokploy Environment 填写变量）
 # - 公网 URL 只需 3 项：NEXT_PUBLIC_APP_URL、API_ORIGIN、NEXT_PUBLIC_HOCUSPOCUS_URL
-# - 勿在 .env 中设置 API_PROXY_URL / NEXTAUTH_URL（由 compose 内部处理）
+# - 勿在 .env 中设置 NEXTAUTH_URL（由 compose 内部处理）
 # - 数据库和 Redis 使用远程服务，不在本地启动
 # - 镜像由 GitHub Actions 构建并推送到 GHCR，Dokploy 仅拉取镜像
 # - 域名：Dokploy → Domains → web 容器端口 8080，server 容器端口 4000
@@ -63,8 +63,7 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
       NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
-      # 容器内代理固定走 compose 服务名，勿用公网 API_ORIGIN（否则 rewrite 会 404）
-      API_PROXY_URL: http://server:4000
+      API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
       PORT: 8080
       API_KEY: ${API_KEY:-}
       MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
@@ -75,4 +74,5 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       TZ: ${TZ:-Asia/Shanghai}
     depends_on:
-      - server
+      server:
+        condition: service_healthy

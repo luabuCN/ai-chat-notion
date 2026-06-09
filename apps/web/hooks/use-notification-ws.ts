@@ -25,8 +25,8 @@ export function useNotificationWs(token: string | null) {
     if (!token || !mountedRef.current) return;
 
     const wsOrigin = (() => {
-      if (process.env.NEXT_PUBLIC_WS_ORIGIN) {
-        return process.env.NEXT_PUBLIC_WS_ORIGIN;
+      if (process.env.API_ORIGIN) {
+        return process.env.API_ORIGIN.replace(/^http/, "ws");
       }
       if (process.env.NEXT_PUBLIC_HOCUSPOCUS_URL) {
         return process.env.NEXT_PUBLIC_HOCUSPOCUS_URL.replace(/\/collab\/?$/, "");

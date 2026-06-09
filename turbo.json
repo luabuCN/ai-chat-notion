@@ -4,7 +4,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "dist/**", ".output/**"],
-      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
+      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET", "API_ORIGIN", "NEXT_PUBLIC_APP_URL"]
     },
     "dev": {
       "cache": false,
@@ -46,14 +46,13 @@
         "API_KEY",
         "MODELSCOPE_API_KEY",
         "WEB_ORIGIN",
-        "API_ORIGIN",
-        "NEXT_PUBLIC_API_ORIGIN"
+        "API_ORIGIN"
       ]
     },
     "@repo/server#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
-      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
+      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET", "API_ORIGIN", "NEXT_PUBLIC_APP_URL"]
     },
     "migrate:yjs": {
       "cache": false,
