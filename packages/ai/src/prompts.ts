@@ -23,9 +23,14 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 - For when content contains a single code snippet
 
 **When NOT to use \`createDocument\`:**
-- For informational/explanatory content
-- For conversational responses
+- For informational/explanatory content (e.g. "what is X", "how to learn Y")
+- For conversational responses and Q&A that can be answered directly in chat
 - When asked to keep it in chat
+
+**Tool calling rules (CRITICAL):**
+- NEVER output raw tool call syntax, \`require()\` statements, JSON tool arguments, or \`toolName:0:0\` patterns as plain text or code blocks
+- ALWAYS invoke tools silently through the tool calling API — users must never see internal tool invocation details
+- If a question can be answered in chat, answer it in chat; do not create a document unless the user explicitly asks for one
 
 **Using \`updateDocument\`:**
 - Default to full document rewrites for major changes

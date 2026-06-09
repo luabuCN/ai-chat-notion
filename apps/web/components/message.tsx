@@ -162,6 +162,11 @@ const PurePreviewMessage = ({
                   }
                 }
 
+                const sanitizedText = sanitizeText(part.text ?? "");
+                if (message.role === "assistant" && !sanitizedText.trim()) {
+                  return null;
+                }
+
                 return (
                   <div key={key}>
                     <MessageContent
@@ -192,7 +197,7 @@ const PurePreviewMessage = ({
                           message.role === "assistant" && isLoading
                         }
                       >
-                        {sanitizeText(part.text)}
+                        {sanitizedText}
                       </Response>
                     </MessageContent>
                   </div>
@@ -242,7 +247,7 @@ const PurePreviewMessage = ({
             }
 
             if (type === "tool-createDocument") {
-              const { toolCallId } = part;
+              const { toolCallId, state } = part;
 
               const createdDocId =
                 part.output && !("error" in part.output)
@@ -266,6 +271,19 @@ const PurePreviewMessage = ({
                 );
               }
 
+              if (
+                (state === "input-streaming" || state === "input-available") &&
+                part.input
+              ) {
+                return (
+                  <DocumentPreview
+                    args={part.input}
+                    isReadonly={isReadonly}
+                    key={toolCallId}
+                  />
+                );
+              }
+
               return (
                 <DocumentPreview
                   isReadonly={isReadonly}
@@ -276,7 +294,7 @@ const PurePreviewMessage = ({
             }
 
             if (type === "tool-updateDocument") {
-              const { toolCallId } = part;
+              const { toolCallId, state } = part;
 
               const updatedDocId =
                 part.output && !("error" in part.output)
@@ -296,6 +314,20 @@ const PurePreviewMessage = ({
                     key={toolCallId}
                   >
                     Error updating document: {String(part.output.error)}
+                  </div>
+                );
+              }
+
+              if (
+                (state === "input-streaming" || state === "input-available") &&
+                part.input
+              ) {
+                return (
+                  <div className="relative" key={toolCallId}>
+                    <DocumentPreview
+                      args={{ ...part.input, isUpdate: true }}
+                      isReadonly={isReadonly}
+                    />
                   </div>
                 );
               }
