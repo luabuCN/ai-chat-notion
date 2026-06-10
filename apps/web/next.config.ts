@@ -2,14 +2,10 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
-// 本地 dev 未配置 API_ORIGIN 时，同源 /api/* 通过 rewrite 代理到 localhost:4000
-const apiOrigin = process.env.API_ORIGIN || "";
-const rewriteTarget = apiOrigin || "http://localhost:4000";
+// Server API 代理目标（本地 dev 默认 localhost:4000；Docker 镜像 build 时写入 http://server:4000）
+const API_PROXY = process.env.API_PROXY_URL || "http://localhost:4000";
 
 const nextConfig: NextConfig = {
-  env: {
-    API_ORIGIN: apiOrigin,
-  },
   output: 'standalone',
   reactStrictMode: false,
   transpilePackages: ["@repo/database","@repo/editor","@repo/ui","@repo/ai"],
@@ -40,7 +36,7 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    const server = rewriteTarget;
+    const server = API_PROXY;
     return [
       // 健康检查
       { source: "/ping", destination: `${server}/ping` },
