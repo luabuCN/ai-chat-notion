@@ -39,7 +39,6 @@ const PurePreviewMessage = ({
   setMessages,
   regenerate,
   isReadonly,
-  requiresScrollPadding,
 }: {
   chatId: string;
   message: ChatMessage;
@@ -48,7 +47,6 @@ const PurePreviewMessage = ({
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
-  requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const params = useParams();
@@ -69,6 +67,9 @@ const PurePreviewMessage = ({
   const isErrorMessage = metadata?.isError === true;
 
   useDataStream();
+
+  // 同一条助手消息里，同一个文档 id 只渲染一个预览框，避免 create + update（或重复工具调用）导致重复预览。
+  const renderedDocumentIds = new Set<string>();
 
   return (
     <motion.div
@@ -92,10 +93,6 @@ const PurePreviewMessage = ({
 
         <div
           className={cn("flex flex-col min-w-0", {
-            "gap-2 md:gap-4": message.parts?.some(
-              (p) => p.type === "text" && p.text?.trim()
-            ),
-            "min-h-96": message.role === "assistant" && requiresScrollPadding,
             "w-full": message.role === "assistant" || mode === "edit",
             "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]":
               message.role === "user" && mode !== "edit",
@@ -165,11 +162,16 @@ const PurePreviewMessage = ({
                   }
                 }
 
+                const sanitizedText = sanitizeText(part.text ?? "");
+                if (message.role === "assistant" && !sanitizedText.trim()) {
+                  return null;
+                }
+
                 return (
                   <div key={key}>
                     <MessageContent
                       className={cn({
-                        "w-fit break-words rounded-2xl px-3 py-2 text-right text-white whitespace-pre-wrap":
+                        "w-fit wrap-break-word rounded-2xl px-3 py-2 text-right text-white whitespace-pre-wrap":
                           message.role === "user",
                         "bg-transparent px-2 py-1 text-left":
                           message.role === "assistant" && !isErrorMessage,
@@ -183,8 +185,19 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      <Response className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground">
-                        {sanitizeText(part.text)}
+                      <Response
+                        animated
+                        caret={
+                          message.role === "assistant" && isLoading
+                            ? "circle"
+                            : undefined
+                        }
+                        className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                        isAnimating={
+                          message.role === "assistant" && isLoading
+                        }
+                      >
+                        {sanitizedText}
                       </Response>
                     </MessageContent>
                   </div>
@@ -234,7 +247,18 @@ const PurePreviewMessage = ({
             }
 
             if (type === "tool-createDocument") {
-              const { toolCallId } = part;
+              const { toolCallId, state } = part;
+
+              const createdDocId =
+                part.output && !("error" in part.output)
+                  ? part.output.id
+                  : undefined;
+              if (createdDocId) {
+                if (renderedDocumentIds.has(createdDocId)) {
+                  return null;
+                }
+                renderedDocumentIds.add(createdDocId);
+              }
 
               if (part.output && "error" in part.output) {
                 return (
@@ -244,6 +268,19 @@ const PurePreviewMessage = ({
                   >
                     Error creating document: {String(part.output.error)}
                   </div>
+                );
+              }
+
+              if (
+                (state === "input-streaming" || state === "input-available") &&
+                part.input
+              ) {
+                return (
+                  <DocumentPreview
+                    args={part.input}
+                    isReadonly={isReadonly}
+                    key={toolCallId}
+                  />
                 );
               }
 
@@ -257,7 +294,18 @@ const PurePreviewMessage = ({
             }
 
             if (type === "tool-updateDocument") {
-              const { toolCallId } = part;
+              const { toolCallId, state } = part;
+
+              const updatedDocId =
+                part.output && !("error" in part.output)
+                  ? part.output.id
+                  : undefined;
+              if (updatedDocId) {
+                if (renderedDocumentIds.has(updatedDocId)) {
+                  return null;
+                }
+                renderedDocumentIds.add(updatedDocId);
+              }
 
               if (part.output && "error" in part.output) {
                 return (
@@ -266,6 +314,20 @@ const PurePreviewMessage = ({
                     key={toolCallId}
                   >
                     Error updating document: {String(part.output.error)}
+                  </div>
+                );
+              }
+
+              if (
+                (state === "input-streaming" || state === "input-available") &&
+                part.input
+              ) {
+                return (
+                  <div className="relative" key={toolCallId}>
+                    <DocumentPreview
+                      args={{ ...part.input, isUpdate: true }}
+                      isReadonly={isReadonly}
+                    />
                   </div>
                 );
               }
@@ -402,9 +464,6 @@ export const PreviewMessage = memo(
     if (prevProps.message.id !== nextProps.message.id) {
       return false;
     }
-    if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding) {
-      return false;
-    }
     if (!equal(prevProps.message.parts, nextProps.message.parts)) {
       return false;
     }
@@ -434,7 +493,7 @@ export const ThinkingMessage = () => {
           <SparklesIcon size={14} />
         </div>
 
-        <div className="flex w-full flex-col gap-2 md:gap-4">
+        <div className="flex w-full flex-col gap-1 md:gap-2">
           <div className="p-0 text-muted-foreground text-sm">
             Thinking
             {[0, 1, 2].map((index) => (

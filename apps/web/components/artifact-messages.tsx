@@ -5,6 +5,7 @@ import { memo } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@repo/database";
 import type { ChatMessage } from "@/lib/types";
+import { hasAssistantMessageContent } from "@/lib/utils";
 import type { UIArtifact } from "./artifact";
 import { PreviewMessage, ThinkingMessage } from "./message";
 
@@ -33,38 +34,58 @@ function PureArtifactMessages({
     endRef: messagesEndRef,
     onViewportEnter,
     onViewportLeave,
-    hasSentMessage,
-  } = useMessages({
-    status,
-  });
+  } = useMessages();
+
+  const lastMessage = messages.at(-1);
+  const lastMessageHasVisibleContent =
+    lastMessage?.role === "assistant" && lastMessage
+      ? hasAssistantMessageContent(lastMessage)
+      : false;
+
+  const showThinking =
+    status === "submitted" ||
+    (status === "streaming" &&
+      messages.length > 0 &&
+      lastMessage?.role === "assistant" &&
+      !lastMessageHasVisibleContent);
 
   return (
     <div
       className="flex h-full w-full flex-col items-center gap-4 overflow-y-scroll overflow-x-hidden px-4 pt-20"
       ref={messagesContainerRef}
     >
-      {messages.map((message, index) => (
-        <PreviewMessage
-          chatId={chatId}
-          isLoading={status === "streaming" && index === messages.length - 1}
-          isReadonly={isReadonly}
-          key={message.id}
-          message={message}
-          regenerate={regenerate}
-          requiresScrollPadding={
-            hasSentMessage && index === messages.length - 1
-          }
-          setMessages={setMessages}
-          vote={
-            votes
-              ? votes.find((vote) => vote.messageId === message.id)
-              : undefined
-          }
-        />
-      ))}
+      {messages.map((message, index) => {
+        const isLastMessage = index === messages.length - 1;
+        const isEmptyAssistantMessage =
+          isLastMessage &&
+          message.role === "assistant" &&
+          status === "streaming" &&
+          !hasAssistantMessageContent(message);
+
+        if (isEmptyAssistantMessage) {
+          return null;
+        }
+
+        return (
+          <PreviewMessage
+            chatId={chatId}
+            isLoading={status === "streaming" && isLastMessage}
+            isReadonly={isReadonly}
+            key={message.id}
+            message={message}
+            regenerate={regenerate}
+            setMessages={setMessages}
+            vote={
+              votes
+                ? votes.find((vote) => vote.messageId === message.id)
+                : undefined
+            }
+          />
+        );
+      })}
 
       <AnimatePresence mode="wait">
-        {status === "submitted" && <ThinkingMessage key="thinking" />}
+        {showThinking && <ThinkingMessage key="thinking" />}
       </AnimatePresence>
 
       <motion.div
@@ -81,20 +102,13 @@ function areEqual(
   prevProps: ArtifactMessagesProps,
   nextProps: ArtifactMessagesProps
 ) {
-  if (
-    prevProps.artifactStatus === "streaming" &&
-    nextProps.artifactStatus === "streaming"
-  ) {
-    return true;
-  }
-
   if (prevProps.status !== nextProps.status) {
     return false;
   }
-  if (prevProps.status && nextProps.status) {
+  if (prevProps.messages.length !== nextProps.messages.length) {
     return false;
   }
-  if (prevProps.messages.length !== nextProps.messages.length) {
+  if (!equal(prevProps.messages, nextProps.messages)) {
     return false;
   }
   if (!equal(prevProps.votes, nextProps.votes)) {

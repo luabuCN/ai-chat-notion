@@ -11,9 +11,15 @@ import { generateUUID } from "../../../shared/utils.js";
 type CreateDocumentProps = {
   session: AuthSession;
   dataStream: UIMessageStreamWriter<ChatMessage>;
+  // 本次请求内已创建的文档 id 集合，与 updateDocument 共享，用于阻止刚创建即更新的重复生成。
+  createdDocumentIds: Set<string>;
 };
 
-export const createDocument = ({ session, dataStream }: CreateDocumentProps) => {
+export const createDocument = ({
+  session,
+  dataStream,
+  createdDocumentIds,
+}: CreateDocumentProps) => {
   let createdDocument:
     | {
         id: string;
@@ -87,6 +93,7 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) => 
         dataStream.write({ type: "data-finish", data: null, transient: true });
 
         createdDocument = { id, title, kind };
+        createdDocumentIds.add(id);
 
         return {
           id,

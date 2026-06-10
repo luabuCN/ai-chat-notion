@@ -77,7 +77,9 @@ function PureDocumentToolResult({
         ) : null}
       </div>
       <div className="text-left">
-        {`${getActionText(type, "past")} "${result.title}"`}
+        {type === "create"
+          ? result.title
+          : `${getActionText(type, "past")} "${result.title}"`}
       </div>
     </button>
   );

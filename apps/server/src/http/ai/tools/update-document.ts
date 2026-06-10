@@ -8,9 +8,15 @@ import type { ChatMessage } from "../../../shared/types.js";
 type UpdateDocumentProps = {
   session: AuthSession;
   dataStream: UIMessageStreamWriter<ChatMessage>;
+  // 本次请求内已创建的文档 id 集合，与 createDocument 共享。
+  createdDocumentIds: Set<string>;
 };
 
-export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
+export const updateDocument = ({
+  session,
+  dataStream,
+  createdDocumentIds,
+}: UpdateDocumentProps) =>
   tool({
     description: "Update a document with the given description.",
     inputSchema: z.object({
@@ -20,6 +26,15 @@ export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
         .describe("The description of changes that need to be made"),
     }),
     execute: async ({ id, description }) => {
+      // 刚在本次回复里创建的文档不应立刻更新：直接返回，避免重复生成与重复版本。
+      if (createdDocumentIds.has(id)) {
+        return {
+          id,
+          content:
+            "This document was just created in this response. Do not update it now — wait for explicit user feedback before making changes.",
+        };
+      }
+
       const document = await getDocumentById({ id });
 
       if (!document) {
