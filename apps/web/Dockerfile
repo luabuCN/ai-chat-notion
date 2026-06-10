@@ -28,9 +28,6 @@ RUN pnpm --filter @repo/database exec prisma generate
 ARG NEXT_PUBLIC_APP_URL=http://localhost:8080
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
-# Rewrite 目标在 build 时写入路由表；固定走 compose 内网服务名，无需外部配置
-ENV API_PROXY_URL=http://server:4000
-
 # Build-time placeholders only. Runtime values are injected by compose/Dokploy.
 ARG POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/ai_chat_notion
 ARG AUTH_SECRET=build-time-placeholder-secret-min-32-chars
