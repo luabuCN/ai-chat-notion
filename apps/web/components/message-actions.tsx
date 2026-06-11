@@ -122,7 +122,7 @@ export function PureMessageActions({
   // User messages get edit (on hover) and copy actions
   if (message.role === "user") {
     return (
-      <Actions className="-mr-0.5 justify-end">
+      <Actions className="-mr-0.5 justify-end mt-1">
         <div className="relative">
           {setMode && (
             <Action

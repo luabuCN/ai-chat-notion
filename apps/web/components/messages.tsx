@@ -159,6 +159,10 @@ function PureMessages({
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
+  if (prevProps.status === "streaming" || nextProps.status === "streaming") {
+    return false;
+  }
+
   if (prevProps.status !== nextProps.status) {
     return false;
   }

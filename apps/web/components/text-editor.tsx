@@ -88,8 +88,6 @@ function PureEditor({
       editorRef.current = new EditorView(containerRef.current, {
         state,
       });
-
-      console.log("Editor initialized:", editorRef.current);
     }
 
     return () => {
@@ -123,7 +121,6 @@ function PureEditor({
     try {
       // Always update during streaming or when content changes
       if (status === "streaming" || lastContentRef.current !== content) {
-        console.log("Updating editor content");
         const newDocument = buildDocumentFromContent(content);
 
         if (newDocument && newDocument.content) {
@@ -136,7 +133,6 @@ function PureEditor({
           transaction.setMeta("no-save", true);
           editorRef.current.dispatch(transaction);
           lastContentRef.current = content;
-          console.log("Content updated successfully");
         }
       }
     } catch (error) {
@@ -165,7 +161,10 @@ function PureEditor({
   }, [suggestions, content]);
 
   return (
-    <div className="prose dark:prose-invert relative" ref={containerRef} />
+    <div
+      className="prose dark:prose-invert relative w-full max-w-full"
+      ref={containerRef}
+    />
   );
 }
 

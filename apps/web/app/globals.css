@@ -307,18 +307,19 @@
 
 .cm-editor,
 .cm-gutters {
-  @apply bg-background! dark:bg-zinc-800! outline-hidden! selection:bg-zinc-900!;
+  @apply outline-hidden!;
 }
 
-.ͼo.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
-.ͼo.cm-selectionBackground,
-.ͼo.cm-content::selection {
-  @apply bg-zinc-200! dark:bg-zinc-900!;
+.cm-editor {
+  @apply bg-white! dark:bg-[#191817]!;
 }
 
-.cm-activeLine,
-.cm-activeLineGutter {
-  @apply bg-transparent!;
+.cm-gutters {
+  @apply bg-[#fafafa]! dark:bg-[#232220]!;
+}
+
+.cm-scroller {
+  @apply font-mono text-[13px] leading-relaxed;
 }
 
 .cm-activeLine {

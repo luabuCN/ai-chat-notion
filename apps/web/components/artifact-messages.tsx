@@ -102,6 +102,10 @@ function areEqual(
   prevProps: ArtifactMessagesProps,
   nextProps: ArtifactMessagesProps
 ) {
+  if (prevProps.status === "streaming" || nextProps.status === "streaming") {
+    return false;
+  }
+
   if (prevProps.status !== nextProps.status) {
     return false;
   }

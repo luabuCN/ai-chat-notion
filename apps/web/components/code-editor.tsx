@@ -2,11 +2,12 @@
 
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorState, Transaction } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
-import { memo, useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
+import { memo, useEffect, useMemo, useRef } from "react";
 import type { Suggestion } from "@repo/database";
+import { getCodeMirrorTheme } from "@/lib/codemirror-themes";
 
 type EditorProps = {
   content: string;
@@ -21,12 +22,19 @@ type EditorProps = {
 function PureCodeEditor({ content, onSaveContent, status }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorView | null>(null);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  const themeExtensions = useMemo(
+    () => getCodeMirrorTheme(isDark),
+    [isDark]
+  );
 
   useEffect(() => {
     if (containerRef.current && !editorRef.current) {
       const startState = EditorState.create({
         doc: content,
-        extensions: [basicSetup, javascript(), oneDark],
+        extensions: [basicSetup, javascript(), ...themeExtensions],
       });
 
       editorRef.current = new EditorView({
@@ -64,13 +72,18 @@ function PureCodeEditor({ content, onSaveContent, status }: EditorProps) {
 
       const newState = EditorState.create({
         doc: editorRef.current.state.doc,
-        extensions: [basicSetup, javascript(), oneDark, updateListener],
+        extensions: [
+          basicSetup,
+          javascript(),
+          ...themeExtensions,
+          updateListener,
+        ],
         selection: currentSelection,
       });
 
       editorRef.current.setState(newState);
     }
-  }, [onSaveContent]);
+  }, [onSaveContent, themeExtensions]);
 
   useEffect(() => {
     if (editorRef.current && content) {
@@ -93,7 +106,7 @@ function PureCodeEditor({ content, onSaveContent, status }: EditorProps) {
 
   return (
     <div
-      className="not-prose relative w-full pb-[calc(80dvh)] text-sm"
+      className="not-prose relative w-full pb-[calc(80dvh)] text-sm [&_.cm-editor]:rounded-none [&_.cm-scroller]:font-mono"
       ref={containerRef}
     />
   );

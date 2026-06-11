@@ -199,7 +199,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               </div>
             </div>
           )}
-          <SidebarMenu className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)] min-h-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-border [&::-webkit-scrollbar-track]:bg-transparent">
+          <SidebarMenu className="flex-1 overflow-y-auto max-h-[calc(100vh-50px)] min-h-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-border [&::-webkit-scrollbar-track]:bg-transparent">
             {pages.length > 0 &&
               (() => {
                 const chatsFromHistory = pages.flatMap((page) => page.chats);
