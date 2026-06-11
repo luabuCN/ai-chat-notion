@@ -78,6 +78,7 @@ export function Chat({
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
+  const pendingOpenUiRef = useRef(false);
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
@@ -123,10 +124,37 @@ export function Chat({
       }
     },
     onFinish: () => {
+      if (pendingOpenUiRef.current) {
+        setMessages((currentMessages) => {
+          const lastAssistantIndex = currentMessages.findLastIndex(
+            (message) => message.role === "assistant"
+          );
+
+          if (lastAssistantIndex === -1) {
+            return currentMessages;
+          }
+
+          return currentMessages.map((message, index) =>
+            index === lastAssistantIndex
+              ? {
+                  ...message,
+                  metadata: {
+                    ...message.metadata,
+                    createdAt:
+                      message.metadata?.createdAt || new Date().toISOString(),
+                    renderMode: "openui" as const,
+                  },
+                }
+              : message
+          );
+        });
+      }
+      pendingOpenUiRef.current = false;
       invalidateChatHistory(workspaceSlugRef.current || undefined);
     },
     onError: (error) => {
       console.error("chat error:", error);
+      pendingOpenUiRef.current = false;
 
       const description =
         error instanceof ChatSDKError
@@ -243,9 +271,16 @@ export function Chat({
                   isArtifactVisible={isArtifactVisible}
                   isReadonly={isReadonly}
                   messages={messages}
+                  onOpenUiActionStart={() => {
+                    pendingOpenUiRef.current = true;
+                  }}
                   regenerate={regenerate}
                   selectedModelId={initialChatModel}
+                  sendMessage={sendMessage}
                   setMessages={setMessages}
+                  streamingRenderMode={
+                    pendingOpenUiRef.current ? "openui" : undefined
+                  }
                   status={status}
                   votes={votes}
                 />
@@ -287,6 +322,9 @@ export function Chat({
                   landingPanelsPosition={isHomeState ? "bottom" : "inline"}
                   messages={messages}
                   onModelChange={setCurrentModelId}
+                  onOpenUiSubmit={(enabled) => {
+                    pendingOpenUiRef.current = enabled;
+                  }}
                   selectedModelId={currentModelId}
                   sendMessage={sendMessage}
                   setAttachments={setAttachments}

@@ -1,12 +1,21 @@
 import equal from "fast-deep-equal";
+import dynamic from "next/dynamic";
 import { memo, useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { useCopyToClipboard } from "usehooks-ts";
 import type { Vote } from "@repo/database";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, MessageMetadata } from "@/lib/types";
+import { Dialog, DialogContent, DialogTitle } from "@repo/ui";
 import { Action, Actions } from "./elements/actions";
-import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
+import { Response } from "./elements/response";
+import {
+  CopyIcon,
+  FullscreenIcon,
+  PencilEditIcon,
+  ThumbDownIcon,
+  ThumbUpIcon,
+} from "./icons";
 import { FilePlus, Loader2 } from "lucide-react";
 import { DocumentSelectorDialog } from "./editor/document-selector-dialog";
 import { useGenerateTiptapDocument } from "@/hooks/use-generate-tiptap-document";
@@ -15,6 +24,14 @@ import {
   findCreatedDocumentInMessages,
 } from "@/lib/artifact-document-source";
 import { apiFetch } from "@/lib/api-client";
+
+const OpenUiMessageRenderer = dynamic(
+  () =>
+    import("./openui-message-renderer").then(
+      (mod) => mod.OpenUiMessageRenderer
+    ),
+  { ssr: false }
+);
 
 export function PureMessageActions({
   chatId,
@@ -34,6 +51,7 @@ export function PureMessageActions({
   const { mutate } = useSWRConfig();
   const [_, copyToClipboard] = useCopyToClipboard();
   const [isResolvingSource, setIsResolvingSource] = useState(false);
+  const [isOpenUiFullscreenOpen, setIsOpenUiFullscreenOpen] = useState(false);
   const {
     isDialogOpen,
     setIsDialogOpen,
@@ -51,6 +69,9 @@ export function PureMessageActions({
     .map((part) => part.text)
     .join("\n")
     .trim();
+  const metadata = message.metadata as MessageMetadata | undefined;
+  const isOpenUiMessage =
+    message.role === "assistant" && metadata?.renderMode === "openui";
 
   const handleCopy = async () => {
     if (!textFromParts) {
@@ -121,7 +142,6 @@ export function PureMessageActions({
     }
   };
 
-  // User messages get edit (on hover) and copy actions
   if (message.role === "user") {
     return (
       <Actions className="-mr-0.5 justify-end mt-1">
@@ -147,21 +167,32 @@ export function PureMessageActions({
   return (
     <>
       <Actions className="-ml-0.5">
-        <Action onClick={handleCopy} tooltip="Copy">
-          <CopyIcon />
-        </Action>
+        {isOpenUiMessage ? (
+          <Action
+            onClick={() => setIsOpenUiFullscreenOpen(true)}
+            tooltip="全屏展示"
+          >
+            <FullscreenIcon />
+          </Action>
+        ) : (
+          <>
+            <Action onClick={handleCopy} tooltip="Copy">
+              <CopyIcon />
+            </Action>
 
-        <Action
-          onClick={handleGenerateDocument}
-          tooltip="生成文档"
-          disabled={isResolvingSource || isGenerating}
-        >
-          {isResolvingSource || isGenerating ? (
-            <Loader2 className="animate-spin h-4 w-4" />
-          ) : (
-            <FilePlus className="h-4 w-4" />
-          )}
-        </Action>
+            <Action
+              onClick={handleGenerateDocument}
+              tooltip="生成文档"
+              disabled={isResolvingSource || isGenerating}
+            >
+              {isResolvingSource || isGenerating ? (
+                <Loader2 className="animate-spin h-4 w-4" />
+              ) : (
+                <FilePlus className="h-4 w-4" />
+              )}
+            </Action>
+          </>
+        )}
 
         <Action
           data-testid="message-upvote"
@@ -262,14 +293,43 @@ export function PureMessageActions({
         </Action>
       </Actions>
 
-      <DocumentSelectorDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onSelect={handleGenerate}
-        isLoading={isGenerating}
-        title="生成文档"
-        placeholder="选择保存位置..."
-      />
+      {!isOpenUiMessage && (
+        <DocumentSelectorDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          onSelect={handleGenerate}
+          isLoading={isGenerating}
+          title="生成文档"
+          placeholder="选择保存位置..."
+        />
+      )}
+
+      <Dialog
+        open={isOpenUiFullscreenOpen}
+        onOpenChange={setIsOpenUiFullscreenOpen}
+      >
+        <DialogContent className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-none gap-0 overflow-hidden p-0 sm:max-w-none">
+          <DialogTitle className="sr-only">全屏展示</DialogTitle>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+            <div className="border-b px-4 py-3">
+              <div className="font-medium text-sm">全屏展示</div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-8 md:py-6">
+              <div className="mx-auto w-full max-w-6xl">
+                <OpenUiMessageRenderer
+                  fallback={
+                    <Response className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5">
+                      {textFromParts}
+                    </Response>
+                  }
+                  isStreaming={false}
+                  text={textFromParts}
+                />
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

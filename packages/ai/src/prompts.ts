@@ -1,5 +1,6 @@
 import type { Geo } from "@vercel/functions";
 import type { ArtifactKind } from "@repo/database";
+import { openuiChatSystemPrompt } from "./generated/openui-chat-system-prompt.js";
 
 export const artifactsPrompt = `
 Artifacts is a special user interface mode that helps users with writing, editing, and other content creation tasks. When artifact is open, it is on the right side of the screen, while the conversation is on the left side. When creating or updating documents, changes are reflected in real-time on the artifacts and visible to the user.
@@ -68,10 +69,12 @@ About the origin of user's request:
 
 export const systemPrompt = ({
   enableReasoning,
+  enableOpenUi,
   requestHints,
   documentContext,
 }: {
   enableReasoning?: Boolean;
+  enableOpenUi?: boolean;
   requestHints: RequestHints;
   documentContext?: string;
 }) => {
@@ -84,6 +87,19 @@ export const systemPrompt = ({
   const reasoningHint = enableReasoning
     ? "\n\nReasoning mode is enabled for this request. Think step by step when needed."
     : "";
+
+  if (enableOpenUi) {
+    const openUiRules = `
+OpenUI mode is enabled for this request.
+- Your entire visible assistant response MUST be valid openui-lang code.
+- Do not output Markdown, fenced code blocks, prose outside openui-lang, or artifact-oriented confirmations.
+- Do not call createDocument, updateDocument, or requestSuggestions. Express all UI directly with OpenUI Lang.
+- Use Card as the root component and prefer compact, readable layouts that fit inside the chat message column.
+- If you use tools such as getWeather or viewDocument, present the result as OpenUI Lang after the tool result is available.
+`;
+
+    return `${openuiChatSystemPrompt}\n\n${regularPrompt}\n\n${requestPrompt}\n\n${contextBlock}${reasoningHint}\n\n${openUiRules}`;
+  }
 
   return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}${contextBlock}${reasoningHint}`;
 };

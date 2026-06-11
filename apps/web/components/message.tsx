@@ -1,8 +1,10 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import type { ActionEvent } from "@openuidev/react-lang";
 import equal from "fast-deep-equal";
 import { motion } from "framer-motion";
-import { memo, useState } from "react";
+import dynamic from "next/dynamic";
+import { memo, useCallback, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Vote } from "@repo/database";
@@ -31,24 +33,38 @@ import { SummarizePageUserCard } from "./summarize-page-user-card";
 import { Weather } from "./weather";
 import { FileText } from "lucide-react";
 
+const OpenUiMessageRenderer = dynamic(
+  () =>
+    import("./openui-message-renderer").then(
+      (mod) => mod.OpenUiMessageRenderer
+    ),
+  { ssr: false }
+);
+
 const PurePreviewMessage = ({
   chatId,
   message,
   messages,
   vote,
   isLoading,
+  sendMessage,
   setMessages,
   regenerate,
   isReadonly,
+  renderModeOverride,
+  onOpenUiActionStart,
 }: {
   chatId: string;
   message: ChatMessage;
   messages: ChatMessage[];
   vote: Vote | undefined;
   isLoading: boolean;
+  sendMessage?: UseChatHelpers<ChatMessage>["sendMessage"];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
+  renderModeOverride?: "openui";
+  onOpenUiActionStart?: () => void;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const params = useParams();
@@ -67,6 +83,43 @@ const PurePreviewMessage = ({
   const metadata = message.metadata as MessageMetadata | undefined;
   const documentRefs = metadata?.documentRefs || [];
   const isErrorMessage = metadata?.isError === true;
+  const renderMode = metadata?.renderMode ?? renderModeOverride;
+
+  const handleOpenUiAction = useCallback(
+    (event: ActionEvent) => {
+      if (event.type !== "continue_conversation") {
+        return;
+      }
+
+      const paramsMessage = event.params.message;
+      const text =
+        typeof paramsMessage === "string" && paramsMessage.trim()
+          ? paramsMessage
+          : event.humanFriendlyMessage;
+
+      if (!text?.trim()) {
+        return;
+      }
+
+      if (!sendMessage) {
+        return;
+      }
+
+      onOpenUiActionStart?.();
+      sendMessage(
+        {
+          role: "user",
+          parts: [{ type: "text", text }],
+        },
+        {
+          body: {
+            enableOpenUi: true,
+          },
+        }
+      );
+    },
+    [onOpenUiActionStart, sendMessage]
+  );
 
   useDataStream();
 
@@ -187,20 +240,40 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      <Response
-                        animated
-                        caret={
-                          message.role === "assistant" && isLoading
-                            ? "circle"
-                            : undefined
-                        }
-                        className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
-                        isAnimating={
-                          message.role === "assistant" && isLoading
-                        }
-                      >
-                        {sanitizedText}
-                      </Response>
+                      {message.role === "assistant" &&
+                      renderMode === "openui" &&
+                      !isErrorMessage ? (
+                        <OpenUiMessageRenderer
+                          fallback={
+                            <Response
+                              animated
+                              caret={isLoading ? "circle" : undefined}
+                              className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                              isAnimating={isLoading}
+                            >
+                              {sanitizedText}
+                            </Response>
+                          }
+                          isStreaming={isLoading}
+                          onAction={handleOpenUiAction}
+                          text={sanitizedText}
+                        />
+                      ) : (
+                        <Response
+                          animated
+                          caret={
+                            message.role === "assistant" && isLoading
+                              ? "circle"
+                              : undefined
+                          }
+                          className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                          isAnimating={
+                            message.role === "assistant" && isLoading
+                          }
+                        >
+                          {sanitizedText}
+                        </Response>
+                      )}
                     </MessageContent>
                   </div>
                 );

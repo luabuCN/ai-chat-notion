@@ -23,6 +23,7 @@ export type CustomUIDataTypes = {
 
 export type MessageMetadata = {
   createdAt: string;
+  renderMode?: "markdown" | "openui";
 };
 
 export type ChatMessage = UIMessage<

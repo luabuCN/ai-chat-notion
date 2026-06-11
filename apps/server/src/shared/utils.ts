@@ -25,6 +25,9 @@ export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
       attachments
         ?.filter((a: any) => a.type === "document-reference")
         ?.map((a: any) => ({ id: a.id, title: a.title, icon: a.icon })) || [];
+    const renderMode = attachments?.find(
+      (a: any) => a.type === "render-mode"
+    )?.renderMode;
 
     return {
       id: message.id,
@@ -32,6 +35,9 @@ export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
       parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
       metadata: {
         createdAt: formatISO(message.createdAt),
+        ...(renderMode === "openui" || renderMode === "markdown"
+          ? { renderMode }
+          : {}),
         ...(documentRefs.length > 0 ? { documentRefs } : {}),
       },
     };
