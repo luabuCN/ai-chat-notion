@@ -122,6 +122,7 @@ function PureMessages({
                 isReadonly={isReadonly}
                 key={message.id}
                 message={message}
+                messages={messages}
                 regenerate={regenerate}
                 setMessages={setMessages}
                 vote={

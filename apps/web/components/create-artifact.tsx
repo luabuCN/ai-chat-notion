@@ -7,12 +7,14 @@ import type { UIArtifact } from "./artifact";
 
 export type ArtifactActionContext<M = any> = {
   content: string;
+  title: string;
   handleVersionChange: (type: "next" | "prev" | "toggle" | "latest") => void;
   currentVersionIndex: number;
   isCurrentVersion: boolean;
   mode: "edit" | "diff";
   metadata: M;
   setMetadata: Dispatch<SetStateAction<M>>;
+  openGenerateDocument?: (title: string, markdown: string) => void;
 };
 
 type ArtifactAction<M = any> = {

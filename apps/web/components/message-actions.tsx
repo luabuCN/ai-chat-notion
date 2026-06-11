@@ -9,38 +9,38 @@ import { Action, Actions } from "./elements/actions";
 import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
 import { FilePlus, Loader2 } from "lucide-react";
 import { DocumentSelectorDialog } from "./editor/document-selector-dialog";
-import { useCreateDocument } from "@/hooks/use-document-query";
-import { useParams, useRouter } from "next/navigation";
-import { markdownToTiptap } from "@repo/editor";
-import { useWorkspace } from "./workspace-provider";
+import { useGenerateTiptapDocument } from "@/hooks/use-generate-tiptap-document";
+import {
+  fetchArtifactDocumentContent,
+  findCreatedDocumentInMessages,
+} from "@/lib/artifact-document-source";
 import { apiFetch } from "@/lib/api-client";
 
 export function PureMessageActions({
   chatId,
   message,
+  messages,
   vote,
   isLoading,
   setMode,
 }: {
   chatId: string;
   message: ChatMessage;
+  messages: ChatMessage[];
   vote: Vote | undefined;
   isLoading: boolean;
   setMode?: (mode: "view" | "edit") => void;
 }) {
   const { mutate } = useSWRConfig();
   const [_, copyToClipboard] = useCopyToClipboard();
-  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
-  const router = useRouter();
-  const params = useParams();
-  const workspaceSlug =
-    typeof params.slug === "string"
-      ? params.slug
-      : Array.isArray(params.slug)
-      ? params.slug[0]
-      : "";
-  const { currentWorkspace } = useWorkspace();
-  const createMutation = useCreateDocument();
+  const [isResolvingSource, setIsResolvingSource] = useState(false);
+  const {
+    isDialogOpen,
+    setIsDialogOpen,
+    isGenerating,
+    openGenerateDialog,
+    handleGenerate,
+  } = useGenerateTiptapDocument();
 
   if (isLoading) {
     return null;
@@ -62,60 +62,62 @@ export function PureMessageActions({
     toast.success("Copied to clipboard!");
   };
 
-  const handleGenerateDocument = () => {
-    if (!textFromParts) {
-      toast.error("没有可生成文档的内容");
-      return;
+  const resolveGenerateSource = async (): Promise<{
+    title: string;
+    markdown: string;
+  } | null> => {
+    const createdDocument = findCreatedDocumentInMessages(messages);
+
+    if (createdDocument) {
+      const content = await fetchArtifactDocumentContent(createdDocument.id);
+      if (content?.trim()) {
+        return {
+          title: createdDocument.title,
+          markdown: content,
+        };
+      }
     }
-    setIsGenerateDialogOpen(true);
+
+    if (!textFromParts) {
+      return null;
+    }
+
+    let title = "新文档";
+    try {
+      const chatRes = await apiFetch(`/api/chat/${chatId}/title`);
+      if (chatRes.ok) {
+        const chatData = await chatRes.json();
+        if (chatData.title) {
+          title = chatData.title;
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch chat title", error);
+    }
+
+    if (!title || title === "New Chat") {
+      title = textFromParts.split("\n")[0]?.slice(0, 20) || "新文档";
+    }
+
+    return {
+      title,
+      markdown: textFromParts,
+    };
   };
 
-  const onGenerate = async (parentDocumentId: string | null) => {
+  const handleGenerateDocument = async () => {
+    setIsResolvingSource(true);
+
     try {
-      const toastId = toast.loading("正在生成文档...");
-      console.log(textFromParts, "textFromParts====");
-      // Convert markdown to Tiptap JSON
-      const content = markdownToTiptap(textFromParts || "");
-      console.log(content, "content====");
-      let title = "新文档";
-      try {
-        const chatRes = await apiFetch(`/api/chat/${chatId}/title`);
-        if (chatRes.ok) {
-          const chatData = await chatRes.json();
-          if (chatData.title) {
-            title = chatData.title;
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch chat title", e);
+      const source = await resolveGenerateSource();
+      if (!source) {
+        toast.error("没有可生成文档的内容");
+        return;
       }
 
-      // Use first line as title or default if chat title is default or empty
-      if (!title || title === "New Chat") {
-        title = textFromParts?.split("\n")[0]?.slice(0, 20) || "新文档";
-      }
-
-      const newDoc = await createMutation.mutateAsync({
-        title,
-        parentDocumentId: parentDocumentId ?? undefined,
-        workspaceId: currentWorkspace?.id,
-      });
-
-      // Update content
-      await apiFetch(`/api/editor-documents/${newDoc.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: JSON.stringify(content) }),
-      });
-
-      toast.dismiss(toastId);
-      toast.success("文档生成成功");
-      setIsGenerateDialogOpen(false);
-      router.push(`/${workspaceSlug}/editor/${newDoc.id}`);
-    } catch (error) {
-      toast.dismiss();
-      toast.error("生成文档失败");
-      console.error(error);
+      openGenerateDialog(source.title, source.markdown);
+    } finally {
+      setIsResolvingSource(false);
     }
   };
 
@@ -149,8 +151,12 @@ export function PureMessageActions({
           <CopyIcon />
         </Action>
 
-        <Action onClick={handleGenerateDocument} tooltip="生成文档">
-          {createMutation.isPending ? (
+        <Action
+          onClick={handleGenerateDocument}
+          tooltip="生成文档"
+          disabled={isResolvingSource || isGenerating}
+        >
+          {isResolvingSource || isGenerating ? (
             <Loader2 className="animate-spin h-4 w-4" />
           ) : (
             <FilePlus className="h-4 w-4" />
@@ -257,10 +263,10 @@ export function PureMessageActions({
       </Actions>
 
       <DocumentSelectorDialog
-        open={isGenerateDialogOpen}
-        onOpenChange={setIsGenerateDialogOpen}
-        onSelect={onGenerate}
-        isLoading={createMutation.isPending}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSelect={handleGenerate}
+        isLoading={isGenerating}
         title="生成文档"
         placeholder="选择保存位置..."
       />
@@ -275,6 +281,9 @@ export const MessageActions = memo(
       return false;
     }
     if (prevProps.isLoading !== nextProps.isLoading) {
+      return false;
+    }
+    if (!equal(prevProps.messages, nextProps.messages)) {
       return false;
     }
 
