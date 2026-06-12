@@ -1,6 +1,6 @@
 "use client";
 
-import { useConvertTask } from "@/lib/pdf/convert-store";
+import { useConvertTask } from "@/lib/document-import/convert-store";
 
 interface PdfConvertingOverlayProps {
   documentId: string;

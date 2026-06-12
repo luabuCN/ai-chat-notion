@@ -57,6 +57,7 @@ const nextConfig: NextConfig = {
       { source: "/api/uploadthing/:path*", destination: `${server}/api/uploadthing/:path*` },
       { source: "/api/files/:path*", destination: `${server}/api/files/:path*` },
       { source: "/api/pdf/:path*", destination: `${server}/api/pdf/:path*` },
+      { source: "/api/document-import/:path*", destination: `${server}/api/document-import/:path*` },
       { source: "/api/image/:path*", destination: `${server}/api/image/:path*` },
       { source: "/api/unsplash/:path*", destination: `${server}/api/unsplash/:path*` },
     ];

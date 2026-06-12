@@ -1,20 +1,7 @@
-import { Editor } from "@tiptap/core";
-import { defaultExtensions } from "../tiptap/default-extensions";
-import { DocumentLink } from "../tiptap/extensions/document-link";
-import { AttachmentUploadPlaceholder } from "../tiptap/extensions/attachment-upload-placeholder/attachment-upload-placeholder";
-import { ImageUploadPlaceholder } from "../tiptap/extensions/image-upload-placeholder/image-upload-placeholder";
+import { createImportEditor } from "./import-editor";
 
 export function markdownToTiptap(markdown: string) {
-  // Create a headless editor instance with the same extensions as the main editor
-  const editor = new Editor({
-    extensions: [
-      ...defaultExtensions,
-      ImageUploadPlaceholder.configure({}),
-      AttachmentUploadPlaceholder.configure({}),
-      DocumentLink.configure({ navigate: null }),
-    ],
-    editable: false,
-  });
+  const editor = createImportEditor();
 
   try {
     // access the markdown extension storage

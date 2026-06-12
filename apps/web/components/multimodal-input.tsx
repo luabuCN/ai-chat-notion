@@ -22,8 +22,9 @@ import useSWR from "swr";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
-import { usePdfUpload } from "@/app/(workbench)/chat/pdf-actions";
-import { usePdfConversionBusy } from "@/lib/pdf/convert-store";
+import { useDocumentImportUpload } from "@/lib/document-import/import-actions";
+import { DOCUMENT_IMPORT_ACCEPT } from "@/lib/document-import/constants";
+import { useDocumentImportBusy } from "@/lib/document-import/convert-store";
 import { SelectItem } from "@repo/ui";
 
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -455,27 +456,27 @@ function PureMultimodalInput({
   const isPanelsAtBottom =
     showLandingPanels && landingPanelsPosition === "bottom";
 
-  const pdfInputRef = useRef<HTMLInputElement>(null);
-  const { handlePdfUpload } = usePdfUpload({ workspaceSlug });
-  const pdfConversionBusy = usePdfConversionBusy();
+  const documentImportInputRef = useRef<HTMLInputElement>(null);
+  const { handleDocumentImportUpload } = useDocumentImportUpload({ workspaceSlug });
+  const documentImportBusy = useDocumentImportBusy();
 
   const handleFileUpload = () => {
-    if (pdfConversionBusy) {
-      toast.error("已有 PDF 正在转换或保存中，请稍后再试");
+    if (documentImportBusy) {
+      toast.error("已有文档正在转换或保存中，请稍后再试");
       return;
     }
-    pdfInputRef.current?.click();
+    documentImportInputRef.current?.click();
   };
 
-  const handlePdfFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleDocumentImportFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (pdfConversionBusy) {
-      if (pdfInputRef.current) pdfInputRef.current.value = "";
+    if (documentImportBusy) {
+      if (documentImportInputRef.current) documentImportInputRef.current.value = "";
       return;
     }
-    await handlePdfUpload(file);
-    if (pdfInputRef.current) pdfInputRef.current.value = "";
+    await handleDocumentImportUpload(file);
+    if (documentImportInputRef.current) documentImportInputRef.current.value = "";
   };
 
 
@@ -656,8 +657,8 @@ function PureMultimodalInput({
         transition={{ duration: 0.28, ease: "easeOut", delay: 0.08 }}
       >
         <LandingUploadCard
-          conversionBusy={pdfConversionBusy}
-          disabled={status !== "ready" || pdfConversionBusy}
+          conversionBusy={documentImportBusy}
+          disabled={status !== "ready" || documentImportBusy}
           onClick={() => handleFileUpload()}
         />
         <RecentChatsCard workspaceSlug={workspaceSlug} />
@@ -683,10 +684,10 @@ function PureMultimodalInput({
         type="file"
       />
       <input
-        accept="application/pdf"
+        accept={DOCUMENT_IMPORT_ACCEPT}
         className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
-        onChange={handlePdfFileChange}
-        ref={pdfInputRef}
+        onChange={handleDocumentImportFileChange}
+        ref={documentImportInputRef}
         tabIndex={-1}
         type="file"
       />
@@ -770,7 +771,7 @@ function LandingUploadCard({
       <div className="space-y-3">
         {conversionBusy && (
           <p className="text-[12px] font-medium text-amber-700 dark:text-amber-400">
-            当前有 PDF 正在转换或保存，请等待完成后再上传。
+            当前有文档正在转换或保存，请等待完成后再上传。
           </p>
         )}
         <div className="flex flex-wrap gap-2">
@@ -780,7 +781,7 @@ function LandingUploadCard({
             onClick={onClick}
             type="button"
           >
-            上传 PDF
+            上传文件
           </button>
           <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
             粘贴图片

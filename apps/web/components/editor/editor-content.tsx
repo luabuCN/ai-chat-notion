@@ -26,7 +26,7 @@ import {
   subscribeConvertTask,
   getConvertTask,
   isConvertTaskPipelineBusy,
-} from "@/lib/pdf/convert-store";
+} from "@/lib/document-import/convert-store";
 import { EDITOR_PAGE_REQUEST_SAVE } from "@/lib/use-editor-page-shortcuts";
 
 /**

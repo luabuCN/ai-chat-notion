@@ -14,7 +14,7 @@ import { useLocalStorage } from "usehooks-ts";
 import {
   useConvertTask,
   isConvertTaskPipelineBusy,
-} from "@/lib/pdf/convert-store";
+} from "@/lib/document-import/convert-store";
 import { EditorScrollNav } from "./editor-scroll-nav";
 import { useEditorPageShortcuts } from "@/lib/use-editor-page-shortcuts";
 import { ArrowLeftRight, FileQuestion, ShieldAlert, LogIn } from "lucide-react";
