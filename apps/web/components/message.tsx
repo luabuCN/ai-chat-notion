@@ -38,7 +38,27 @@ const OpenUiMessageRenderer = dynamic(
     import("./openui-message-renderer").then(
       (mod) => mod.OpenUiMessageRenderer
     ),
-  { ssr: false }
+  {
+    loading: () => (
+      <div
+        aria-label="正在生成界面"
+        className="w-full max-w-3xl rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm"
+        role="status"
+      >
+        <div className="flex items-start gap-3">
+          <div className="size-9 shrink-0 animate-pulse rounded-xl bg-muted" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="h-4 w-40 animate-pulse rounded-full bg-muted" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-full animate-pulse rounded-full bg-muted/80" />
+              <div className="h-3.5 w-[86%] animate-pulse rounded-full bg-muted/80" />
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
 );
 
 const PurePreviewMessage = ({
@@ -84,6 +104,8 @@ const PurePreviewMessage = ({
   const documentRefs = metadata?.documentRefs || [];
   const isErrorMessage = metadata?.isError === true;
   const renderMode = metadata?.renderMode ?? renderModeOverride;
+  const isOpenUiLoading =
+    message.role === "assistant" && renderMode === "openui" && isLoading;
 
   const handleOpenUiAction = useCallback(
     (event: ActionEvent) => {
@@ -218,7 +240,16 @@ const PurePreviewMessage = ({
                 }
 
                 const sanitizedText = sanitizeText(part.text ?? "");
-                if (message.role === "assistant" && !sanitizedText.trim()) {
+                const shouldRenderOpenUi =
+                  message.role === "assistant" &&
+                  renderMode === "openui" &&
+                  !isErrorMessage;
+
+                if (
+                  message.role === "assistant" &&
+                  !sanitizedText.trim() &&
+                  !(shouldRenderOpenUi && isLoading)
+                ) {
                   return null;
                 }
 
@@ -240,9 +271,7 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      {message.role === "assistant" &&
-                      renderMode === "openui" &&
-                      !isErrorMessage ? (
+                      {shouldRenderOpenUi ? (
                         <OpenUiMessageRenderer
                           fallback={
                             <Response
@@ -514,7 +543,7 @@ const PurePreviewMessage = ({
             </div>
           )}
 
-          {!isReadonly && !isErrorMessage && (
+          {!isReadonly && !isErrorMessage && !isOpenUiLoading && (
             <MessageActions
               chatId={chatId}
               isLoading={isLoading}

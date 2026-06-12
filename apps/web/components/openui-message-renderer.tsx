@@ -43,6 +43,39 @@ class OpenUiRenderBoundary extends Component<
   }
 }
 
+export function OpenUiLoadingSkeleton() {
+  return (
+    <div
+      aria-label="正在生成界面"
+      className="w-full max-w-3xl rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm"
+      role="status"
+    >
+      <div className="flex items-start gap-3">
+        <div className="size-9 shrink-0 animate-pulse rounded-xl bg-muted" />
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="h-4 w-40 animate-pulse rounded-full bg-muted" />
+          <div className="space-y-2">
+            <div className="h-3.5 w-full animate-pulse rounded-full bg-muted/80" />
+            <div className="h-3.5 w-[86%] animate-pulse rounded-full bg-muted/80" />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div
+            className="rounded-xl border border-border/60 bg-muted/20 p-3"
+            key={item}
+          >
+            <div className="h-3 w-16 animate-pulse rounded-full bg-muted" />
+            <div className="mt-3 h-8 w-full animate-pulse rounded-lg bg-muted/80" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function OpenUiMessageRenderer({
   text,
   isStreaming,
@@ -71,6 +104,10 @@ export function OpenUiMessageRenderer({
 
   if (hasError && !isStreaming) {
     return <>{fallback}</>;
+  }
+
+  if (isStreaming && !text.trim()) {
+    return <OpenUiLoadingSkeleton />;
   }
 
   return (

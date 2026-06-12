@@ -124,7 +124,10 @@ function PureMultimodalInput({
   onOpenUiSubmit?: (enabled: boolean) => void;
 }) {
   const [enableReasoning, setEnableReasoning] = useState(false);
-  const [enableOpenUi, setEnableOpenUi] = useState(false);
+  const [enableOpenUiPreference, setEnableOpenUiPreference] = useLocalStorage(
+    "open-ui-enabled",
+    false
+  );
   const [selectedDocuments, setSelectedDocuments] = useState<
     SelectedDocument[]
   >([]);
@@ -169,12 +172,22 @@ function PureMultimodalInput({
     );
   }, [selectedModel]);
 
+  const supportsOpenUi = useMemo(() => {
+    return Boolean(
+      selectedModel?.supports_image_in ||
+        selectedModel?.supports_video_in ||
+        selectedModel?.supports_reasoning
+    );
+  }, [selectedModel]);
+
   // Reset reasoning when model changes and doesn't support it
   useEffect(() => {
     if (!supportsReasoning && enableReasoning) {
       setEnableReasoning(false);
     }
   }, [supportsReasoning, enableReasoning]);
+
+  const enableOpenUi = enableOpenUiPreference && supportsOpenUi;
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
@@ -242,7 +255,9 @@ function PureMultimodalInput({
       );
     }
 
-    onOpenUiSubmit?.(enableOpenUi);
+    const shouldEnableOpenUi = enableOpenUi && supportsOpenUi;
+
+    onOpenUiSubmit?.(shouldEnableOpenUi);
 
     sendMessage(
       {
@@ -275,7 +290,7 @@ function PureMultimodalInput({
       },
       {
         body: {
-          enableOpenUi,
+          enableOpenUi: shouldEnableOpenUi,
           enableReasoning: enableReasoning && supportsReasoning,
           modelCapabilities: {
             supports_image_in: selectedModel?.supports_image_in ?? false,
@@ -307,6 +322,7 @@ function PureMultimodalInput({
     enableOpenUi,
     enableReasoning,
     onOpenUiSubmit,
+    supportsOpenUi,
     supportsReasoning,
     supportsFileInput,
     selectedModel,
@@ -575,7 +591,8 @@ function PureMultimodalInput({
           <PromptInputTools className="gap-0 sm:gap-0.5">
             <OpenUiToggle
               enabled={enableOpenUi}
-              onToggle={setEnableOpenUi}
+              onToggle={setEnableOpenUiPreference}
+              supportsOpenUi={supportsOpenUi}
               status={status}
             />
             <AttachmentsButton
@@ -877,13 +894,15 @@ const AttachmentsButton = memo(PureAttachmentsButton);
 function PureOpenUiToggle({
   enabled,
   onToggle,
+  supportsOpenUi,
   status,
 }: {
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
+  supportsOpenUi: boolean;
   status: UseChatHelpers<ChatMessage>["status"];
 }) {
-  const isDisabled = status !== "ready";
+  const isDisabled = status !== "ready" || !supportsOpenUi;
 
   return (
     <TooltipProvider>
@@ -893,7 +912,7 @@ function PureOpenUiToggle({
             <Button
               className={cn(
                 "aspect-square h-8 rounded-lg p-1 transition-colors",
-                enabled
+                enabled && supportsOpenUi
                   ? "bg-accent text-accent-foreground hover:bg-accent/80"
                   : "hover:bg-accent"
               )}
@@ -912,7 +931,11 @@ function PureOpenUiToggle({
           </span>
         </TooltipTrigger>
         <TooltipContent>
-          {enabled ? "生成式 UI 已启用" : "启用生成式 UI 回复"}
+          {supportsOpenUi
+            ? enabled
+              ? "生成式 UI 已启用"
+              : "启用生成式 UI 回复"
+            : "当前模型不支持生成式 UI 回复"}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
