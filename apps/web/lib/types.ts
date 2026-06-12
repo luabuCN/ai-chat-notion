@@ -14,6 +14,7 @@ export type DataPart = { type: "append-message"; message: string };
 export const messageMetadataSchema = z.object({
   createdAt: z.string(),
   isError: z.boolean().optional(),
+  renderMode: z.enum(["markdown", "openui"]).optional(),
   // 引用文档的元信息
   documentRefs: z
     .array(

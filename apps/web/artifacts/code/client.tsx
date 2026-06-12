@@ -20,6 +20,46 @@ type Metadata = {
   outputs: ConsoleOutput[];
 };
 
+function formatConsoleArg(arg: unknown): string {
+  if (arg === null) {
+    return "null";
+  }
+  if (typeof arg === "object") {
+    try {
+      return JSON.stringify(arg, null, 2);
+    } catch {
+      return String(arg);
+    }
+  }
+  return String(arg);
+}
+
+function captureConsoleOutput(outputContent: ConsoleOutputContent[]) {
+  const createHandler =
+    (prefix?: string) =>
+    (...args: unknown[]) => {
+      const message = args.map(formatConsoleArg).join(" ");
+      outputContent.push({
+        type: "text",
+        value: prefix ? `${prefix}${message}` : message,
+      });
+    };
+
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalWarn = console.warn;
+
+  console.log = createHandler();
+  console.error = createHandler("Error: ");
+  console.warn = createHandler("Warning: ");
+
+  return () => {
+    console.log = originalLog;
+    console.error = originalError;
+    console.warn = originalWarn;
+  };
+}
+
 export const codeArtifact = new Artifact<"code", Metadata>({
   kind: "code",
   description:
@@ -87,68 +127,40 @@ export const codeArtifact = new Artifact<"code", Metadata>({
         }));
 
         try {
-          // Capture console.log output
-          const originalLog = console.log;
-          const originalError = console.error;
-          const originalWarn = console.warn;
+          const restoreConsole = captureConsoleOutput(outputContent);
 
-          console.log = (...args: any[]) => {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            ).join(' ');
-            outputContent.push({
-              type: "text",
-              value: message,
-            });
-          };
+          try {
+            const result = eval(content);
 
-          console.error = (...args: any[]) => {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            ).join(' ');
-            outputContent.push({
-              type: "text",
-              value: `Error: ${message}`,
-            });
-          };
+            if (result !== undefined && outputContent.length === 0) {
+              outputContent.push({
+                type: "text",
+                value: formatConsoleArg(result),
+              });
+            }
 
-          console.warn = (...args: any[]) => {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            ).join(' ');
-            outputContent.push({
-              type: "text",
-              value: `Warning: ${message}`,
-            });
-          };
-
-          // Execute the code
-          const result = eval(content);
-          
-          // If there's a return value and no console output, show it
-          if (result !== undefined && outputContent.length === 0) {
-            outputContent.push({
-              type: "text",
-              value: typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result),
-            });
+            setMetadata((metadata) => ({
+              ...metadata,
+              outputs: [
+                ...metadata.outputs.filter((output) => output.id !== runId),
+                {
+                  id: runId,
+                  contents:
+                    outputContent.length > 0
+                      ? outputContent
+                      : [
+                          {
+                            type: "text",
+                            value: "Code executed successfully (no output)",
+                          },
+                        ],
+                  status: "completed",
+                },
+              ],
+            }));
+          } finally {
+            restoreConsole();
           }
-
-          // Restore original console methods
-          console.log = originalLog;
-          console.error = originalError;
-          console.warn = originalWarn;
-
-          setMetadata((metadata) => ({
-            ...metadata,
-            outputs: [
-              ...metadata.outputs.filter((output) => output.id !== runId),
-              {
-                id: runId,
-                contents: outputContent.length > 0 ? outputContent : [{ type: "text", value: "Code executed successfully (no output)" }],
-                status: "completed",
-              },
-            ],
-          }));
         } catch (error: any) {
           setMetadata((metadata) => ({
             ...metadata,

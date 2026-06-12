@@ -1,8 +1,10 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import type { ActionEvent } from "@openuidev/react-lang";
 import equal from "fast-deep-equal";
 import { motion } from "framer-motion";
-import { memo, useState } from "react";
+import dynamic from "next/dynamic";
+import { memo, useCallback, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Vote } from "@repo/database";
@@ -31,22 +33,58 @@ import { SummarizePageUserCard } from "./summarize-page-user-card";
 import { Weather } from "./weather";
 import { FileText } from "lucide-react";
 
+const OpenUiMessageRenderer = dynamic(
+  () =>
+    import("./openui-message-renderer").then(
+      (mod) => mod.OpenUiMessageRenderer
+    ),
+  {
+    loading: () => (
+      <div
+        aria-label="正在生成界面"
+        className="w-full max-w-3xl rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm"
+        role="status"
+      >
+        <div className="flex items-start gap-3">
+          <div className="size-9 shrink-0 animate-pulse rounded-xl bg-muted" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="h-4 w-40 animate-pulse rounded-full bg-muted" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-full animate-pulse rounded-full bg-muted/80" />
+              <div className="h-3.5 w-[86%] animate-pulse rounded-full bg-muted/80" />
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+);
+
 const PurePreviewMessage = ({
   chatId,
   message,
+  messages,
   vote,
   isLoading,
+  sendMessage,
   setMessages,
   regenerate,
   isReadonly,
+  renderModeOverride,
+  onOpenUiActionStart,
 }: {
   chatId: string;
   message: ChatMessage;
+  messages: ChatMessage[];
   vote: Vote | undefined;
   isLoading: boolean;
+  sendMessage?: UseChatHelpers<ChatMessage>["sendMessage"];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
+  renderModeOverride?: "openui";
+  onOpenUiActionStart?: () => void;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const params = useParams();
@@ -65,6 +103,45 @@ const PurePreviewMessage = ({
   const metadata = message.metadata as MessageMetadata | undefined;
   const documentRefs = metadata?.documentRefs || [];
   const isErrorMessage = metadata?.isError === true;
+  const renderMode = metadata?.renderMode ?? renderModeOverride;
+  const isOpenUiLoading =
+    message.role === "assistant" && renderMode === "openui" && isLoading;
+
+  const handleOpenUiAction = useCallback(
+    (event: ActionEvent) => {
+      if (event.type !== "continue_conversation") {
+        return;
+      }
+
+      const paramsMessage = event.params.message;
+      const text =
+        typeof paramsMessage === "string" && paramsMessage.trim()
+          ? paramsMessage
+          : event.humanFriendlyMessage;
+
+      if (!text?.trim()) {
+        return;
+      }
+
+      if (!sendMessage) {
+        return;
+      }
+
+      onOpenUiActionStart?.();
+      sendMessage(
+        {
+          role: "user",
+          parts: [{ type: "text", text }],
+        },
+        {
+          body: {
+            enableOpenUi: true,
+          },
+        }
+      );
+    },
+    [onOpenUiActionStart, sendMessage]
+  );
 
   useDataStream();
 
@@ -163,7 +240,16 @@ const PurePreviewMessage = ({
                 }
 
                 const sanitizedText = sanitizeText(part.text ?? "");
-                if (message.role === "assistant" && !sanitizedText.trim()) {
+                const shouldRenderOpenUi =
+                  message.role === "assistant" &&
+                  renderMode === "openui" &&
+                  !isErrorMessage;
+
+                if (
+                  message.role === "assistant" &&
+                  !sanitizedText.trim() &&
+                  !(shouldRenderOpenUi && isLoading)
+                ) {
                   return null;
                 }
 
@@ -185,20 +271,38 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      <Response
-                        animated
-                        caret={
-                          message.role === "assistant" && isLoading
-                            ? "circle"
-                            : undefined
-                        }
-                        className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
-                        isAnimating={
-                          message.role === "assistant" && isLoading
-                        }
-                      >
-                        {sanitizedText}
-                      </Response>
+                      {shouldRenderOpenUi ? (
+                        <OpenUiMessageRenderer
+                          fallback={
+                            <Response
+                              animated
+                              caret={isLoading ? "circle" : undefined}
+                              className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                              isAnimating={isLoading}
+                            >
+                              {sanitizedText}
+                            </Response>
+                          }
+                          isStreaming={isLoading}
+                          onAction={handleOpenUiAction}
+                          text={sanitizedText}
+                        />
+                      ) : (
+                        <Response
+                          animated
+                          caret={
+                            message.role === "assistant" && isLoading
+                              ? "circle"
+                              : undefined
+                          }
+                          className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                          isAnimating={
+                            message.role === "assistant" && isLoading
+                          }
+                        >
+                          {sanitizedText}
+                        </Response>
+                      )}
                     </MessageContent>
                   </div>
                 );
@@ -439,12 +543,13 @@ const PurePreviewMessage = ({
             </div>
           )}
 
-          {!isReadonly && !isErrorMessage && (
+          {!isReadonly && !isErrorMessage && !isOpenUiLoading && (
             <MessageActions
               chatId={chatId}
               isLoading={isLoading}
               key={`action-${message.id}`}
               message={message}
+              messages={messages}
               setMode={setMode}
               vote={vote}
             />

@@ -53,7 +53,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
-import { Brain, Clock3, FileUp, Image, Video, XIcon } from "lucide-react";
+import {
+  Brain,
+  Clock3,
+  FileUp,
+  Image,
+  LayoutTemplate,
+  Video,
+  XIcon,
+} from "lucide-react";
 import { RecentDocumentsCarousel } from "./recent-documents-carousel";
 
 type RecentChat = {
@@ -91,6 +99,7 @@ function PureMultimodalInput({
   showSuggestedActions = true,
   greeting,
   landingPanelsPosition = "inline",
+  onOpenUiSubmit,
 }: {
   chatId: string;
   input: string;
@@ -112,8 +121,13 @@ function PureMultimodalInput({
   showSuggestedActions?: boolean;
   greeting?: ReactNode;
   landingPanelsPosition?: "inline" | "bottom";
+  onOpenUiSubmit?: (enabled: boolean) => void;
 }) {
   const [enableReasoning, setEnableReasoning] = useState(false);
+  const [enableOpenUiPreference, setEnableOpenUiPreference] = useLocalStorage(
+    "open-ui-enabled",
+    false
+  );
   const [selectedDocuments, setSelectedDocuments] = useState<
     SelectedDocument[]
   >([]);
@@ -158,12 +172,22 @@ function PureMultimodalInput({
     );
   }, [selectedModel]);
 
+  const supportsOpenUi = useMemo(() => {
+    return Boolean(
+      selectedModel?.supports_image_in ||
+        selectedModel?.supports_video_in ||
+        selectedModel?.supports_reasoning
+    );
+  }, [selectedModel]);
+
   // Reset reasoning when model changes and doesn't support it
   useEffect(() => {
     if (!supportsReasoning && enableReasoning) {
       setEnableReasoning(false);
     }
   }, [supportsReasoning, enableReasoning]);
+
+  const enableOpenUi = enableOpenUiPreference && supportsOpenUi;
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
@@ -231,6 +255,10 @@ function PureMultimodalInput({
       );
     }
 
+    const shouldEnableOpenUi = enableOpenUi && supportsOpenUi;
+
+    onOpenUiSubmit?.(shouldEnableOpenUi);
+
     sendMessage(
       {
         role: "user",
@@ -262,6 +290,7 @@ function PureMultimodalInput({
       },
       {
         body: {
+          enableOpenUi: shouldEnableOpenUi,
           enableReasoning: enableReasoning && supportsReasoning,
           modelCapabilities: {
             supports_image_in: selectedModel?.supports_image_in ?? false,
@@ -290,7 +319,10 @@ function PureMultimodalInput({
     setLocalStorageInput,
     width,
     chatId,
+    enableOpenUi,
     enableReasoning,
+    onOpenUiSubmit,
+    supportsOpenUi,
     supportsReasoning,
     supportsFileInput,
     selectedModel,
@@ -557,6 +589,12 @@ function PureMultimodalInput({
         </div>
         <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
+            <OpenUiToggle
+              enabled={enableOpenUi}
+              onToggle={setEnableOpenUiPreference}
+              supportsOpenUi={supportsOpenUi}
+              status={status}
+            />
             <AttachmentsButton
               fileInputRef={fileInputRef}
               supportsFileInput={supportsFileInput}
@@ -852,6 +890,59 @@ function PureAttachmentsButton({
 }
 
 const AttachmentsButton = memo(PureAttachmentsButton);
+
+function PureOpenUiToggle({
+  enabled,
+  onToggle,
+  supportsOpenUi,
+  status,
+}: {
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  supportsOpenUi: boolean;
+  status: UseChatHelpers<ChatMessage>["status"];
+}) {
+  const isDisabled = status !== "ready" || !supportsOpenUi;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={isDisabled ? 0 : -1}>
+            <Button
+              className={cn(
+                "aspect-square h-8 rounded-lg p-1 transition-colors",
+                enabled && supportsOpenUi
+                  ? "bg-accent text-accent-foreground hover:bg-accent/80"
+                  : "hover:bg-accent"
+              )}
+              data-testid="openui-toggle"
+              disabled={isDisabled}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!isDisabled) {
+                  onToggle(!enabled);
+                }
+              }}
+              variant="ghost"
+            >
+              <LayoutTemplate size={15} />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {supportsOpenUi
+            ? enabled
+              ? "生成式 UI 已启用"
+              : "启用生成式 UI 回复"
+            : "当前模型不支持生成式 UI 回复"}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+const OpenUiToggle = memo(PureOpenUiToggle);
 
 function PureReasoningToggle({
   enabled,

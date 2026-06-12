@@ -51,7 +51,11 @@ export type CustomUIDataTypes = {
 };
 
 export type ChatMessage = UIMessage<
-  { createdAt: string; documentRefs?: Array<{ id: string; title: string; icon?: string | null }> },
+  {
+    createdAt: string;
+    renderMode?: "markdown" | "openui";
+    documentRefs?: Array<{ id: string; title: string; icon?: string | null }>;
+  },
   CustomUIDataTypes,
   ChatTools
 >;

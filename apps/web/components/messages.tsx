@@ -16,11 +16,14 @@ type MessagesProps = {
   status: UseChatHelpers<ChatMessage>["status"];
   votes: Vote[] | undefined;
   messages: ChatMessage[];
+  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   isArtifactVisible: boolean;
   selectedModelId: string;
+  streamingRenderMode?: "openui";
+  onOpenUiActionStart?: () => void;
 };
 
 function assistantPartHasVisibleContent(
@@ -51,10 +54,13 @@ function PureMessages({
   status,
   votes,
   messages,
+  sendMessage,
   setMessages,
   regenerate,
   isReadonly,
   selectedModelId,
+  streamingRenderMode,
+  onOpenUiActionStart,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -122,7 +128,15 @@ function PureMessages({
                 isReadonly={isReadonly}
                 key={message.id}
                 message={message}
+                messages={messages}
+                onOpenUiActionStart={onOpenUiActionStart}
                 regenerate={regenerate}
+                renderModeOverride={
+                  isLastMessage && message.role === "assistant"
+                    ? streamingRenderMode
+                    : undefined
+                }
+                sendMessage={sendMessage}
                 setMessages={setMessages}
                 vote={
                   votes
@@ -159,6 +173,10 @@ function PureMessages({
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
+  if (prevProps.status === "streaming" || nextProps.status === "streaming") {
+    return false;
+  }
+
   if (prevProps.status !== nextProps.status) {
     return false;
   }

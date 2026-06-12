@@ -126,6 +126,7 @@ export async function postChatHandler(c: Context) {
       message,
       selectedModelSlug,
       enableReasoning,
+      enableOpenUi,
       modelCapabilities,
       workspaceSlug,
       documentIds,
@@ -321,14 +322,31 @@ export async function postChatHandler(c: Context) {
     const supportsReasoning =
       modelCapabilities?.supports_reasoning ?? isMoonshotThinkingModel(modelSlug);
     const reasoningEnabled = Boolean(enableReasoning && supportsReasoning);
+    const openUiEnabled = Boolean(enableOpenUi);
 
     const sysPrompt = systemPrompt({
-      enableReasoning,
+      enableReasoning: reasoningEnabled,
+      enableOpenUi: openUiEnabled,
       requestHints,
       documentContext,
     });
 
     const modelMessages = await convertToModelMessages(sanitizedMessages);
+    const activeTools: Array<
+      | "getWeather"
+      | "createDocument"
+      | "updateDocument"
+      | "requestSuggestions"
+      | "viewDocument"
+    > = openUiEnabled
+      ? ["getWeather", "viewDocument"]
+      : [
+          "getWeather",
+          "createDocument",
+          "updateDocument",
+          "requestSuggestions",
+          "viewDocument",
+        ];
 
     // 本次请求内由 createDocument 创建的文档 id，供 updateDocument 短路使用，避免刚创建即更新的重复生成。
     const createdDocumentIds = new Set<string>();
@@ -341,13 +359,7 @@ export async function postChatHandler(c: Context) {
           messages: modelMessages,
           stopWhen: stepCountIs(3),
           maxOutputTokens: 5000,
-          experimental_activeTools: [
-            "getWeather",
-            "createDocument",
-            "updateDocument",
-            "requestSuggestions",
-            "viewDocument",
-          ],
+          experimental_activeTools: activeTools,
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getWeather,
@@ -400,7 +412,10 @@ export async function postChatHandler(c: Context) {
             role: currentMessage.role,
             parts: currentMessage.parts,
             createdAt: new Date(),
-            attachments: [],
+            attachments:
+              currentMessage.role === "assistant" && openUiEnabled
+                ? [{ type: "render-mode", renderMode: "openui" }]
+                : [],
             chatId: id,
           })),
         });

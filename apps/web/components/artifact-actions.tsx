@@ -5,6 +5,8 @@ import { artifactDefinitions, type UIArtifact } from "./artifact";
 import type { ArtifactActionContext } from "./create-artifact";
 import { Button } from "@repo/ui";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui";
+import { DocumentSelectorDialog } from "./editor/document-selector-dialog";
+import { useGenerateTiptapDocument } from "@/hooks/use-generate-tiptap-document";
 
 type ArtifactActionsProps = {
   artifact: UIArtifact;
@@ -26,6 +28,13 @@ function PureArtifactActions({
   setMetadata,
 }: ArtifactActionsProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const {
+    isDialogOpen,
+    setIsDialogOpen,
+    isGenerating,
+    openGenerateDialog,
+    handleGenerate,
+  } = useGenerateTiptapDocument();
 
   const artifactDefinition = artifactDefinitions.find(
     (definition) => definition.kind === artifact.kind
@@ -37,15 +46,19 @@ function PureArtifactActions({
 
   const actionContext: ArtifactActionContext = {
     content: artifact.content,
+    title: artifact.title,
     handleVersionChange,
     currentVersionIndex,
     isCurrentVersion,
     mode,
     metadata,
     setMetadata,
+    openGenerateDocument:
+      artifact.kind === "text" ? openGenerateDialog : undefined,
   };
 
   return (
+    <>
     <div className="flex flex-row gap-1">
       {artifactDefinition.actions.map((action) => (
         <Tooltip key={action.description}>
@@ -83,6 +96,18 @@ function PureArtifactActions({
         </Tooltip>
       ))}
     </div>
+
+    {artifact.kind === "text" ? (
+      <DocumentSelectorDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSelect={handleGenerate}
+        isLoading={isGenerating}
+        title="生成文档"
+        placeholder="选择保存位置..."
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -99,6 +124,9 @@ export const ArtifactActions = memo(
       return false;
     }
     if (prevProps.artifact.content !== nextProps.artifact.content) {
+      return false;
+    }
+    if (prevProps.artifact.title !== nextProps.artifact.title) {
       return false;
     }
 
