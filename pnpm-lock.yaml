@@ -150,6 +150,9 @@ importers:
       '@repo/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@repo/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@tiptap/extension-heading':
         specifier: ^3.0.7
         version: 3.13.0(@tiptap/core@3.13.0(@tiptap/pm@3.13.0))
@@ -262,9 +265,6 @@ importers:
       '@types/ws':
         specifier: ^8.5.13
         version: 8.18.1
-      docx:
-        specifier: ^9.5.1
-        version: 9.7.1
       dotenv-cli:
         specifier: ^11.0.0
         version: 11.0.0
@@ -938,9 +938,6 @@ importers:
       '@types/react-dom':
         specifier: ^18
         version: 18.3.7(@types/react@18.3.27)
-      happy-dom:
-        specifier: ^20.0.11
-        version: 20.10.2
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -5216,10 +5213,6 @@ packages:
   dnd-core@16.0.1:
     resolution: {integrity: sha512-HK294sl7tbw6F6IeuK16YSBUoorvHpY8RHO+9yFfaJyCDVb6n7PRcezrOEOa2SBCqiYpemh5Jx20ZcjKdFAVng==}
 
-  docx@9.7.1:
-    resolution: {integrity: sha512-ilXFf9Moz47ABjFpDiA5s1w9lpb4EFSp7+5iiJSbfyYDM+bpZdAgLlSr7fW4aXhVe/E+F6QCv0EvRVFEd5CsWg==}
-    engines: {node: '>=10'}
-
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
@@ -5618,9 +5611,6 @@ packages:
   has-tostringtag@1.0.2:
     resolution: {integrity: sha512-NqADB8VjPFLM2V0VvHUewwwsw0ZWBaIdgo+ieHtK3hasLz4qeCRjYcqfB6AQrBggRKppKF8L52/VqdVsO47Dlw==}
     engines: {node: '>= 0.4'}
-
-  hash.js@1.1.7:
-    resolution: {integrity: sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==}
 
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
@@ -6438,9 +6428,6 @@ packages:
   mimic-function@5.0.1:
     resolution: {integrity: sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==}
     engines: {node: '>=18'}
-
-  minimalistic-assert@1.0.1:
-    resolution: {integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==}
 
   minimatch@10.2.4:
     resolution: {integrity: sha512-oRjTw/97aTBN0RHbYCdtF1MQfvusSIBQM0IZEgzl6426+8jSC0nF1a/GmnVLpfB9yyr6g6FTqWqiZVbxrtaCIg==}
@@ -7355,10 +7342,6 @@ packages:
   sax@1.2.1:
     resolution: {integrity: sha512-8I2a3LovHTOpm7NV5yOyO8IHqgVsfK4+UuySrXU8YXkSRX7k6hCV9b3HrkKCr3nMpgj+0bmocaJJWpvp1oc7ZA==}
 
-  sax@1.6.0:
-    resolution: {integrity: sha512-6R3J5M4AcbtLUdZmRv2SygeVaM7IhrLXu9BmnOGmmACak8fiUtOsYNWUS4uK7upbmHIBbLBeFeI//477BKLBzA==}
-    engines: {node: '>=11.0.0'}
-
   scheduler@0.25.0-rc-45804af1-20241021:
     resolution: {integrity: sha512-8jyu/iy3tGFNakMMCWnKw/vsiTcapDyl0LKlZ3fUKBcBicZAkrrCC1bdqVFx0Ioxgry1SzOrCGcZLM7vtWK00A==}
 
@@ -8245,16 +8228,9 @@ packages:
     resolution: {integrity: sha512-GCPAHLvrIH13+c0SuacwvRYj2SxJXQ4kaVTT5xgL3kPrz56XxkF21IGhjSE1+W0aw7gpBWRGXLCPnPby6lSpmQ==}
     engines: {node: '>=12'}
 
-  xml-js@1.6.11:
-    resolution: {integrity: sha512-7rVi2KMfwfWFl+GpPg6m80IVMWXLRjO+PxTq7V2CDhoGak0wzYzFgUY2m4XJ47OGdXd8eLE8EmwfAmdjw7lC1g==}
-    hasBin: true
-
   xml2js@0.6.2:
     resolution: {integrity: sha512-T4rieHaC1EXcES0Kxxj4JWgaUQHDk+qwHcYOCFHfiwKz7tOVPLq7Hjq9dM1WCMhylqMEfP7hMcOIChvotiZegA==}
     engines: {node: '>=4.0.0'}
-
-  xml@1.0.1:
-    resolution: {integrity: sha512-huCv9IH9Tcf95zuYCsQraZtWnJvBtLVE0QHMOs8bWyZAFZNDcYjsPq1nEx8jKA9y+Beo9v+7OBPRisQTjinQMw==}
 
   xmlbuilder@10.1.1:
     resolution: {integrity: sha512-OyzrcFLL/nb6fMGHbiRDuPup9ljBycsdCypwuyg5AAHvyWzGfChJpCXMG88AGTIMFhGZ9RccFN1e6lhg3hkwKg==}
@@ -12225,6 +12201,7 @@ snapshots:
   '@types/node@25.9.3':
     dependencies:
       undici-types: 7.24.6
+    optional: true
 
   '@types/nodemailer@7.0.9':
     dependencies:
@@ -12279,7 +12256,8 @@ snapshots:
 
   '@types/use-sync-external-store@0.0.6': {}
 
-  '@types/whatwg-mimetype@3.0.2': {}
+  '@types/whatwg-mimetype@3.0.2':
+    optional: true
 
   '@types/ws@8.18.1':
     dependencies:
@@ -12590,6 +12568,7 @@ snapshots:
   buffer-image-size@0.6.4:
     dependencies:
       '@types/node': 22.19.1
+    optional: true
 
   bundle-name@4.1.0:
     dependencies:
@@ -13219,15 +13198,6 @@ snapshots:
       '@react-dnd/invariant': 4.0.2
       redux: 4.2.1
 
-  docx@9.7.1:
-    dependencies:
-      '@types/node': 25.9.3
-      hash.js: 1.1.7
-      jszip: 3.10.1
-      nanoid: 5.1.6
-      xml: 1.0.1
-      xml-js: 1.6.11
-
   dom-helpers@5.2.1:
     dependencies:
       '@babel/runtime': 7.28.4
@@ -13642,17 +13612,13 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+    optional: true
 
   has-symbols@1.1.0: {}
 
   has-tostringtag@1.0.2:
     dependencies:
       has-symbols: 1.1.0
-
-  hash.js@1.1.7:
-    dependencies:
-      inherits: 2.0.4
-      minimalistic-assert: 1.0.1
 
   hasown@2.0.2:
     dependencies:
@@ -14772,8 +14738,6 @@ snapshots:
       mime-db: 1.52.0
 
   mimic-function@5.0.1: {}
-
-  minimalistic-assert@1.0.1: {}
 
   minimatch@10.2.4:
     dependencies:
@@ -16157,8 +16121,6 @@ snapshots:
 
   sax@1.2.1: {}
 
-  sax@1.6.0: {}
-
   scheduler@0.25.0-rc-45804af1-20241021: {}
 
   scheduler@0.27.0: {}
@@ -16663,7 +16625,8 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici-types@7.24.6: {}
+  undici-types@7.24.6:
+    optional: true
 
   undici@5.29.0:
     dependencies:
@@ -17097,7 +17060,8 @@ snapshots:
 
   webpack-virtual-modules@0.6.2: {}
 
-  whatwg-mimetype@3.0.0: {}
+  whatwg-mimetype@3.0.0:
+    optional: true
 
   whatwg-url@5.0.0:
     dependencies:
@@ -17152,7 +17116,8 @@ snapshots:
 
   ws@8.19.0: {}
 
-  ws@8.21.0: {}
+  ws@8.21.0:
+    optional: true
 
   wsl-utils@0.3.1:
     dependencies:
@@ -17223,16 +17188,10 @@ snapshots:
 
   xdg-basedir@5.1.0: {}
 
-  xml-js@1.6.11:
-    dependencies:
-      sax: 1.6.0
-
   xml2js@0.6.2:
     dependencies:
       sax: 1.2.1
       xmlbuilder: 11.0.1
-
-  xml@1.0.1: {}
 
   xmlbuilder@10.1.1: {}
 

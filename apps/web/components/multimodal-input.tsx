@@ -18,7 +18,7 @@ import {
   useRef,
   useState,
 } from "react";
-import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
@@ -32,7 +32,11 @@ import { SelectItem } from "@repo/ui";
 
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { cn, fetcher } from "@/lib/utils";
+import { apiFetch, apiJson } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
+import { markdownToTiptap } from "@repo/editor";
+import { documentKeys } from "@/hooks/use-document-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 import { useModels } from "@/hooks/use-models";
 import type { ModelInfo } from "@/lib/api-types";
@@ -50,7 +54,7 @@ import { ArrowUpIcon, CpuIcon, PaperclipIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { ContextSelector, type SelectedDocument } from "./context-selector";
-import { Button } from "@repo/ui";
+import { Button, Input } from "@repo/ui";
 import {
   Tooltip,
   TooltipContent,
@@ -59,10 +63,12 @@ import {
 } from "@repo/ui";
 import {
   Brain,
-  Clock3,
+  Download,
   FileUp,
+  Globe2,
   Image,
   LayoutTemplate,
+  Loader2,
   Upload,
   Video,
   XIcon,
@@ -70,16 +76,6 @@ import {
 import NextImage from "next/image";
 import pdfToIllustration from "@/assets/images/pdf_to.png";
 import { RecentDocumentsCarousel } from "./recent-documents-carousel";
-
-type RecentChat = {
-  id: string;
-  title: string;
-  createdAt: string;
-};
-
-type RecentHistoryResponse = {
-  chats: RecentChat[];
-};
 
 function buildChatPath(chatId: string, workspaceSlug?: string) {
   return workspaceSlug ? `/${workspaceSlug}/chat/${chatId}` : `/chat/${chatId}`;
@@ -668,7 +664,7 @@ function PureMultimodalInput({
           onClick={() => handleFileUpload()}
           onFileSelect={handleDocumentImportUpload}
         />
-        <RecentChatsCard workspaceSlug={workspaceSlug} />
+        <SaveWebPageCard workspaceSlug={workspaceSlug} />
       </motion.div>
     );
 
@@ -868,8 +864,8 @@ function LandingUploadCard({
             <p>拖拽文件到此处</p>
             <p>自动同步知识库</p>
           </div>
-          <button
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          <Button
+            className="h-auto gap-1.5 rounded-full px-4 py-1.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[13px]"
             disabled={disabled}
             onClick={(event) => {
               event.stopPropagation();
@@ -879,7 +875,7 @@ function LandingUploadCard({
           >
             <Upload size={13} />
             选择文件
-          </button>
+          </Button>
         </div>
 
         <NextImage
@@ -896,74 +892,151 @@ function LandingUploadCard({
   );
 }
 
-function RecentChatsCard({ workspaceSlug }: { workspaceSlug?: string }) {
-  const workspaceParam = workspaceSlug
-    ? `&workspace=${encodeURIComponent(workspaceSlug)}`
-    : "";
-  const { data, isLoading } = useSWR<RecentHistoryResponse>(
-    `/api/history?limit=5${workspaceParam}`,
-    fetcher
-  );
+function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [pageUrl, setPageUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const recentChats = data?.chats?.slice(0, 2) ?? [];
+  const handleSaveWebPage = useCallback(async () => {
+    const trimmedUrl = pageUrl.trim();
+    if (!trimmedUrl) {
+      toast.error("请输入网页链接");
+      return;
+    }
+
+    setIsSaving(true);
+    const toastId = toast.loading("正在抓取网页并保存到知识库...");
+
+    try {
+      const result = await apiJson<{
+        id: string;
+        title: string;
+        sourcePageUrl: string | null;
+        markdown: string;
+        warning: string | null;
+      }>("/api/web-scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: trimmedUrl,
+          workspaceSlug,
+        }),
+      });
+
+      const tiptapDoc = markdownToTiptap(result.markdown);
+      const saveRes = await apiFetch(`/api/editor-documents/${result.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: JSON.stringify(tiptapDoc),
+          yjsState: null,
+        }),
+      });
+      if (!saveRes.ok) {
+        throw new Error("文档内容保存失败");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      await queryClient.invalidateQueries({
+        queryKey: documentKeys.detail(result.id),
+      });
+
+      toast.success(`已保存「${result.title}」`, { id: toastId });
+
+      if (result.warning) {
+        toast.warning(result.warning, { duration: 6000 });
+      }
+
+      const editorPath = workspaceSlug
+        ? `/${workspaceSlug}/editor/${result.id}`
+        : `/editor/${result.id}`;
+      router.push(editorPath);
+      setPageUrl("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "网页保存失败，请重试",
+        { id: toastId }
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [pageUrl, workspaceSlug, router, queryClient]);
+
+  const handleDownloadExtension = useCallback(() => {
+    toast.info(
+      "浏览器插件尚未发布。请在项目根目录运行 pnpm --filter @repo/extensions zip 打包，再在 chrome://extensions 中加载解压后的扩展。",
+      { duration: 8000 }
+    );
+  }, []);
+
+  const handleUrlKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter" && !isSaving) {
+        event.preventDefault();
+        void handleSaveWebPage();
+      }
+    },
+    [handleSaveWebPage, isSaving]
+  );
 
   return (
     <motion.div
-      className="h-full rounded-2xl border border-border/70 bg-background/95 p-4"
+      className="flex h-full min-h-[172px] flex-col gap-4 rounded-2xl border border-border/70 bg-background/95 p-4 md:min-h-[188px]"
       transition={{ type: "spring", stiffness: 320, damping: 28 }}
     >
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
-          <Clock3 size={16} />
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Globe2 size={16} />
         </div>
         <div>
-          <div className="font-medium text-[17px]">最近更新</div>
+          <div className="font-medium text-[17px]">保存网页</div>
           <div className="text-[13px] text-muted-foreground">
-            从最近对话里继续追问
+            输入链接或使用浏览器插件识别到知识库
           </div>
         </div>
       </div>
 
-      <div className="space-y-2">
-        {isLoading &&
-          Array.from({ length: 3 }).map((_, index) => (
-            <div
-              className="h-12 animate-pulse rounded-xl bg-muted/60"
-              key={index}
-            />
-          ))}
+      <div className="flex flex-1 flex-col justify-center gap-3">
+        <div className="flex gap-2">
+          <Input
+            className="min-w-0 flex-1 h-auto rounded-xl border-border/80 bg-muted/20 py-2.5 text-[13px] shadow-none placeholder:text-muted-foreground focus-visible:border-border focus-visible:bg-background/60 focus-visible:ring-0 md:text-[13px]"
+            disabled={isSaving}
+            onChange={(event) => setPageUrl(event.target.value)}
+            onKeyDown={handleUrlKeyDown}
+            placeholder="https://example.com/article"
+            type="url"
+            value={pageUrl}
+          />
+          <Button
+            className="h-auto shrink-0 gap-1.5 rounded-xl px-4 py-2.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[14px]"
+            disabled={isSaving || !pageUrl.trim()}
+            onClick={() => {
+              void handleSaveWebPage();
+            }}
+            type="button"
+          >
+            {isSaving ? <Loader2 className="animate-spin" size={14} /> : null}
+            {isSaving ? "保存中" : "保存"}
+          </Button>
+        </div>
 
-        {!isLoading && recentChats.length === 0 && (
-          <div className="rounded-xl bg-muted/35 px-4 py-6 text-center text-muted-foreground text-sm">
-            还没有最近记录，发出第一条消息后会显示在这里
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-border/60" />
+          <span className="text-[11px] text-muted-foreground">或</span>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
 
-        {!isLoading &&
-          recentChats.map((chat) => (
-            <button
-              className="flex w-full items-center justify-between rounded-xl border border-transparent bg-muted/20 px-3 py-2.5 text-left transition-colors hover:border-border hover:bg-muted/40"
-              key={chat.id}
-              onClick={() => {
-                window.location.href = buildChatPath(chat.id, workspaceSlug);
-              }}
-              type="button"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium text-[13px]">
-                  {chat.title}
-                </div>
-                <div className="mt-1 text-[12px] text-muted-foreground">
-                  {new Date(chat.createdAt).toLocaleString("zh-CN", {
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              </div>
-            </button>
-          ))}
+        <Button
+          className="h-auto w-full gap-2 rounded-xl border-border/80 bg-muted/20 py-2.5 text-[13px] font-normal shadow-none hover:border-border hover:bg-muted/40 active:scale-100 [&_svg]:size-[14px]"
+          disabled={isSaving}
+          onClick={handleDownloadExtension}
+          type="button"
+          variant="outline"
+        >
+          <Download size={14} />
+          下载浏览器插件
+        </Button>
       </div>
     </motion.div>
   );

@@ -16,6 +16,7 @@ const SERVER_API_PREFIXES = [
   "/api/image",
   "/api/pdf",
   "/api/document-import",
+  "/api/web-scrape",
   "/api/files",
   "/api/unsplash",
   "/api/notifications",

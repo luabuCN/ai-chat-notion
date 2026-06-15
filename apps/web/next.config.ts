@@ -58,6 +58,7 @@ const nextConfig: NextConfig = {
       { source: "/api/files/:path*", destination: `${server}/api/files/:path*` },
       { source: "/api/pdf/:path*", destination: `${server}/api/pdf/:path*` },
       { source: "/api/document-import/:path*", destination: `${server}/api/document-import/:path*` },
+      { source: "/api/web-scrape/:path*", destination: `${server}/api/web-scrape/:path*` },
       { source: "/api/image/:path*", destination: `${server}/api/image/:path*` },
       { source: "/api/unsplash/:path*", destination: `${server}/api/unsplash/:path*` },
     ];
