@@ -371,6 +371,20 @@ enum NotificationType {
   SYSTEM
 }
 
+model UserMonthlyTokenUsage {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @db.Uuid
+  periodKey    String   @db.VarChar(7)
+  totalTokens  Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  updatedAt    DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([userId, periodKey])
+  @@index([userId])
+  @@map("UserMonthlyTokenUsage")
+}
+
 model Notification {
   id         String           @id @default(cuid())
   receiverId String           @db.Uuid

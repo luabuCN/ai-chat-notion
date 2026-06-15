@@ -4,6 +4,7 @@ const SERVER_API_PREFIXES = [
   "/api/chat",
   "/api/collab/token",
   "/api/history",
+  "/api/token-usage",
   "/api/models",
   "/api/workspaces",
   "/api/editor-documents",

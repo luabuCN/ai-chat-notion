@@ -23,6 +23,7 @@ import { webScrapeRoutes } from "./routes/web-scrape/index.js";
 import { imageRoutes } from "./routes/image/index.js";
 import { unsplashRoutes } from "./routes/unsplash/index.js";
 import { notificationRoutes } from "./routes/notification/index.js";
+import { tokenUsageRoutes } from "./routes/token-usage/index.js";
 
 export const app = new Hono();
 
@@ -52,6 +53,7 @@ app.route("/api/web-scrape", webScrapeRoutes);
 app.route("/api/image", imageRoutes);
 app.route("/api/unsplash", unsplashRoutes);
 app.route("/api/notifications", notificationRoutes);
+app.route("/api/token-usage", tokenUsageRoutes);
 
 app.notFound(() =>
   new ApiError("not_found:api", "Route not found").toResponse()

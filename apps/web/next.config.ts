@@ -45,6 +45,8 @@ const nextConfig: NextConfig = {
       { source: "/api/chat/:path*", destination: `${server}/api/chat/:path*` },
       { source: "/api/collab/:path*", destination: `${server}/api/collab/:path*` },
       { source: "/api/history/:path*", destination: `${server}/api/history/:path*` },
+      { source: "/api/token-usage/:path*", destination: `${server}/api/token-usage/:path*` },
+      { source: "/api/token-usage", destination: `${server}/api/token-usage` },
       { source: "/api/models/:path*", destination: `${server}/api/models/:path*` },
       { source: "/api/workspaces/:path*", destination: `${server}/api/workspaces/:path*` },
       { source: "/api/editor-documents/:path*", destination: `${server}/api/editor-documents/:path*` },

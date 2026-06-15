@@ -1,5 +1,6 @@
 import type { InferUITool, UIMessage } from "ai";
 import type { Suggestion } from "@repo/database";
+import type { TokenQuota } from "@repo/database";
 import type { createDocument } from "../http/ai/tools/create-document.js";
 import type { getWeather } from "../http/ai/tools/get-weather.js";
 import type { requestSuggestions } from "../http/ai/tools/request-suggestions.js";
@@ -48,6 +49,7 @@ export type CustomUIDataTypes = {
   clear: null;
   finish: null;
   usage: AppUsage;
+  tokenQuota: TokenQuota;
 };
 
 export type ChatMessage = UIMessage<

@@ -7,6 +7,7 @@ import type { requestSuggestions } from "./ai/tools/request-suggestions";
 import type { updateDocument } from "./ai/tools/update-document";
 import type { viewDocument } from "./ai/tools/view-document";
 import type { Suggestion } from "@repo/database";
+import type { TokenQuota } from "@repo/database";
 import type { AppUsage } from "./usage";
 
 export type DataPart = { type: "append-message"; message: string };
@@ -58,6 +59,7 @@ export type CustomUIDataTypes = {
   clear: null;
   finish: null;
   usage: AppUsage;
+  tokenQuota: TokenQuota;
 };
 
 export type ChatMessage = UIMessage<

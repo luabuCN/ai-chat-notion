@@ -37,6 +37,7 @@ import {
   useChatHistoryQuery,
   useInvalidateChatHistory,
 } from "@/hooks/use-chat-history-query";
+import { useTokenQuota } from "@/hooks/use-token-quota";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
@@ -79,6 +80,8 @@ export function Chat({
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
   const pendingOpenUiRef = useRef(false);
+  const { quota: tokenQuota, isLoading: tokenQuotaLoading, applyQuotaUpdate } =
+    useTokenQuota();
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
@@ -121,6 +124,9 @@ export function Chat({
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       if (dataPart.type === "data-usage") {
         setUsage(dataPart.data);
+      }
+      if (dataPart.type === "data-tokenQuota") {
+        applyQuotaUpdate(dataPart.data);
       }
     },
     onFinish: () => {
@@ -334,6 +340,8 @@ export function Chat({
                   showSuggestedActions={false}
                   status={status}
                   stop={stop}
+                  tokenQuota={tokenQuota}
+                  tokenQuotaLoading={tokenQuotaLoading}
                   usage={usage}
                   workspaceSlug={workspaceSlug}
                 />

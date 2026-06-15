@@ -30,6 +30,7 @@ import {
 import { useDocumentImportBusy } from "@/lib/document-import/convert-store";
 import { SelectItem } from "@repo/ui";
 
+import type { TokenQuota } from "@repo/database";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { apiFetch, apiJson } from "@/lib/api-client";
@@ -54,6 +55,7 @@ import { ArrowUpIcon, CpuIcon, PaperclipIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { ContextSelector, type SelectedDocument } from "./context-selector";
+import { TokenQuotaIndicator } from "./token-quota-indicator";
 import { Button, Input } from "@repo/ui";
 import {
   Tooltip,
@@ -96,6 +98,8 @@ function PureMultimodalInput({
   selectedModelId,
   onModelChange,
   usage,
+  tokenQuota,
+  tokenQuotaLoading,
   workspaceSlug,
   landingInputOffsetClassName,
   showLandingPanels = false,
@@ -118,6 +122,8 @@ function PureMultimodalInput({
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
+  tokenQuota?: TokenQuota;
+  tokenQuotaLoading?: boolean;
   workspaceSlug?: string;
   landingInputOffsetClassName?: string;
   showLandingPanels?: boolean;
@@ -622,18 +628,28 @@ function PureMultimodalInput({
             />
           </PromptInputTools>
 
-          {status === "submitted" ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <PromptInputSubmit
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-              data-testid="send-button"
-            >
-              <ArrowUpIcon size={14} />
-            </PromptInputSubmit>
-          )}
+          <div className="flex items-center gap-1.5">
+            <TokenQuotaIndicator
+              isLoading={tokenQuotaLoading}
+              quota={tokenQuota}
+            />
+            {status === "submitted" ? (
+              <StopButton setMessages={setMessages} stop={stop} />
+            ) : (
+              <PromptInputSubmit
+                className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+                disabled={
+                  !input.trim() ||
+                  uploadQueue.length > 0 ||
+                  (tokenQuota?.remaining ?? 1) <= 0
+                }
+                status={status}
+                data-testid="send-button"
+              >
+                <ArrowUpIcon size={14} />
+              </PromptInputSubmit>
+            )}
+          </div>
         </PromptInputToolbar>
       </PromptInput>
     </>
@@ -740,6 +756,12 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.landingPanelsPosition !== nextProps.landingPanelsPosition) {
+      return false;
+    }
+    if (prevProps.tokenQuotaLoading !== nextProps.tokenQuotaLoading) {
+      return false;
+    }
+    if (!equal(prevProps.tokenQuota, nextProps.tokenQuota)) {
       return false;
     }
 

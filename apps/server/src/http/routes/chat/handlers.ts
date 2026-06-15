@@ -21,7 +21,9 @@ import {
   getEditorDocumentById,
   getMessagesByChatId,
   getStreamIdsByChatId,
+  getUserTokenQuota,
   getWorkspaceBySlug,
+  incrementUserMonthlyTokenUsage,
   saveChat,
   saveMessages,
   updateChatLastContextById,
@@ -136,6 +138,14 @@ export async function postChatHandler(c: Context) {
     const session = await getSessionFromRequest(c.req.raw);
     if (!session) {
       return new ApiError("unauthorized:chat").toResponse();
+    }
+
+    const tokenQuota = await getUserTokenQuota({ userId: session.user.id });
+    if (tokenQuota.remaining <= 0) {
+      return new ApiError(
+        "rate_limit:chat",
+        "Monthly token quota exceeded"
+      ).toResponse();
     }
 
     const chat = await getChatById({ id });
@@ -391,6 +401,22 @@ export async function postChatHandler(c: Context) {
           onFinish: async ({ usage }) => {
             finalMergedUsage = usage;
             dataStream.write({ type: "data-usage", data: finalMergedUsage });
+
+            const totalTokens = finalMergedUsage?.totalTokens ?? 0;
+            if (totalTokens > 0) {
+              const updatedQuota = await incrementUserMonthlyTokenUsage({
+                userId: session.user.id,
+                delta: {
+                  total: totalTokens,
+                  input: finalMergedUsage?.inputTokens ?? 0,
+                  output: finalMergedUsage?.outputTokens ?? 0,
+                },
+              });
+              dataStream.write({
+                type: "data-tokenQuota",
+                data: updatedQuota,
+              });
+            }
           },
         });
 
