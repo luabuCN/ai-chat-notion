@@ -23,7 +23,10 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
 import { useDocumentImportUpload } from "@/lib/document-import/import-actions";
-import { DOCUMENT_IMPORT_ACCEPT } from "@/lib/document-import/constants";
+import {
+  DOCUMENT_IMPORT_ACCEPT,
+  isSupportedDocumentImport,
+} from "@/lib/document-import/constants";
 import { useDocumentImportBusy } from "@/lib/document-import/convert-store";
 import { SelectItem } from "@repo/ui";
 
@@ -60,9 +63,12 @@ import {
   FileUp,
   Image,
   LayoutTemplate,
+  Upload,
   Video,
   XIcon,
 } from "lucide-react";
+import NextImage from "next/image";
+import pdfToIllustration from "@/assets/images/pdf_to.png";
 import { RecentDocumentsCarousel } from "./recent-documents-carousel";
 
 type RecentChat = {
@@ -660,6 +666,7 @@ function PureMultimodalInput({
           conversionBusy={documentImportBusy}
           disabled={status !== "ready" || documentImportBusy}
           onClick={() => handleFileUpload()}
+          onFileSelect={handleDocumentImportUpload}
         />
         <RecentChatsCard workspaceSlug={workspaceSlug} />
       </motion.div>
@@ -746,47 +753,144 @@ export const MultimodalInput = memo(
 
 function LandingUploadCard({
   onClick,
+  onFileSelect,
   disabled,
   conversionBusy,
 }: {
   onClick: () => void;
+  onFileSelect: (file: File) => void;
   disabled: boolean;
   conversionBusy: boolean;
 }) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const processDroppedFile = useCallback(
+    (file: File) => {
+      if (disabled) {
+        return;
+      }
+      if (!isSupportedDocumentImport(file)) {
+        toast.error("仅支持 PDF、Word、Markdown 格式");
+        return;
+      }
+      onFileSelect(file);
+    },
+    [disabled, onFileSelect]
+  );
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+      const file = event.dataTransfer.files[0];
+      if (file) {
+        processDroppedFile(file);
+      }
+    },
+    [processDroppedFile]
+  );
+
+  const handleDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (!disabled) {
+        setIsDragging(true);
+      }
+    },
+    [disabled]
+  );
+
+  const handleDragLeave = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+    },
+    []
+  );
+
+  const handleDropZoneClick = useCallback(() => {
+    if (!disabled) {
+      onClick();
+    }
+  }, [disabled, onClick]);
+
+  const handleDropZoneKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!disabled && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        onClick();
+      }
+    },
+    [disabled, onClick]
+  );
+
   return (
     <motion.div
       className={cn(
-        "group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]",
+        "group flex h-full min-h-[172px] flex-col gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]",
         disabled && "opacity-80"
       )}
     >
-      <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+      <div className="flex shrink-0 items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <FileUp size={16} />
         </div>
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className="font-medium text-[17px]">上传文档</div>
-        </div>
-      </div>
-      <div className="space-y-3">
-        {conversionBusy && (
-          <p className="text-[12px] font-medium text-amber-700 dark:text-amber-400">
-            当前有文档正在转换或保存，请等待完成后再上传。
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled}
-            onClick={onClick}
-            type="button"
-          >
-            上传文件
-          </button>
-          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
-            粘贴图片
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+            支持 PDF、Word、MD
           </span>
         </div>
+      </div>
+
+      {conversionBusy ? (
+        <p className="shrink-0 text-[12px] font-medium text-amber-700 dark:text-amber-400">
+          当前有文档正在转换或保存，请等待完成后再上传。
+        </p>
+      ) : null}
+
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 items-center rounded-xl border border-dashed border-border/80 px-4 py-3 transition-colors",
+          isDragging && "border-primary/50 bg-primary/5",
+          !disabled && "cursor-pointer hover:border-border hover:bg-background/60"
+        )}
+        onClick={handleDropZoneClick}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onKeyDown={handleDropZoneKeyDown}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+      >
+        <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-2">
+          <div className="font-semibold text-[15px] leading-snug text-foreground">
+            <p>拖拽文件到此处</p>
+            <p>自动同步知识库</p>
+          </div>
+          <button
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClick();
+            }}
+            type="button"
+          >
+            <Upload size={13} />
+            选择文件
+          </button>
+        </div>
+
+        <NextImage
+            alt=""
+            className="relative h-[120px] w-auto object-contain"
+            height={pdfToIllustration.height}
+            quality={100}
+            sizes="300px"
+            src={pdfToIllustration}
+            width={pdfToIllustration.width}
+          />
       </div>
     </motion.div>
   );
@@ -805,7 +909,7 @@ function RecentChatsCard({ workspaceSlug }: { workspaceSlug?: string }) {
 
   return (
     <motion.div
-      className="rounded-2xl border border-border/70 bg-background/95 p-4"
+      className="h-full rounded-2xl border border-border/70 bg-background/95 p-4"
       transition={{ type: "spring", stiffness: 320, damping: 28 }}
     >
       <div className="mb-4 flex items-center gap-3">
