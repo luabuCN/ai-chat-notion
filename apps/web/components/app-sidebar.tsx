@@ -4,8 +4,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import type { User } from "next-auth";
 
-import { BotIcon, ImageIcon } from "@/components/icons";
-import { FileText, Search } from "lucide-react";
+import { ImageIcon } from "@/components/icons";
+import { FileText, Search, Sparkles } from "lucide-react";
 import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarSharedDocuments } from "@/components/sidebar-shared-documents";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
@@ -98,7 +98,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       router.refresh();
                     }}
                   >
-                    <BotIcon />
+                    <Sparkles />
                     <span>AI 灵感助手</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
