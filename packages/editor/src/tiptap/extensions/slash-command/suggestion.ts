@@ -13,6 +13,7 @@ import {
   LetterTextIcon,
   ListIcon,
   ListOrderedIcon,
+  ListTodoIcon,
   PaperclipIcon,
   ShapesIcon,
   Smile,
@@ -128,6 +129,17 @@ const formatItems: CommandSuggestionItem[] = [
     icon: ListOrderedIcon,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+    },
+  },
+  {
+    id: "taskList",
+    title: "待办清单",
+    category: "format",
+    description: "Create a to-do list with checkboxes.",
+    keywords: ["todo", "task", "checkbox", "待办", "清单", "任务", "checklist"],
+    icon: ListTodoIcon,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).toggleTaskList().run();
     },
   },
   {

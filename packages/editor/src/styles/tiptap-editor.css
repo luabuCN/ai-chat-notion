@@ -107,6 +107,64 @@
 .tiptap table p {
   margin: 0;
 }
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.tiptap ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 1px;
+}
+.tiptap ul[data-type="taskList"] li > div > p {
+  margin: 0;
+  min-height: 1.5em;
+  width: 100%;
+}
+.tiptap ul[data-type="taskList"] li > div > p.is-empty::before {
+  content: none;
+}
+.tiptap ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+  line-height: 1;
+  user-select: none;
+}
+.tiptap ul[data-type="taskList"] li > label input[type="checkbox"] {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 0.125rem;
+  background-color: transparent;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+}
+.tiptap ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+.tiptap ul[data-type="taskList"] li > label input[type="checkbox"]:checked::before {
+  content: "";
+  width: 0.55em;
+  height: 0.3em;
+  border: 2px solid white;
+  border-top: 0;
+  border-right: 0;
+  transform: rotate(-45deg) translateY(-1px);
+}
+.tiptap ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
 .tiptap table .selectedCell {
   background-color: oklch(from var(--primary) l c h/0.2);
 }
@@ -217,17 +275,23 @@
   white-space: nowrap;
 }
 
+.tiptap :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)){
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
 .tiptap :where(hr):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
   border-color: var(--tw-prose-hr);
   border-top-width: 1px;
-  margin-top: 1.5em;
-  margin-bottom: 1.5em;
+  margin-top: 1em;
+  margin-bottom: 1em;
 }
 
 .tiptap :where(img):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
   margin-top: 1em;
   margin-bottom: 1em;
 }
+
 
 /* 通知跳转高亮：闪烁 3 次后停止 */
 @keyframes flash-highlight {

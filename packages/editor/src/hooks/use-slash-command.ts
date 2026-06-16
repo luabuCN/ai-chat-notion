@@ -17,12 +17,16 @@ function appendListChildItem(editor: Editor, listNode: PMNode, listStartPos: num
     }
     newItem = lastItem.type.create(lastItem.attrs, paragraph);
   } else {
-    const listItem = schema.nodes.listItem;
+    const itemTypeName =
+      listNode.type.name === "taskList" ? "taskItem" : "listItem";
+    const listItem = schema.nodes[itemTypeName];
     const paragraph = schema.nodes.paragraph?.create();
     if (!listItem || !paragraph) {
       return false;
     }
-    newItem = listItem.create(null, paragraph);
+    const attrs =
+      itemTypeName === "taskItem" ? { checked: false } : null;
+    newItem = listItem.create(attrs, paragraph);
   }
 
   return editor

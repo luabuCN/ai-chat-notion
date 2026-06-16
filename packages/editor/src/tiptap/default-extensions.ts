@@ -19,6 +19,8 @@ import { Chart } from "./extensions/chart";
 import { Attachment } from "./extensions/attachment";
 import { SearchReplace } from "./extensions/search-replace/search-replace";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 
 const TiptapStarterKit = StarterKit.configure({
   undoRedo: false, // 禁用 StarterKit 的 UndoRedo，由 Collaboration 扩展统一管理 undo/redo
@@ -273,6 +275,19 @@ const attachment = Attachment.configure({
   HTMLAttributes: {},
 });
 
+const TiptapTaskList = TaskList.configure({
+  HTMLAttributes: {
+    class: cn("list-none pl-0 not-prose"),
+  },
+});
+
+const TiptapTaskItem = TaskItem.configure({
+  nested: true,
+  HTMLAttributes: {
+    class: cn("flex items-start gap-2 leading-normal"),
+  },
+});
+
 /**
  * 给「可评论」的块级节点附加稳定 id，作为评论锚点。
  *
@@ -312,5 +327,7 @@ export const defaultExtensions = [
   mermaid,
   chart,
   attachment,
+  TiptapTaskList,
+  TiptapTaskItem,
   SearchReplace,
 ];
