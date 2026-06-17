@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { User } from "next-auth";
 
 import { ImageIcon } from "@/components/icons";
@@ -41,6 +41,26 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   const isChatActive = /\/[^\/]+\/chat(\/|$)/.test(pathname ?? "");
   const isImageActive = /\/[^\/]+\/image(\/|$)/.test(pathname ?? "");
   const isDocumentsActive = /\/[^\/]+\/documents(\/|$)/.test(pathname ?? "");
+
+  const activeSlug = currentWorkspace?.slug ?? workspaces[0]?.slug;
+
+  const prefetchPaths = useMemo(
+    () =>
+      activeSlug
+        ? [
+            `/${activeSlug}/chat`,
+            `/${activeSlug}/image`,
+            `/${activeSlug}/documents`,
+          ]
+        : [],
+    [activeSlug],
+  );
+
+  useEffect(() => {
+    for (const path of prefetchPaths) {
+      router.prefetch(path);
+    }
+  }, [router, prefetchPaths]);
 
   const handleWorkspaceSwitch = (workspace: Workspace) => {
     router.push(`/${workspace.slug}/chat`);
@@ -88,6 +108,9 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={isChatActive}
+                    onMouseEnter={() => {
+                      if (activeSlug) router.prefetch(`/${activeSlug}/chat`);
+                    }}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -105,6 +128,9 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={isImageActive}
+                    onMouseEnter={() => {
+                      if (activeSlug) router.prefetch(`/${activeSlug}/image`);
+                    }}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -122,6 +148,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={isDocumentsActive}
+                    onMouseEnter={() => {
+                      if (activeSlug)
+                        router.prefetch(`/${activeSlug}/documents`);
+                    }}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -137,7 +167,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <NotificationCenter />
-
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -151,7 +180,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         open={quickSearchOpen}
         onOpenChange={setQuickSearchOpen}
         workspaceId={currentWorkspace?.id}
-        workspaceSlug={currentWorkspace?.slug ?? (workspaces[0]?.slug ?? "")}
+        workspaceSlug={currentWorkspace?.slug ?? workspaces[0]?.slug ?? ""}
       />
     </>
   );
