@@ -29,6 +29,8 @@ import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { CommentBlockMarginTrigger } from "./components/comment-prototype/comment-block-margin-trigger";
 import type { CommentMentionNotifyParams } from "./components/comment-prototype/comment-prototype-form";
 import { BlockDragHandleToolbar } from "./components/block-drag-handle-toolbar";
+import { LinkConfirmDialog } from "./components/link-confirm-dialog";
+import { handleLinkClick } from "./lib/link-click-handler";
 import AIPanel from "./components/ai-panel";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
@@ -508,6 +510,7 @@ export function UnifiedEditor({
           spellcheck: "false",
           class: "tiptap !pl-10",
         },
+        handleClick: handleLinkClick,
       },
       onCreate: ({ editor: e }) => {
         onCreate?.(e);
@@ -663,6 +666,7 @@ export function UnifiedEditor({
         <TableOfContents editor={editor} />
         <ImagePreviewPortal />
         <SearchReplacePanel editor={editor} readonly />
+        <LinkConfirmDialog />
       </div>
     );
   }
@@ -670,6 +674,7 @@ export function UnifiedEditor({
   return (
     <div className={className} key={editorKey}>
       <ImagePreviewPortal />
+      <LinkConfirmDialog />
       {/* 编辑器主体 */}
       {editor && (
         <>
