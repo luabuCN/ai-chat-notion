@@ -87,6 +87,7 @@ async function createDocument(arg: {
   title: string;
   parentDocumentId?: string;
   workspaceId?: string;
+  kind?: "document" | "whiteboard";
 }): Promise<EditorDocument> {
   const response = await apiFetch("/api/editor-documents", {
     method: "POST",
@@ -97,6 +98,7 @@ async function createDocument(arg: {
       title: arg.title,
       parentDocumentId: arg.parentDocumentId ?? null,
       workspaceId: arg.workspaceId ?? null,
+      kind: arg.kind ?? "document",
     }),
   });
 

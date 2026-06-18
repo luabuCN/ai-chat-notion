@@ -120,6 +120,7 @@ export async function createEditorDocumentHandler(c: Context) {
       coverImage,
       coverImageType,
       sourcePageUrl,
+      kind,
     }: {
       title: string;
       content?: string;
@@ -129,6 +130,7 @@ export async function createEditorDocumentHandler(c: Context) {
       coverImage?: string | null;
       coverImageType?: "color" | "url" | null;
       sourcePageUrl?: string | null;
+      kind?: "document" | "whiteboard";
     } = body;
 
     if (!title) {
@@ -180,6 +182,7 @@ export async function createEditorDocumentHandler(c: Context) {
       coverImage: coverImage ?? null,
       coverImageType: coverImageType ?? "url",
       sourcePageUrl,
+      kind: kind === "whiteboard" ? "whiteboard" : "document",
     });
 
     return c.json(document, 201);

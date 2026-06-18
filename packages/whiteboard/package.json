@@ -1,0 +1,30 @@
+{
+  "name": "@repo/whiteboard",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles": "./src/styles/whiteboard.css"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.0",
+    "@hocuspocus/provider": "^3.4.3",
+    "@repo/ui": "workspace:*",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.554.0",
+    "yjs": "^13.6.29",
+    "y-protocols": "^1.0.6"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.8.2"
+  }
+}

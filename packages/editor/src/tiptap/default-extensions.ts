@@ -303,6 +303,7 @@ const blockUniqueId = UniqueID.configure({
     "table",
     "listItem",
     "taskItem",
+    "whiteboardBlock",
   ],
   attributeName: "id",
 });

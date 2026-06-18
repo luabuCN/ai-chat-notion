@@ -57,10 +57,13 @@ export type Stream = {
   createdAt: Date;
 };
 
+export type EditorDocumentKind = "document" | "whiteboard";
+
 export type EditorDocument = {
   id: string;
   title: string;
   content: string | null;
+  kind: EditorDocumentKind;
   userId: string;
   workspaceId: string | null;
   parentDocumentId: string | null;

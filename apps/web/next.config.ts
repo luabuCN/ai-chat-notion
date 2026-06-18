@@ -8,7 +8,14 @@ const API_PROXY = process.env.API_PROXY_URL || "http://localhost:4000";
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: false,
-  transpilePackages: ["@repo/database","@repo/editor","@repo/ui","@repo/ai"],
+  transpilePackages: [
+    "@repo/database",
+    "@repo/editor",
+    "@repo/ui",
+    "@repo/ai",
+    "@repo/whiteboard",
+    "@excalidraw/excalidraw",
+  ],
   productionBrowserSourceMaps:false,
   images: {
     dangerouslyAllowSVG: true,

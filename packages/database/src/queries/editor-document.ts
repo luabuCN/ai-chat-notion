@@ -15,6 +15,7 @@ export async function createEditorDocument({
   coverImage,
   coverImageType,
   sourcePageUrl,
+  kind,
 }: {
   title: string;
   content?: string;
@@ -25,12 +26,14 @@ export async function createEditorDocument({
   coverImage?: string | null;
   coverImageType?: "color" | "url" | null;
   sourcePageUrl?: string | null;
+  kind?: "document" | "whiteboard";
 }) {
   try {
     return await prisma.editorDocument.create({
       data: {
         title,
         content: content ?? "",
+        kind: kind ?? "document",
         userId,
         workspaceId: workspaceId ?? null,
         parentDocumentId: parentDocumentId ?? null,
@@ -367,6 +370,8 @@ export async function duplicateEditorDocument({
         coverImagePosition: original.coverImagePosition,
         sourcePdfUrl: original.sourcePdfUrl,
         sourcePageUrl: original.sourcePageUrl,
+        kind: original.kind,
+        yjsState: original.yjsState,
       },
     });
   } catch (error) {

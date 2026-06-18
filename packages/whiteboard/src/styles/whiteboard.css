@@ -1,0 +1,8 @@
+.excalidraw {
+  --theme-filter: none;
+  height: 100%;
+}
+
+.excalidraw-wrapper {
+  height: 100%;
+}

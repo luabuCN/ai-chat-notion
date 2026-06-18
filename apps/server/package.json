@@ -20,6 +20,7 @@
     "@prisma/client": "6",
     "@repo/ai": "workspace:*",
     "@repo/database": "workspace:*",
+    "@tiptap/core": "^3.13.0",
     "@tiptap/extension-heading": "^3.0.7",
     "@tiptap/extension-image": "^3.0.7",
     "@tiptap/extension-table": "^3.10.4",

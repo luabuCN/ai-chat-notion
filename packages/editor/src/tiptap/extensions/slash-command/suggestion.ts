@@ -215,6 +215,16 @@ const formatItems: CommandSuggestionItem[] = [
 
 const insertItems: CommandSuggestionItem[] = [
   {
+    id: "whiteboard",
+    title: "Whiteboard",
+    category: "insert",
+    description: "Insert a collaborative whiteboard block.",
+    keywords: ["whiteboard", "白板", "draw", "sketch", "canvas"],
+    icon: ShapesIcon,
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).insertWhiteboardBlock().run(),
+  },
+  {
     id: "youtube",
     title: "Youtube",
     category: "insert",

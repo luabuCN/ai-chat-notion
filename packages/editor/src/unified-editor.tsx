@@ -37,6 +37,8 @@ import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 import { SearchReplacePanel } from "./components/search-replace-panel";
+import { EditorCollabContext } from "./context/editor-collab-context";
+import { WhiteboardBlock } from "./tiptap/extensions/whiteboard-block";
 
 /** 监听图片预览自定义事件，用受控模式展示全屏预览（与 tiptap-editor 一致） */
 function ImagePreviewPortal() {
@@ -474,6 +476,7 @@ export function UnifiedEditor({
       Collaboration.configure({
         document: ydoc,
       }),
+      WhiteboardBlock.configure({ ydoc }),
     ];
 
     // 协同模式下添加光标扩展
@@ -652,26 +655,31 @@ export function UnifiedEditor({
     }
   }, [editor, readonly]);
 
+  const collabContextValue = useMemo(
+    () => ({
+      ydoc,
+      awareness: provider?.awareness ?? null,
+      readonly: Boolean(readonly),
+    }),
+    [ydoc, provider, readonly]
+  );
+
   if (!isClientReady) {
     return null;
   }
 
-  if (readonly) {
-    return (
-      <div className={className}>
-        <EditorContent
-          editor={editor}
-          className="prose dark:prose-invert focus:outline-none max-w-full z-0"
-        />
-        <TableOfContents editor={editor} />
-        <ImagePreviewPortal />
-        <SearchReplacePanel editor={editor} readonly />
-        <LinkConfirmDialog />
-      </div>
-    );
-  }
-
-  return (
+  const editorShell = readonly ? (
+    <div className={className}>
+      <EditorContent
+        editor={editor}
+        className="prose dark:prose-invert focus:outline-none max-w-full z-0"
+      />
+      <TableOfContents editor={editor} />
+      <ImagePreviewPortal />
+      <SearchReplacePanel editor={editor} readonly />
+      <LinkConfirmDialog />
+    </div>
+  ) : (
     <div className={className} key={editorKey}>
       <ImagePreviewPortal />
       <LinkConfirmDialog />
@@ -708,6 +716,12 @@ export function UnifiedEditor({
         </>
       )}
     </div>
+  );
+
+  return (
+    <EditorCollabContext.Provider value={collabContextValue}>
+      {editorShell}
+    </EditorCollabContext.Provider>
   );
 }
 

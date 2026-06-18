@@ -13,6 +13,7 @@ import { Image } from "@tiptap/extension-image";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { UniqueID } from "@tiptap/extension-unique-id";
+import { Node } from "@tiptap/core";
 import { gzipSync, gunzipSync } from "zlib";
 
 // 直接创建 Prisma 客户端
@@ -85,6 +86,17 @@ const ServerTableCell = TableCell.extend({
 // 与客户端 `default-extensions.ts` 对齐：评论锚点依赖块级 stable id；
 // 缺失这条扩展时 `TiptapTransformer.fromYdoc` 会丢掉 `id` 属性，
 // 导致非协同模式回到本地后丢失评论锚点。
+const ServerWhiteboardBlock = Node.create({
+  name: "whiteboardBlock",
+  group: "block",
+  atom: true,
+  addAttributes() {
+    return {
+      id: { default: null },
+    };
+  },
+});
+
 const ServerBlockUniqueId = UniqueID.configure({
   types: [
     "paragraph",
@@ -94,6 +106,7 @@ const ServerBlockUniqueId = UniqueID.configure({
     "table",
     "listItem",
     "taskItem",
+    "whiteboardBlock",
   ],
   attributeName: "id",
 });
@@ -114,6 +127,7 @@ const transformerExtensions = [
   Image,
   TaskList,
   TaskItem,
+  ServerWhiteboardBlock,
 ];
 
 /**
@@ -132,6 +146,7 @@ export const databaseExtension = new Database({
         select: {
           yjsState: true,
           content: true,
+          kind: true,
         },
       });
 
@@ -265,20 +280,10 @@ export const databaseExtension = new Database({
     }
 
     try {
-      // 1. 恢复 YDoc
-      const ydoc = new Y.Doc();
-      Y.applyUpdate(ydoc, state);
-
-      // 2. 转换为 Tiptap JSON (用于 content 字段，保持非协同模式兼容)
-      let jsonContent: string | undefined;
-      try {
-        const json = TiptapTransformer.fromYdoc(ydoc, "default");
-        jsonContent = JSON.stringify(json);
-      } catch (e) {
-        console.warn(`[Database] Could not convert Yjs to JSON:`, e);
-      }
-
-      ydoc.destroy();
+      const docMeta = await prisma.editorDocument.findUnique({
+        where: { id: documentName },
+        select: { kind: true },
+      });
 
       // 3. 更新数据库（大文档启用压缩）
       let stateBuffer = Buffer.from(state);
@@ -293,6 +298,36 @@ export const databaseExtension = new Database({
         );
         stateBuffer = compressedBuffer;
       }
+
+      if (docMeta?.kind === "whiteboard") {
+        await prisma.editorDocument.update({
+          where: { id: documentName },
+          data: {
+            yjsState: stateBuffer,
+            ...(context?.user && {
+              lastEditedBy: context.user.id,
+              lastEditedByName: context.user.name,
+            }),
+          },
+        });
+        console.log(`[Database] Whiteboard document ${documentName} stored`);
+        return;
+      }
+
+      // 1. 恢复 YDoc
+      const ydoc = new Y.Doc();
+      Y.applyUpdate(ydoc, state);
+
+      // 2. 转换为 Tiptap JSON (用于 content 字段，保持非协同模式兼容)
+      let jsonContent: string | undefined;
+      try {
+        const json = TiptapTransformer.fromYdoc(ydoc, "default");
+        jsonContent = JSON.stringify(json);
+      } catch (e) {
+        console.warn(`[Database] Could not convert Yjs to JSON:`, e);
+      }
+
+      ydoc.destroy();
 
       // 3. 更新数据库
       await prisma.editorDocument.update({

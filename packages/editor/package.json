@@ -17,6 +17,7 @@
     "@floating-ui/dom": "^1.7.2",
     "@hocuspocus/provider": "^3.4.3",
     "@repo/ui": "workspace:*",
+    "@repo/whiteboard": "workspace:*",
     "@tiptap/core": "^3.13.0",
     "@tiptap/extension-code-block-lowlight": "^3.0.7",
     "@tiptap/extension-collaboration": "^3.15.1",

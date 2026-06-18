@@ -259,10 +259,16 @@ model Stream {
   @@map("Stream")
 }
 
+enum EditorDocumentKind {
+  document
+  whiteboard
+}
+
 model EditorDocument {
   id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title              String
   content            String?   @default("")
+  kind               EditorDocumentKind @default(document)
   yjsState           Bytes?    // Yjs 协同编辑状态（二进制格式）
   userId             String    @db.Uuid
   workspaceId        String?   @db.Uuid

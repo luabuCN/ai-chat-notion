@@ -128,6 +128,18 @@ export function EditorPageClient({
   // 文档加载出错（无权限 / 不存在）
   const docError = error as any;
 
+  useEffect(() => {
+    if (!document || isDocumentPending || docError) {
+      return;
+    }
+    if (document.kind === "whiteboard") {
+      const path = workspaceSlug
+        ? `/${workspaceSlug}/whiteboard/${documentId}`
+        : `/whiteboard/${documentId}`;
+      router.replace(path);
+    }
+  }, [docError, document, documentId, isDocumentPending, router, workspaceSlug]);
+
   // 文档属于其他空间（URL 空间与文档实际空间不一致）
   if (!isDocumentPending && document && !docError) {
     const docWorkspaceId = document.workspaceId;

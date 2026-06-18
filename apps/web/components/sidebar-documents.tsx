@@ -1,9 +1,13 @@
 "use client";
 
-import { Plus, FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, PenTool, Plus } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupLabel,
@@ -17,6 +21,7 @@ import DocumentsList from "./sidebar-documents-list";
 import { useCreateDocument } from "@/hooks/use-document-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getDocumentEditorPath } from "@/lib/document-routes";
 import { SidebarDocumentsProvider } from "./sidebar-documents-context";
 import { useWorkspace } from "./workspace-provider";
 import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
@@ -28,8 +33,8 @@ export function SidebarDocuments() {
     typeof params.slug === "string"
       ? params.slug
       : Array.isArray(params.slug)
-      ? params.slug[0]
-      : "";
+        ? params.slug[0]
+        : "";
   const { currentWorkspace } = useWorkspace();
   const effectiveWorkspaceSlug =
     workspaceSlug || currentWorkspace?.slug || "";
@@ -37,22 +42,25 @@ export function SidebarDocuments() {
   const createDocumentMutation = useCreateDocument();
   const [isLabelHovered, setIsLabelHovered] = useState(false);
 
-  const handleAddDocument = () => {
+  const handleCreate = (kind: "document" | "whiteboard") => {
     createDocumentMutation.mutate(
       {
-        title: "未命名",
+        title: kind === "whiteboard" ? "未命名白板" : "未命名",
         workspaceId: currentWorkspace?.id,
+        kind,
       },
       {
         onSuccess: (res) => {
-          const path = effectiveWorkspaceSlug
-            ? `/${effectiveWorkspaceSlug}/editor/${res.id}`
-            : `/editor/${res.id}`;
-          router.push(path);
-          toast.success("新笔记已创建！");
+          router.push(getDocumentEditorPath(res, effectiveWorkspaceSlug));
+          toast.success(
+            kind === "whiteboard" ? "新白板已创建！" : "新笔记已创建！"
+          );
         },
         onError: (error: Error) => {
-          toast.error(error.message || "创建新笔记失败");
+          toast.error(
+            error.message ||
+              (kind === "whiteboard" ? "创建白板失败" : "创建新笔记失败")
+          );
         },
       }
     );
@@ -66,34 +74,47 @@ export function SidebarDocuments() {
         onMouseLeave={() => setIsLabelHovered(false)}
       >
         AI 文档
-        {canCreate && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <SidebarGroupAction
-                  onClick={handleAddDocument}
-                  disabled={createDocumentMutation.isPending}
-                  className={cn(
-                    "transition-opacity",
-                    isLabelHovered ? "opacity-100" : "opacity-0",
-                    createDocumentMutation.isPending &&
-                      "opacity-100 cursor-wait"
-                  )}
-                >
-                  {createDocumentMutation.isPending ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <Plus />
-                  )}
-                  <span className="sr-only">Add</span>
-                </SidebarGroupAction>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {createDocumentMutation.isPending ? "创建中..." : "添加文档"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        {canCreate ? (
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarGroupAction
+                      disabled={createDocumentMutation.isPending}
+                      className={cn(
+                        "transition-opacity",
+                        isLabelHovered ? "opacity-100" : "opacity-0",
+                        createDocumentMutation.isPending &&
+                          "cursor-wait opacity-100"
+                      )}
+                    >
+                      {createDocumentMutation.isPending ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Plus />
+                      )}
+                      <span className="sr-only">新建</span>
+                    </SidebarGroupAction>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {createDocumentMutation.isPending ? "创建中..." : "新建"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent side="right" align="start">
+              <DropdownMenuItem onClick={() => handleCreate("document")}>
+                <FileText className="size-4" aria-hidden />
+                新建文档
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCreate("whiteboard")}>
+                <PenTool className="size-4" aria-hidden />
+                新建白板
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </SidebarGroupLabel>
       <SidebarDocumentsProvider>
         <SidebarMenu className="overflow-y-auto flex-1">
