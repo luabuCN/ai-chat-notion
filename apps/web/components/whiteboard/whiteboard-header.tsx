@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWindowSize } from "usehooks-ts";
 import {
   Avatar,
@@ -16,12 +16,12 @@ import type { CollaborativeUser } from "@repo/editor";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { EmojiPicker } from "@/components/editor/emoji-picker";
 import { PublishPopover } from "@/components/editor/publish-popover";
-import { DocumentActionsMenu } from "@/components/editor/document-actions-menu";
 import { DocumentSharePopover } from "@/components/editor/document-share-popover";
 import { useCollaboration } from "@/components/editor/collaboration-context";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
+import { setPageTitle, setFavicon, getFaviconUrl } from "@/lib/page-metadata";
 
 interface WhiteboardHeaderProps {
   documentId: string;
@@ -50,31 +50,75 @@ export function WhiteboardHeader({
   const [icon, setIcon] = useState<string | null>(null);
   const titleDebounced = useDebounce(title, 500);
 
-  const isReadOnly = (document as { accessLevel?: string } | undefined)?.accessLevel === "view";
-  const isOwner = (document as { accessLevel?: string } | undefined)?.accessLevel === "owner";
-  const canManage = (document as { canManage?: boolean } | undefined)?.canManage ?? isOwner;
+  const prevDocumentIdRef = useRef<string | null>(null);
+  const prevTitleRef = useRef("");
+  const isInitializedRef = useRef(false);
+
+  const isReadOnly =
+    (document as { accessLevel?: string } | undefined)?.accessLevel === "view";
+  const isOwner =
+    (document as { accessLevel?: string } | undefined)?.accessLevel === "owner";
+  const canManage =
+    (document as { canManage?: boolean } | undefined)?.canManage ?? isOwner;
   const isDeleted = Boolean(document?.deletedAt);
-  const editable = !isReadOnly && !isDeleted && isOwner && !conversionLocked;
+  const editable = !isReadOnly && !isDeleted && canManage && !conversionLocked;
 
   const isSaving = updateDocumentMutation.isPending;
   const [isSaved, setIsSaved] = useState(false);
+  const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
 
   useEffect(() => {
-    if (document) {
-      setTitle(document.title ?? "");
-      setIcon(document.icon ?? null);
-    }
-  }, [document]);
-
-  useEffect(() => {
-    if (!document || titleDebounced === (document.title ?? "")) {
+    if (!document || document.id !== documentId) {
       return;
     }
+
+    const isDocumentChanged = documentId !== prevDocumentIdRef.current;
+    if (isDocumentChanged) {
+      prevDocumentIdRef.current = documentId;
+      isInitializedRef.current = false;
+      const newTitle = document.title ?? "";
+      setTitle(newTitle);
+      setIcon(document.icon ?? null);
+      prevTitleRef.current = newTitle;
+      setTimeout(() => {
+        isInitializedRef.current = true;
+      }, 600);
+      return;
+    }
+
+    setIcon(document.icon ?? null);
+  }, [document, documentId]);
+
+  useEffect(() => {
+    const displayTitle = title.trim() || "未命名白板";
+    setPageTitle(`${displayTitle} - 知作`);
+    setFavicon(getFaviconUrl(icon));
+  }, [icon, title]);
+
+  useEffect(() => {
+    if (
+      !isInitializedRef.current ||
+      !document ||
+      !documentId ||
+      !editable ||
+      titleDebounced === document.title ||
+      titleDebounced === prevTitleRef.current
+    ) {
+      return;
+    }
+
+    prevTitleRef.current = titleDebounced;
     updateDocumentMutation.mutate({
       documentId,
       updates: { title: titleDebounced },
     });
-  }, [document, documentId, titleDebounced, updateDocumentMutation]);
+  }, [
+    document,
+    documentId,
+    editable,
+    titleDebounced,
+    updateDocumentMutation,
+  ]);
 
   useEffect(() => {
     if (updateDocumentMutation.isSuccess) {
@@ -87,6 +131,17 @@ export function WhiteboardHeader({
   const handleIconSelect = (next: string) => {
     setIcon(next);
     updateDocumentMutation.mutate({ documentId, updates: { icon: next } });
+  };
+
+  const handleTitleBlur = () => {
+    if (!editable || !document || title === document.title) {
+      return;
+    }
+    prevTitleRef.current = title;
+    updateDocumentMutation.mutate({
+      documentId,
+      updates: { title },
+    });
   };
 
   const viewerAsCollaborator = useMemo((): CollaborativeUser | null => {
@@ -127,7 +182,24 @@ export function WhiteboardHeader({
     return Array.from(merged.values());
   }, [connectedUsers, viewerAsCollaborator]);
 
-  const showCollabPresence = connectionStatus !== "idle" && onlineUsers.length >= 2;
+  const showCollabPresence =
+    connectionStatus !== "idle" && onlineUsers.length >= 2;
+
+  const toggleFavorite = () => {
+    if (conversionLocked || isUpdatingFavorite) {
+      return;
+    }
+    setIsUpdatingFavorite(true);
+    updateDocumentMutation.mutate(
+      {
+        documentId,
+        updates: { isFavorite: !document?.isFavorite },
+      },
+      {
+        onSettled: () => setIsUpdatingFavorite(false),
+      }
+    );
+  };
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
@@ -167,6 +239,7 @@ export function WhiteboardHeader({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onBlur={handleTitleBlur}
           placeholder="未命名白板"
           disabled={!editable}
           className="min-w-0 flex-1 truncate border-0 bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none disabled:cursor-default"
@@ -175,7 +248,7 @@ export function WhiteboardHeader({
 
       <div
         className={cn(
-          "flex items-center gap-1",
+          "flex shrink-0 items-center gap-1",
           conversionLocked && "pointer-events-none select-none opacity-60"
         )}
       >
@@ -267,38 +340,20 @@ export function WhiteboardHeader({
         )}
 
         {!isDeleted && (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground"
-              onClick={() => {
-                if (conversionLocked) {
-                  return;
-                }
-                updateDocumentMutation.mutate({
-                  documentId,
-                  updates: { isFavorite: !document?.isFavorite },
-                });
-              }}
-              disabled={conversionLocked}
-            >
-              <Star
-                className={cn(
-                  "h-4 w-4 transition-colors",
-                  document?.isFavorite && "fill-yellow-400 text-yellow-400"
-                )}
-              />
-            </Button>
-
-            <DocumentActionsMenu
-              documentId={documentId}
-              title={document?.title || "未命名白板"}
-              isOwner={isOwner}
-              canManage={canManage}
-              isFullWidth
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground"
+            onClick={toggleFavorite}
+            disabled={conversionLocked || isUpdatingFavorite}
+          >
+            <Star
+              className={cn(
+                "h-4 w-4 transition-colors",
+                document?.isFavorite && "fill-yellow-400 text-yellow-400"
+              )}
             />
-          </>
+          </Button>
         )}
       </div>
     </header>

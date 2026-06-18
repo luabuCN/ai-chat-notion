@@ -121,7 +121,10 @@ const DocumentsList = ({
             <Item
               id={document.id}
               onClick={() => onRedirect(document)}
-              label={document.title}
+              label={
+                document.title?.trim() ||
+                (document.kind === "whiteboard" ? "未命名白板" : "未命名")
+              }
               icon={document.kind === "whiteboard" ? PenTool : FileIcon}
               active={isActive}
               level={level}

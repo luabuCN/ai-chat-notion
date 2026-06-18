@@ -16,6 +16,12 @@ import { WhiteboardSkeleton } from "./whiteboard-skeleton";
 import type { WhiteboardScope, WhiteboardSurfaceProps } from "../types";
 import { useExcalidrawYjsBinding } from "../hooks/use-excalidraw-yjs-binding";
 import { useWhiteboardAwareness } from "../hooks/use-whiteboard-awareness";
+import {
+  elementsFromYMap,
+  filesFromYMap,
+  getWhiteboardYScope,
+} from "../yjs/scope";
+import type { ExcalidrawInitialDataState } from "@excalidraw/excalidraw/types";
 import { WhiteboardFullscreenDialog } from "./whiteboard-fullscreen-dialog";
 
 const LazyExcalidraw = lazy(async () => {
@@ -42,14 +48,28 @@ function WhiteboardSurfaceInner({
   className,
   onFullscreen,
   localUser,
+  theme = "light",
+  langCode = "en",
+  localSyncReady = true,
   mountCanvas,
 }: InnerProps) {
   const [api, setApi] = useState<
     import("@excalidraw/excalidraw/types").ExcalidrawImperativeAPI | null
   >(null);
+  const apiInstanceRef = useRef<
+    import("@excalidraw/excalidraw/types").ExcalidrawImperativeAPI | null
+  >(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const scopeKeyValue = scopeKey(scope);
-  const { onChange } = useExcalidrawYjsBinding(ydoc, scope, api, readonly);
+  const sceneRefreshKey = `${theme}:${langCode}:${readonly ? "view" : "edit"}`;
+  const { onChange } = useExcalidrawYjsBinding(
+    ydoc,
+    scope,
+    api,
+    readonly,
+    sceneRefreshKey,
+    localSyncReady
+  );
   const remotePointers = useWhiteboardAwareness(awareness ?? null, scopeKeyValue);
 
   const handleChange = useCallback(
@@ -88,16 +108,44 @@ function WhiteboardSurfaceInner({
     () =>
       mode === "embed"
         ? {
-            canvasActions: {
-              toggleTheme: false,
-              export: false as const,
-              saveAsImage: false,
-              loadScene: false,
-              saveToActiveFile: false,
-            },
+      canvasActions: {
+        toggleTheme: false,
+        export: {},
+        saveAsImage: true,
+        loadScene: true,
+        saveToActiveFile: true,
+      },
           }
         : undefined,
     [mode]
+  );
+
+  const initialData = useMemo((): ExcalidrawInitialDataState | null => {
+    const { elements: yElements, assets: yAssets } = getWhiteboardYScope(
+      ydoc,
+      scope,
+      false
+    );
+    const elements = elementsFromYMap(yElements);
+    const files = filesFromYMap(yAssets);
+    if (elements.length === 0 && Object.keys(files).length === 0) {
+      return null;
+    }
+    return {
+      elements: elements as unknown as ExcalidrawInitialDataState["elements"],
+      files: files as ExcalidrawInitialDataState["files"],
+    };
+  }, [scope, ydoc]);
+
+  const handleExcalidrawApi = useCallback(
+    (instance: import("@excalidraw/excalidraw/types").ExcalidrawImperativeAPI) => {
+      if (apiInstanceRef.current === instance) {
+        return;
+      }
+      apiInstanceRef.current = instance;
+      setApi(instance);
+    },
+    []
   );
 
   return (
@@ -164,11 +212,13 @@ function WhiteboardSurfaceInner({
         <Suspense fallback={<WhiteboardSkeleton mode={mode} />}>
           <div className={cn("h-full w-full", mode === "page" && "min-h-0")}>
             <LazyExcalidraw
-              excalidrawAPI={(instance) => {
-                setApi(instance);
-              }}
-              onChange={handleChange}
-              onPointerUpdate={handlePointerUpdate}
+              key={`${scopeKeyValue}-${readonly ? "view" : "edit"}`}
+              theme={theme}
+              langCode={langCode}
+              initialData={initialData ?? undefined}
+              excalidrawAPI={handleExcalidrawApi}
+              onChange={readonly ? undefined : handleChange}
+              onPointerUpdate={readonly ? undefined : handlePointerUpdate}
               viewModeEnabled={readonly}
               zenModeEnabled={mode === "embed"}
               gridModeEnabled={false}

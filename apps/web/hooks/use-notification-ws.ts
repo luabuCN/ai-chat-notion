@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { notificationKeys } from "./use-notifications";
+import { documentKeys } from "./use-document-query";
 
 const MAX_RECONNECT_DELAY = 30_000;
 const INITIAL_RECONNECT_DELAY = 1_000;
@@ -75,12 +76,12 @@ export function useNotificationWs(token: string | null) {
           // MENTION: cache invalidation above is sufficient;
           // navigation is handled by notification-item.tsx
 
-          // 空间权限变更：在该空间 → refresh；不在 → 刷新空间列表
+          // 空间权限变更：刷新空间列表与文档权限缓存（白板/编辑器依赖 accessLevel）
           if (nType === "SPACE_PERMISSION_CHANGED" && payload?.workspaceId) {
+            window.dispatchEvent(new CustomEvent("refresh-workspaces"));
+            queryClient.invalidateQueries({ queryKey: documentKeys.all });
             if (currentPath?.startsWith(`/${payload.workspaceSlug ?? "__none__"}/`)) {
               router.refresh();
-            } else {
-              window.dispatchEvent(new CustomEvent("refresh-workspaces"));
             }
           }
 

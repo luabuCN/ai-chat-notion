@@ -161,7 +161,12 @@ export function SidebarSharedDocuments() {
                         <Item
                           id={document.id}
                           onClick={() => onRedirect(document.id)}
-                          label={document.title}
+                          label={
+                            document.title?.trim() ||
+                            (document.kind === "whiteboard"
+                              ? "未命名白板"
+                              : "未命名")
+                          }
                           icon={FileIcon}
                           active={
                             decodeURIComponent(pathname) ===

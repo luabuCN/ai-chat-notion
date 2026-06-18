@@ -6,6 +6,7 @@ import { EditorHeader } from "./editor-header";
 import { TrashBanner } from "./trash-banner";
 import { useGetDocument, documentKeys } from "@/hooks/use-document-query";
 import { getFaviconUrl, setFavicon, setPageTitle } from "@/lib/page-metadata";
+import { getDocumentUiPermissions } from "@/lib/document-ui-permissions";
 
 interface EditorHeaderWrapperProps {
   locale: string;
@@ -74,10 +75,9 @@ export function EditorHeaderWrapper({
     );
   }
 
-  // 只读模式：accessLevel 为 view 时隐藏编辑按钮
-  const isReadOnly = (document as any)?.accessLevel === "view";
-  const isOwner = (document as any)?.accessLevel === "owner";
-  const canManage = (document as any)?.canManage ?? isOwner;
+  const { readonly, isOwner, canManage } = getDocumentUiPermissions(
+    document as { accessLevel?: string; canManage?: boolean; deletedAt?: string | null }
+  );
 
   return (
     <EditorHeader
@@ -91,7 +91,7 @@ export function EditorHeaderWrapper({
       isFavorite={document?.isFavorite}
       isSaving={isSaving}
       isSaved={isSaved}
-      readonly={isReadOnly}
+      readonly={readonly}
       isOwner={isOwner}
       canManage={canManage}
       conversionLocked={conversionLocked}

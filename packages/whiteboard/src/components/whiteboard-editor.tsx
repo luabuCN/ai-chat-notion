@@ -10,16 +10,8 @@ import {
 } from "react";
 import * as Y from "yjs";
 import type { WhiteboardEditorProps } from "../types";
+import { decodeBase64ToUint8Array } from "../utils/yjs-state";
 import { WhiteboardSurface } from "./whiteboard-surface";
-
-function decodeBase64ToUint8Array(b64: string): Uint8Array {
-  const binary = globalThis.atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
 
 export function WhiteboardEditor({
   documentId,
@@ -33,11 +25,18 @@ export function WhiteboardEditor({
   enableHttpPersistence = false,
   onConnectedUsersChange,
   onConnectionStatusChange,
+  onPermissionRevoked,
+  collabSessionKey = 0,
   className,
+  theme,
+  langCode,
 }: WhiteboardEditorProps) {
   const isMountedRef = useRef(true);
   const providerGenerationRef = useRef(0);
+  const onPermissionRevokedRef = useRef(onPermissionRevoked);
+  onPermissionRevokedRef.current = onPermissionRevoked;
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
+  const [collabSynced, setCollabSynced] = useState(false);
 
   const ydoc = useMemo(() => {
     if (externalYdoc) {
@@ -69,6 +68,7 @@ export function WhiteboardEditor({
 
     const generation = providerGenerationRef.current + 1;
     providerGenerationRef.current = generation;
+    setCollabSynced(false);
 
     const serverUrl =
       collabConfig?.serverUrl ||
@@ -107,6 +107,17 @@ export function WhiteboardEditor({
           onConnectedUsersChange?.(users);
         }, 0);
       },
+      onClose: ({ event }) => {
+        setTimeout(() => {
+          if (providerGenerationRef.current !== generation || !isMountedRef.current) {
+            return;
+          }
+          if (event?.code === 4003) {
+            p.disconnect();
+            onPermissionRevokedRef.current?.();
+          }
+        }, 0);
+      },
     });
 
     if (user) {
@@ -124,25 +135,50 @@ export function WhiteboardEditor({
 
     setProvider(p);
 
+    const snapshotForPreview = () => {
+      if (enableHttpPersistence && onLocalYjsState) {
+        onLocalYjsState(Y.encodeStateAsUpdate(ydoc));
+      }
+    };
+
+    const handleSynced = () => {
+      if (providerGenerationRef.current !== generation || !isMountedRef.current) {
+        return;
+      }
+      setCollabSynced(true);
+      snapshotForPreview();
+    };
+
+    if (collabConfig) {
+      p.on("synced", handleSynced);
+    } else {
+      snapshotForPreview();
+    }
+
     return () => {
       providerGenerationRef.current += 1;
+      p.off("synced", handleSynced);
       p.disconnect();
       p.destroy();
       setProvider(null);
+      setCollabSynced(false);
     };
   }, [
     collabConfig,
     documentId,
+    enableHttpPersistence,
     externalAwareness,
     externalYdoc,
     onConnectedUsersChange,
     onConnectionStatusChange,
+    onLocalYjsState,
     user,
     ydoc,
+    collabSessionKey,
   ]);
 
   useEffect(() => {
-    if (!enableHttpPersistence || collabConfig || !onLocalYjsState) {
+    if (!enableHttpPersistence || !onLocalYjsState) {
       return;
     }
     const handleUpdate = () => {
@@ -152,7 +188,7 @@ export function WhiteboardEditor({
     return () => {
       ydoc.off("update", handleUpdate);
     };
-  }, [collabConfig, enableHttpPersistence, onLocalYjsState, ydoc]);
+  }, [enableHttpPersistence, onLocalYjsState, ydoc]);
 
   const awareness = externalAwareness ?? provider?.awareness ?? null;
 
@@ -165,6 +201,9 @@ export function WhiteboardEditor({
       mode="page"
       className={className}
       localUser={user}
+      theme={theme}
+      langCode={langCode}
+      localSyncReady={collabConfig ? collabSynced : true}
     />
   );
 }

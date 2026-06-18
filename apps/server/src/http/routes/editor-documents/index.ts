@@ -5,6 +5,7 @@ import {
   getAllDocumentsHandler,
   getSharedWithMeHandler,
   getEditorDocumentHandler,
+  getPublishedDocumentPreviewHandler,
   updateEditorDocumentHandler,
   deleteEditorDocumentHandler,
   getCollaboratorsHandler,
@@ -50,6 +51,7 @@ editorDocumentRoutes.patch("/:id", updateEditorDocumentHandler);
 editorDocumentRoutes.delete("/:id", deleteEditorDocumentHandler);
 
 // Sub-routes on /:id
+editorDocumentRoutes.get("/:id/preview", getPublishedDocumentPreviewHandler);
 editorDocumentRoutes.get("/:id/collaborators", getCollaboratorsHandler);
 editorDocumentRoutes.post("/:id/collaborators", addCollaboratorHandler);
 editorDocumentRoutes.patch("/:id/collaborators", updateCollaboratorHandler);

@@ -11,6 +11,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryProvider } from "@/lib/query-client";
 import { ImagePreview } from "@repo/ui";
+import { auth } from "./(auth)/auth";
 
 export const metadata: Metadata = {
   title: "知作",
@@ -46,8 +47,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+  const [locale, messages, session] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    auth(),
+  ]);
   return (
     <html
       className={`${GeistSans.variable} ${GeistMono.variable}`}
@@ -79,6 +83,7 @@ export default async function RootLayout({
                 <TooltipProvider>
                   <ToasterProvider />
                   <SessionProvider
+                    session={session}
                     refetchInterval={5 * 60} // 5分钟刷新一次
                     refetchOnWindowFocus={false} // 窗口聚焦时不刷新
                   >

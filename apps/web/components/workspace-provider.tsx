@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useParams } from "next/navigation";
@@ -23,6 +24,29 @@ interface WorkspaceContextValue {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
+function workspaceMemberFingerprint(workspace: Workspace | undefined): string {
+  const member = workspace?.members?.[0];
+  return member ? `${member.role}:${member.permission}` : "";
+}
+
+function isSameWorkspace(a: Workspace, b: Workspace): boolean {
+  return (
+    a.id === b.id &&
+    a.name === b.name &&
+    a.slug === b.slug &&
+    a.icon === b.icon &&
+    a.ownerId === b.ownerId &&
+    a._count.members === b._count.members &&
+    workspaceMemberFingerprint(a) === workspaceMemberFingerprint(b)
+  );
+}
+
+function isSameWorkspaceList(a: Workspace[], b: Workspace[]): boolean {
+  return (
+    a.length === b.length && a.every((workspace, index) => isSameWorkspace(workspace, b[index]))
+  );
+}
+
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const params = useParams();
   const slug = params?.slug as string | undefined;
@@ -31,6 +55,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const currentWorkspaceIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    currentWorkspaceIdRef.current = currentWorkspace?.id ?? null;
+  }, [currentWorkspace?.id]);
 
   // Sync current workspace with URL slug
   useEffect(() => {
@@ -46,15 +75,35 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiFetch("/api/workspaces");
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as Workspace[];
 
-        setWorkspaces(data);
-        // 如果没有当前空间，选择第一个
-        if (!currentWorkspace) {
-          const matchingWorkspace = slug
-            ? data.find((w: Workspace) => w.slug === slug)
-            : undefined;
-          setCurrentWorkspace(matchingWorkspace || data[0]);
+        setWorkspaces((prev) =>
+          isSameWorkspaceList(prev, data) ? prev : data
+        );
+
+        const matchingWorkspace = slug
+          ? data.find((w) => w.slug === slug)
+          : undefined;
+        const currentId = currentWorkspaceIdRef.current;
+
+        if (currentId) {
+          const updatedCurrent = data.find((w) => w.id === currentId);
+          if (updatedCurrent) {
+            setCurrentWorkspace((prev) =>
+              prev && isSameWorkspace(prev, updatedCurrent)
+                ? prev
+                : updatedCurrent
+            );
+          }
+        } else {
+          const nextWorkspace = matchingWorkspace || data[0];
+          if (nextWorkspace) {
+            setCurrentWorkspace((prev) =>
+              prev && isSameWorkspace(prev, nextWorkspace)
+                ? prev
+                : nextWorkspace
+            );
+          }
         }
       }
     } catch (error) {
@@ -62,7 +111,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentWorkspace, slug]);
+  }, [slug]);
 
   const switchWorkspace = useCallback(async (workspace: Workspace) => {
     try {

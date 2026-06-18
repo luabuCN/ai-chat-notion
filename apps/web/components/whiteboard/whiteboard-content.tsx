@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { EditorLoadingSkeleton } from "@/components/editor/editor-loading-skeleton";
 import { useCollaboration } from "@/components/editor/collaboration-context";
 import { WhiteboardClient } from "./whiteboard-client";
-import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
+import { documentKeys, useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { useDebounce } from "@/hooks/use-debounce";
 import { generateUserColor } from "@repo/editor";
@@ -39,12 +41,15 @@ export function WhiteboardContent({
 }: WhiteboardContentProps) {
   const { data: document, isLoading } = useGetDocument(documentId);
   const updateDocumentMutation = useUpdateDocument();
+  const queryClient = useQueryClient();
   const { setConnectedUsers, setConnectionStatus } = useCollaboration();
 
   const [localYjsStateB64, setLocalYjsStateB64] = useState<string | null>(null);
   const [permissionRevoked, setPermissionRevoked] = useState(false);
   const [collabPersistenceFallback, setCollabPersistenceFallback] = useState(false);
+  const [collabSessionKey, setCollabSessionKey] = useState(0);
   const prevLocalYjsStateB64Ref = useRef<string | null>(null);
+  const prevAccessLevelRef = useRef<string | undefined>();
 
   const localYjsStateB64Debounced = useDebounce(localYjsStateB64, 1000);
 
@@ -56,12 +61,9 @@ export function WhiteboardContent({
     if (!document || document.id !== documentId || document.deletedAt) {
       return false;
     }
-    if (permissionRevoked) {
-      return false;
-    }
     const accessLevel = (document as { accessLevel?: string }).accessLevel;
     return Boolean(accessLevel);
-  }, [document, documentId, permissionRevoked]);
+  }, [document, documentId]);
 
   const {
     data: collabData,
@@ -92,8 +94,7 @@ export function WhiteboardContent({
     return { serverUrl: collabServerUrl, token: collabData.token };
   }, [collabData?.token, collabServerUrl, shouldConnectCollab]);
 
-  const useHttpPersistence =
-    !shouldConnectCollab || collabPersistenceFallback || isCollabTokenError;
+  const useHttpPersistence = !effectiveReadOnly;
 
   const initialYjsStateB64 = useMemo(() => {
     if (collabConfig) {
@@ -154,6 +155,46 @@ export function WhiteboardContent({
     [setConnectionStatus, shouldConnectCollab]
   );
 
+  const handlePermissionRevoked = useCallback(() => {
+    setPermissionRevoked(true);
+    toast.error("权限已变更", {
+      description: "你的编辑权限已被移除，已切换为只读模式",
+    });
+    queryClient.invalidateQueries({
+      queryKey: documentKeys.detail(documentId),
+    });
+    setCollabSessionKey((key) => key + 1);
+  }, [documentId, queryClient]);
+
+  useEffect(() => {
+    const prev = prevAccessLevelRef.current;
+    const next = (document as { accessLevel?: string } | undefined)?.accessLevel;
+    if (prev && next && prev !== next) {
+      setCollabSessionKey((key) => key + 1);
+      if (next === "edit" || next === "owner") {
+        setPermissionRevoked(false);
+        toast.success("权限已恢复", {
+          description: "你已恢复编辑权限，可以继续修改白板",
+        });
+      }
+    }
+    prevAccessLevelRef.current = next;
+  }, [document]);
+
+  useEffect(() => {
+    const accessLevel = (document as { accessLevel?: string } | undefined)
+      ?.accessLevel;
+    if (accessLevel === "edit" || accessLevel === "owner") {
+      setPermissionRevoked(false);
+    }
+  }, [document]);
+
+  useEffect(() => {
+    setPermissionRevoked(false);
+    setCollabPersistenceFallback(false);
+    setCollabSessionKey(0);
+    prevAccessLevelRef.current = undefined;
+  }, [documentId]);
 
   if (isLoading || (shouldConnectCollab && isTokenLoading && !isCollabTokenError)) {
     return <EditorLoadingSkeleton className="min-h-full pt-14" />;
@@ -172,6 +213,8 @@ export function WhiteboardContent({
           onConnectionStatusChange={handleConnectionStatusChange}
           onLocalYjsState={useHttpPersistence ? handleLocalYjsState : undefined}
           enableHttpPersistence={useHttpPersistence}
+          onPermissionRevoked={handlePermissionRevoked}
+          collabSessionKey={collabSessionKey}
         />
       </div>
     </div>

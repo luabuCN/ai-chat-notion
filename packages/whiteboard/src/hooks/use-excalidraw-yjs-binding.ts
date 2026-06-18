@@ -20,11 +20,21 @@ export function useExcalidrawYjsBinding(
   ydoc: Y.Doc,
   scope: WhiteboardScope,
   api: ExcalidrawImperativeAPI | null,
-  readonly: boolean
+  readonly: boolean,
+  /** Re-apply Yjs scene after Excalidraw remounts (e.g. theme switch). */
+  sceneRefreshKey?: string,
+  /**
+   * Whether local Excalidraw changes may be written back to Yjs yet.
+   * In collaboration, this must stay false until the provider has synced,
+   * otherwise the empty canvas mounted before sync would wipe shared content.
+   */
+  syncReady = true
 ): {
   onChange: (payload: ExcalidrawChangePayload) => void;
 } {
   const isApplyingRemoteRef = useRef(false);
+  const syncReadyRef = useRef(syncReady);
+  syncReadyRef.current = syncReady;
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
 
@@ -83,11 +93,11 @@ export function useExcalidrawYjsBinding(
       yElements.unobserve(onElementsChange);
       yAssets.unobserve(onElementsChange);
     };
-  }, [api, applyRemoteToCanvas, scopeDep, ydoc]);
+  }, [api, applyRemoteToCanvas, sceneRefreshKey, scopeDep, syncReady, ydoc]);
 
   const onChange = useCallback(
     (payload: ExcalidrawChangePayload) => {
-      if (readonly || isApplyingRemoteRef.current) {
+      if (readonly || !syncReadyRef.current || isApplyingRemoteRef.current) {
         return;
       }
       const { elements: yElements, assets: yAssets } = getWhiteboardYScope(

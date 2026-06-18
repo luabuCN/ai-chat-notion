@@ -10,6 +10,8 @@ export const documentKeys = {
     [...documentKeys.lists(), { parentDocumentId, workspaceId }] as const,
   details: () => [...documentKeys.all, "detail"] as const,
   detail: (id: string) => [...documentKeys.details(), id] as const,
+  previews: () => [...documentKeys.all, "preview"] as const,
+  preview: (id: string) => [...documentKeys.previews(), id] as const,
   updates: () => [...documentKeys.all, "update"] as const,
   trashes: () => [...documentKeys.all, "trash"] as const,
   trash: (workspaceId?: string) =>
@@ -74,6 +76,37 @@ async function fetchDocument(documentId: string): Promise<EditorDocument> {
     const errorData = await response.json().catch(() => ({}));
     const error: FetchDocumentError = {
       message: errorData.message || "获取文档失败",
+      code: errorData.code,
+      statusCode: response.status,
+      cause: errorData.cause,
+    };
+    throw error;
+  }
+  return response.json();
+}
+
+export type PublishedDocumentPreview = {
+  id: string;
+  kind: "document" | "whiteboard";
+  title: string | null;
+  icon: string | null;
+  content: string | null;
+  yjsState: string | null;
+  coverImage: string | null;
+  coverImageType: string | null;
+  coverImagePosition: number | null;
+};
+
+async function fetchPublishedDocumentPreview(
+  documentId: string
+): Promise<PublishedDocumentPreview> {
+  const response = await apiFetch(
+    `/api/editor-documents/${documentId}/preview`
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const error: FetchDocumentError = {
+      message: errorData.message || "获取预览内容失败",
       code: errorData.code,
       statusCode: response.status,
       cause: errorData.cause,
@@ -252,6 +285,17 @@ export function useGetDocument(documentId: string | null | undefined) {
     queryKey: documentKeys.detail(documentId ?? ""),
     queryFn: () => fetchDocument(documentId!),
     enabled: !!documentId, // 只有在有 documentId 时才启用
+  });
+}
+
+export function usePublishedDocumentPreview(
+  documentId: string | null | undefined
+) {
+  return useQuery({
+    queryKey: documentKeys.preview(documentId ?? ""),
+    queryFn: () => fetchPublishedDocumentPreview(documentId!),
+    enabled: !!documentId,
+    staleTime: 60_000,
   });
 }
 

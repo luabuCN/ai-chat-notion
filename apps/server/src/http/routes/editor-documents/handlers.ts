@@ -777,6 +777,52 @@ export async function getEditorDocumentHandler(c: Context) {
   }
 }
 
+/** Public preview payload — published documents only, no auth required. */
+export async function getPublishedDocumentPreviewHandler(c: Context) {
+  const id = c.req.param("id")!;
+
+  try {
+    const document = await prisma.editorDocument.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        kind: true,
+        title: true,
+        icon: true,
+        content: true,
+        yjsState: true,
+        coverImage: true,
+        coverImageType: true,
+        coverImagePosition: true,
+        isPublished: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!document || document.deletedAt || !document.isPublished) {
+      return new ApiError("not_found:document").toResponse();
+    }
+
+    const { yjsState, ...fields } = document;
+
+    return c.json(
+      {
+        ...fields,
+        yjsState: serializeYjsStateForApi(yjsState),
+      },
+      200
+    );
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return error.toResponse();
+    }
+    return new ApiError(
+      "bad_request:api",
+      "Failed to get published document preview"
+    ).toResponse();
+  }
+}
+
 export async function updateEditorDocumentHandler(c: Context) {
   const session = await getSessionFromRequest(c.req.raw);
   if (!session) {

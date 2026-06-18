@@ -14,7 +14,6 @@ import {
   SidebarMenu,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
 import DocumentsList from "./sidebar-documents-list";
@@ -74,47 +73,43 @@ export function SidebarDocuments() {
         onMouseLeave={() => setIsLabelHovered(false)}
       >
         AI 文档
-        {canCreate ? (
-          <DropdownMenu>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <SidebarGroupAction
-                      disabled={createDocumentMutation.isPending}
-                      className={cn(
-                        "transition-opacity",
-                        isLabelHovered ? "opacity-100" : "opacity-0",
-                        createDocumentMutation.isPending &&
-                          "cursor-wait opacity-100"
-                      )}
-                    >
-                      {createDocumentMutation.isPending ? (
-                        <Loader2 className="animate-spin" />
-                      ) : (
-                        <Plus />
-                      )}
-                      <span className="sr-only">新建</span>
-                    </SidebarGroupAction>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {createDocumentMutation.isPending ? "创建中..." : "新建"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <DropdownMenuContent side="right" align="start">
-              <DropdownMenuItem onClick={() => handleCreate("document")}>
-                <FileText className="size-4" aria-hidden />
-                新建文档
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCreate("whiteboard")}>
-                <PenTool className="size-4" aria-hidden />
-                新建白板
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild disabled={!canCreate}>
+                <SidebarGroupAction
+                  disabled={!canCreate || createDocumentMutation.isPending}
+                  className={cn(
+                    "transition-opacity",
+                    !canCreate && "pointer-events-none invisible",
+                    isLabelHovered ? "opacity-100" : "opacity-0",
+                    createDocumentMutation.isPending && "cursor-wait opacity-100"
+                  )}
+                >
+                  {createDocumentMutation.isPending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <Plus />
+                  )}
+                  <span className="sr-only">新建</span>
+                </SidebarGroupAction>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {createDocumentMutation.isPending ? "创建中..." : "新建"}
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent side="right" align="start">
+            <DropdownMenuItem onClick={() => handleCreate("document")}>
+              <FileText className="size-4" aria-hidden />
+              新建文档
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCreate("whiteboard")}>
+              <PenTool className="size-4" aria-hidden />
+              新建白板
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarGroupLabel>
       <SidebarDocumentsProvider>
         <SidebarMenu className="overflow-y-auto flex-1">

@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { memo, useMemo } from "react";
+import { useLocale } from "next-intl";
+import { useTheme } from "next-themes";
 import type {
   CollaborativeUser,
   ConnectionStatus,
@@ -18,6 +20,13 @@ const WhiteboardEditor = dynamic(
   }
 );
 
+function mapLocaleToExcalidraw(locale: string): string {
+  if (locale === "zh" || locale.startsWith("zh")) {
+    return "zh-CN";
+  }
+  return "en";
+}
+
 interface WhiteboardClientProps {
   documentId: string;
   initialYjsStateB64?: string | null;
@@ -29,6 +38,7 @@ interface WhiteboardClientProps {
   onLocalYjsState?: (state: Uint8Array) => void;
   enableHttpPersistence?: boolean;
   onPermissionRevoked?: () => void;
+  collabSessionKey?: number;
 }
 
 export const WhiteboardClient = memo(function WhiteboardClient({
@@ -41,7 +51,12 @@ export const WhiteboardClient = memo(function WhiteboardClient({
   onConnectionStatusChange,
   onLocalYjsState,
   enableHttpPersistence,
+  onPermissionRevoked,
+  collabSessionKey,
 }: WhiteboardClientProps) {
+  const locale = useLocale();
+  const { resolvedTheme } = useTheme();
+
   const stableCollabConfig = useMemo(() => {
     if (!collabConfig) {
       return null;
@@ -51,6 +66,9 @@ export const WhiteboardClient = memo(function WhiteboardClient({
       token: collabConfig.token,
     };
   }, [collabConfig?.serverUrl, collabConfig?.token]);
+
+  const excalidrawTheme = resolvedTheme === "dark" ? "dark" : "light";
+  const langCode = mapLocaleToExcalidraw(locale);
 
   return (
     <div className="absolute inset-0">
@@ -64,7 +82,11 @@ export const WhiteboardClient = memo(function WhiteboardClient({
         onConnectionStatusChange={onConnectionStatusChange}
         onLocalYjsState={onLocalYjsState}
         enableHttpPersistence={enableHttpPersistence}
+        onPermissionRevoked={onPermissionRevoked}
+        collabSessionKey={collabSessionKey}
         className="h-full w-full"
+        theme={excalidrawTheme}
+        langCode={langCode}
       />
     </div>
   );

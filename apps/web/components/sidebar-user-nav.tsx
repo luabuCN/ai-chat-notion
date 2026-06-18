@@ -20,7 +20,6 @@ import {
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@repo/ui";
 import { guestRegex } from "@/lib/constants";
 import { setUserLocale } from "@/i18n/service";
-import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
 export function SidebarUserNav({ user }: { user: User }) {
@@ -41,45 +40,31 @@ export function SidebarUserNav({ user }: { user: User }) {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            {status === "loading" ? (
-              <SidebarMenuButton className="h-10 justify-between bg-background data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-                <div className="flex flex-row gap-2">
-                  <div className="size-6 animate-pulse rounded-full bg-zinc-500/30" />
-                  <span className="animate-pulse rounded-md bg-zinc-500/30 text-transparent">
-                    Loading auth status
-                  </span>
-                </div>
-                <div className="animate-spin text-zinc-500">
-                  <LoaderIcon />
-                </div>
-              </SidebarMenuButton>
-            ) : (
-              <SidebarMenuButton
-                className="h-10 bg-background data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                data-testid="user-nav-button"
+            <SidebarMenuButton
+              className="h-10 bg-background data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              data-testid="user-nav-button"
+            >
+              <Image
+                alt={user.name ?? user.email ?? "User Avatar"}
+                className="rounded-full"
+                height={24}
+                src={
+                  (user as any).avatarUrl ||
+                  `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(
+                    user.name ?? user.email ?? "default"
+                  )}`
+                }
+                width={24}
+                unoptimized
+              />
+              <span
+                className="truncate font-medium text-zinc-900 dark:text-zinc-100"
+                data-testid="user-name"
               >
-                <Image
-                  alt={user.name ?? user.email ?? "User Avatar"}
-                  className="rounded-full"
-                  height={24}
-                  src={
-                    (user as any).avatarUrl ||
-                    `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(
-                      user.name ?? user.email ?? "default"
-                    )}`
-                  }
-                  width={24}
-                  unoptimized
-                />
-                <span
-                  className="truncate font-medium text-zinc-900 dark:text-zinc-100"
-                  data-testid="user-name"
-                >
-                  {user.name || user.email}
-                </span>
-                <ChevronUp className="ml-auto" />
-              </SidebarMenuButton>
-            )}
+                {user.name || user.email}
+              </span>
+              <ChevronUp className="ml-auto" />
+            </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-(--radix-popper-anchor-width)"

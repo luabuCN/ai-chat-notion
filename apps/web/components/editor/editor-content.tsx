@@ -6,12 +6,13 @@ import { EditorPageHeader } from "./editor-page-header";
 import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
 import { EditorLoadingSkeleton, EditorBodyLoadingSkeleton } from "./editor-loading-skeleton";
-import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
+import { documentKeys, useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { apiFetch } from "@/lib/api-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
+import { getDocumentUiPermissions } from "@/lib/document-ui-permissions";
 import {
   generateUserColor,
   markdownToTiptap,
@@ -172,13 +173,10 @@ export function EditorContent({
   const iconDebounced = useDebounce(icon, 500);
   const localYjsStateB64Debounced = useDebounce(localYjsStateB64, 1000);
 
-  // 只读模式：已删除的文档或只有查看权限
-  const isReadOnly =
-    !!document?.deletedAt || (document as any)?.accessLevel === "view";
+  const { readonly: isReadOnly, isOwner } = getDocumentUiPermissions(
+    document as { accessLevel?: string; canManage?: boolean; deletedAt?: string | null }
+  );
   const effectiveReadOnly = isReadOnly || permissionRevoked;
-
-  // 判断是否是文档所有者
-  const isOwner = (document as any)?.accessLevel === "owner";
 
   /**
    * 工作台编辑页：有访问权限的文档一律走协同 WS（持久化由 collab-server 写 yjsState）。
@@ -324,7 +322,7 @@ export function EditorContent({
       description: "你的编辑权限已被移除，已切换为只读模式",
     });
     // 重新拉取文档数据，让 isReadOnly 和 shouldConnectCollab 根据最新 accessLevel 自动更新
-    queryClient.invalidateQueries({ queryKey: ["document", documentId] });
+    queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
     // 强制断开协同连接状态
     setConnectionStatus("disconnected");
     setConnectedUsers([]);
