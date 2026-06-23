@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   transpilePackages: ["@repo/database","@repo/editor","@repo/ui","@repo/ai"],
   productionBrowserSourceMaps:false,
+  // 低内存 VPS 构建：限制 webpack 并行度并启用内存优化
+  experimental: {
+    webpackMemoryOptimizations: true,
+    cpus: 1,
+  },
   images: {
     dangerouslyAllowSVG: true,
     remotePatterns: [

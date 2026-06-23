@@ -54,8 +54,20 @@ ENV AUTH_SECRET=$AUTH_SECRET
 ARG API_PROXY_URL=http://server:4000
 ENV API_PROXY_URL=$API_PROXY_URL
 
+# 分步构建 workspace 包，避免 turbo 一次性编译导致 OOM（3GB VPS 常见）
+RUN pnpm --filter @repo/database build
+RUN pnpm --filter @repo/ai build
+RUN pnpm --filter @repo/editor build
+RUN pnpm --filter @repo/ui build
+
+# 限制 Node 堆与 Next 并行度；3GB 机器建议 NODE_BUILD_HEAP_MB=1536
+ARG NODE_BUILD_HEAP_MB=1536
+ENV NODE_OPTIONS="--max-old-space-size=${NODE_BUILD_HEAP_MB}"
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV TURBO_CONCURRENCY=1
+
 ENV NODE_ENV=production
-RUN pnpm build --filter=@repo/web
+RUN pnpm --filter @repo/web exec next build
 
 FROM node:20-alpine AS production
 
