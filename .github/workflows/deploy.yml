@@ -29,6 +29,31 @@ jobs:
           script: |
             set -e
             DEPLOY_PATH="${{ vars.DEPLOY_PATH || '/opt/ai-chat-notion' }}"
-            cd "$DEPLOY_PATH"
+            REPO_URL="${{ vars.REPO_URL || format('https://github.com/{0}.git', github.repository) }}"
+            BRANCH="${{ github.ref_name }}"
+            GIT_TOKEN="${{ secrets.GIT_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}"
+
+            auth_repo_url() {
+              url="$1"
+              if [ -n "$GIT_TOKEN" ] && printf '%s' "$url" | grep -q '^https://github.com/'; then
+                printf 'https://x-access-token:%s@%s\n' "$GIT_TOKEN" "${url#https://}"
+              else
+                printf '%s\n' "$url"
+              fi
+            }
+
+            mkdir -p "$(dirname "$DEPLOY_PATH")"
+
+            if [ -d "$DEPLOY_PATH/.git" ]; then
+              cd "$DEPLOY_PATH"
+            elif [ ! -e "$DEPLOY_PATH" ] || [ -z "$(ls -A "$DEPLOY_PATH" 2>/dev/null)" ]; then
+              rm -rf "$DEPLOY_PATH"
+              git clone --branch "$BRANCH" --single-branch "$(auth_repo_url "$REPO_URL")" "$DEPLOY_PATH"
+              cd "$DEPLOY_PATH"
+            else
+              echo "ERROR: $DEPLOY_PATH is not empty and not a git repository" >&2
+              exit 1
+            fi
+
             chmod +x scripts/deploy.sh
-            ./scripts/deploy.sh "${{ github.ref_name }}"
+            ./scripts/deploy.sh "$BRANCH"

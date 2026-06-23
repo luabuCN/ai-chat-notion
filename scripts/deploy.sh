@@ -7,6 +7,16 @@ DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DEPLOY_DIR"
 
 BRANCH="${1:-main}"
+
+# git pull 会更新本脚本；必须 pull 后重新 exec，否则仍在跑旧版 deploy.sh
+if [ "${DEPLOY_UPDATED:-}" != "1" ]; then
+  echo "==> Pull latest code (branch: ${BRANCH})"
+  git fetch origin "${BRANCH}"
+  git reset --hard "origin/${BRANCH}"
+  export DEPLOY_UPDATED=1
+  exec "$0" "$@"
+fi
+
 export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
 export IMAGE_TAG="${IMAGE_TAG:-$(TZ="${TZ:-Asia/Shanghai}" date +%Y%m%d-%H%M%S)}"
 
@@ -26,10 +36,6 @@ if [ ! -f .env ]; then
   echo "ERROR: .env not found — copy dokploy.env.example and configure secrets" >&2
   exit 1
 fi
-
-echo "==> Pull latest code"
-git fetch origin "${BRANCH}"
-git reset --hard "origin/${BRANCH}"
 
 echo "==> Build server (COMPOSE_PARALLEL_LIMIT=${COMPOSE_PARALLEL_LIMIT})"
 docker compose build --pull server
