@@ -18,6 +18,20 @@ const nextConfig: NextConfig = {
   experimental: {
     webpackMemoryOptimizations: true,
     cpus: 1,
+    // 独立 worker 会多占一份 Node 进程内存，低内存机器应关闭
+    webpackBuildWorker: process.env.DOCKER_BUILD === "1" ? false : undefined,
+    optimizePackageImports: [
+      "lodash",
+      "lucide-react",
+      "@radix-ui/react-icons",
+    ],
+  },
+  webpack: (config, { dev }) => {
+    // Docker 构建禁用 webpack 持久缓存，减少 PackFileCacheStrategy 内存峰值
+    if (process.env.DOCKER_BUILD === "1" && !dev) {
+      config.cache = false;
+    }
+    return config;
   },
   images: {
     dangerouslyAllowSVG: true,

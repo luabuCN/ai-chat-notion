@@ -60,11 +60,15 @@ RUN pnpm --filter @repo/ai build
 RUN pnpm --filter @repo/editor build
 RUN pnpm --filter @repo/ui build
 
-# 限制 Node 堆与 Next 并行度；3GB 机器建议 NODE_BUILD_HEAP_MB=1536
-ARG NODE_BUILD_HEAP_MB=1536
+# 限制 Node 堆；1536 不够（实测 next build 需 ~2GB 堆），3GB 机器须配 swap
+ARG NODE_BUILD_HEAP_MB=2048
+ENV DOCKER_BUILD=1
 ENV NODE_OPTIONS="--max-old-space-size=${NODE_BUILD_HEAP_MB}"
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBO_CONCURRENCY=1
+
+# 释放构建前缓存，降低 next build 峰值内存
+RUN rm -rf apps/web/.next node_modules/.cache /root/.cache
 
 ENV NODE_ENV=production
 RUN pnpm --filter @repo/web exec next build
