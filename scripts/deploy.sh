@@ -19,8 +19,22 @@ fi
 
 export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
 export IMAGE_TAG="${IMAGE_TAG:-$(TZ="${TZ:-Asia/Shanghai}" date +%Y%m%d-%H%M%S)}"
+# Docker 容器名只允许 [a-zA-Z0-9][a-zA-Z0-9_.-]*；feature/foo → feature-foo
+DEPLOY_BRANCH_SLUG="$(
+  echo "$BRANCH" |
+    tr '[:upper:]' '[:lower:]' |
+    tr '/ ' '-' |
+    sed 's/[^a-z0-9._-]//g' |
+    sed 's/--*/-/g' |
+    sed 's/^[.-]*//;s/[.-]*$//' |
+    cut -c1-63
+)"
+if [ -z "$DEPLOY_BRANCH_SLUG" ]; then
+  DEPLOY_BRANCH_SLUG="local"
+fi
+export DEPLOY_BRANCH_SLUG
 
-echo "==> Deploy ${DEPLOY_DIR} (branch: ${BRANCH}, image tag: ${IMAGE_TAG})"
+echo "==> Deploy ${DEPLOY_DIR} (branch: ${BRANCH}, slug: ${DEPLOY_BRANCH_SLUG}, image tag: ${IMAGE_TAG})"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: docker not found" >&2

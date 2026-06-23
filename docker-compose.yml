@@ -8,6 +8,7 @@ name: ai-chat-notion
 
 services:
   server:
+    container_name: ai-chat-notion-server-${DEPLOY_BRANCH_SLUG:-local}
     build:
       context: .
       dockerfile: apps/server/Dockerfile
@@ -50,6 +51,7 @@ services:
       start_period: 30s
 
   web:
+    container_name: ai-chat-notion-web-${DEPLOY_BRANCH_SLUG:-local}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
