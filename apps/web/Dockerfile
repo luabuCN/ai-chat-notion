@@ -1,16 +1,19 @@
+# syntax=docker/dockerfile:1
 FROM node:20-alpine AS base
 
-ARG NPM_REGISTRY=https://registry.npmmirror.com
+ARG NPM_REGISTRY=https://registry.npmjs.org
 ENV npm_config_registry=${NPM_REGISTRY}
 # 网络重试配置 —— 避免 CDN 偶发超时导致构建失败
-ENV npm_config_fetch_retries=5
+ENV npm_config_fetch_retries=10
 ENV npm_config_fetch_retry_mintimeout=20000
 ENV npm_config_fetch_retry_maxtimeout=120000
 ENV npm_config_fetch_timeout=300000
-ENV npm_config_network_concurrency=8
+# 降低并发，减轻镜像 CDN 压力（过高易触发 ETIMEDOUT）
+ENV npm_config_network_concurrency=4
 
-RUN npm config set registry ${NPM_REGISTRY} && npm install -g pnpm@9.12.3
-
+RUN npm config set registry ${NPM_REGISTRY} \
+  && npm install -g pnpm@9.12.3 \
+  && npm cache clean --force
 WORKDIR /app
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
@@ -21,7 +24,8 @@ COPY packages/ui/package.json ./packages/ui/
 COPY apps/web/package.json ./apps/web/
 
 ENV NODE_ENV=development
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store-web,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile
 
 COPY packages/ai ./packages/ai
 COPY packages/database ./packages/database

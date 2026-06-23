@@ -10,6 +10,9 @@ services:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
+      args:
+        # 海外 VPS 默认 npm 官方源；国内构建机可设 NPM_REGISTRY=https://registry.npmmirror.com
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     image: ai-chat-notion-server:latest
     restart: unless-stopped
     ports:
@@ -50,6 +53,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
         # NEXT_PUBLIC_* 在 next build 时写入客户端 bundle，必须在构建时注入
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
         NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
