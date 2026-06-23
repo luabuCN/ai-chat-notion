@@ -40,6 +40,7 @@ ENV API_PROXY_URL=$API_PROXY_URL
 
 ENV NODE_ENV=production
 RUN pnpm build --filter=@repo/web
+RUN node -e "const manifest = require('./apps/web/.next/routes-manifest.json'); const badRewrite = manifest.rewrites.afterFiles.find((rewrite) => String(rewrite.destination).includes('localhost:4000')); if (badRewrite) { console.error('Invalid API proxy rewrite destination:', badRewrite.destination); process.exit(1); }"
 
 FROM node:20-alpine AS production
 

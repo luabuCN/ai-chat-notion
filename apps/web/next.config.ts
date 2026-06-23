@@ -2,8 +2,12 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
-// Server API 代理目标（rewrites 在构建时求值，Docker 构建时通过 ARG API_PROXY_URL 注入）
-const API_PROXY = process.env.API_PROXY_URL || "http://localhost:4000";
+// Server API 代理目标（rewrites 在构建时求值，Docker/GitHub Actions 构建时通过 ARG API_PROXY_URL 注入）
+const API_PROXY =
+  process.env.API_PROXY_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "http://server:4000"
+    : "http://localhost:4000");
 
 const nextConfig: NextConfig = {
   output: 'standalone',
