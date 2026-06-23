@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { notificationKeys } from "./use-notifications";
+import { useServerWsBase } from "./use-server-ws-origin";
 
 const MAX_RECONNECT_DELAY = 30_000;
 const INITIAL_RECONNECT_DELAY = 1_000;
@@ -20,16 +21,12 @@ export function useNotificationWs(token: string | null) {
   // Keep a ref to always have the latest pathname
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
+  const wsBase = useServerWsBase();
 
   const connect = useCallback(() => {
     if (!token || !mountedRef.current) return;
 
-    const wsOrigin =
-      process.env.NEXT_PUBLIC_WS_ORIGIN ||
-      process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/^http/, "ws") ||
-      "ws://localhost:4000";
-
-    const ws = new WebSocket(`${wsOrigin}/ws/notifications?token=${token}`);
+    const ws = new WebSocket(`${wsBase}/ws/notifications?token=${token}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -113,7 +110,7 @@ export function useNotificationWs(token: string | null) {
     ws.onerror = () => {
       ws.close();
     };
-  }, [token, queryClient, router]);
+  }, [token, wsBase, queryClient, router]);
 
   useEffect(() => {
     mountedRef.current = true;

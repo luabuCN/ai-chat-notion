@@ -37,6 +37,7 @@ import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 import { SearchReplacePanel } from "./components/search-replace-panel";
+import { resolveCollabWsUrl } from "./lib/server-ws-origin";
 
 /** 监听图片预览自定义事件，用受控模式展示全屏预览（与 tiptap-editor 一致） */
 function ImagePreviewPortal() {
@@ -290,10 +291,7 @@ export function UnifiedEditor({
     const generation = providerGenerationRef.current + 1;
     providerGenerationRef.current = generation;
 
-    const serverUrl =
-      collabConfig?.serverUrl ||
-      process.env.NEXT_PUBLIC_HOCUSPOCUS_URL ||
-      "ws://localhost:4000/collab";
+    const serverUrl = collabConfig?.serverUrl || resolveCollabWsUrl();
 
     const p = new HocuspocusProvider({
       url: serverUrl,

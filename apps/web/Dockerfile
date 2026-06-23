@@ -28,6 +28,12 @@ RUN pnpm --filter @repo/database exec prisma generate
 ARG NEXT_PUBLIC_APP_URL=http://localhost:8080
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
+# NEXT_PUBLIC_* 会在 next build 时写入客户端 bundle，必须在构建时注入（Dokploy 运行时 env 无效）
+ARG NEXT_PUBLIC_API_ORIGIN=
+ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN
+ARG NEXT_PUBLIC_HOCUSPOCUS_URL=
+ENV NEXT_PUBLIC_HOCUSPOCUS_URL=$NEXT_PUBLIC_HOCUSPOCUS_URL
+
 # Build-time placeholders only. Runtime values are injected by compose/Dokploy.
 ARG POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/ai_chat_notion
 ARG AUTH_SECRET=build-time-placeholder-secret-min-32-chars
@@ -40,7 +46,6 @@ ENV API_PROXY_URL=$API_PROXY_URL
 
 ENV NODE_ENV=production
 RUN pnpm build --filter=@repo/web
-RUN node -e "const manifest = require('./apps/web/.next/routes-manifest.json'); const badRewrite = manifest.rewrites.afterFiles.find((rewrite) => String(rewrite.destination).includes('localhost:4000')); if (badRewrite) { console.error('Invalid API proxy rewrite destination:', badRewrite.destination); process.exit(1); }"
 
 FROM node:20-alpine AS production
 

@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./converter": "./src/lib/markdown-converter.ts",
+    "./server-ws-origin": "./src/lib/server-ws-origin.ts",
     "./styles": "./src/styles/tiptap-editor.css"
   },
   "scripts": {
