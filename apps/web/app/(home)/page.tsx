@@ -13,7 +13,7 @@ export default async function Page() {
           <h1 className="text-4xl font-bold tracking-tight">
             欢迎使用 AI Chat
           </h1>
-          <p className="mt-2 text-muted-foreground">智能对话，让创意更简单，点击开始。</p>
+          <p className="mt-2 text-muted-foreground">智能对话，让创意更简单。</p>
         </div>
         <a
           href="/login"
@@ -38,7 +38,7 @@ export default async function Page() {
         <h1 className="text-4xl font-bold tracking-tight">
           欢迎回来，{session.user.name || session.user.email}
         </h1>
-        <p className="mt-2 text-muted-foreground">智能对话，让创意更简单，点击开始</p>
+        <p className="mt-2 text-muted-foreground">智能对话，让创意更简单</p>
       </div>
       {defaultWorkspace ? (
         <Link
