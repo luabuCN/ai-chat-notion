@@ -2,6 +2,12 @@ FROM node:20-alpine AS base
 
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV npm_config_registry=${NPM_REGISTRY}
+# 网络重试配置 —— 避免 CDN 偶发超时导致构建失败
+ENV npm_config_fetch_retries=5
+ENV npm_config_fetch_retry_mintimeout=20000
+ENV npm_config_fetch_retry_maxtimeout=120000
+ENV npm_config_fetch_timeout=300000
+ENV npm_config_network_concurrency=8
 
 RUN npm config set registry ${NPM_REGISTRY} && npm install -g pnpm@9.12.3
 
