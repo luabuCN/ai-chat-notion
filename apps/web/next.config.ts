@@ -67,6 +67,7 @@ const nextConfig: NextConfig = {
       { source: "/api/web-scrape/:path*", destination: `${server}/api/web-scrape/:path*` },
       { source: "/api/image/:path*", destination: `${server}/api/image/:path*` },
       { source: "/api/unsplash/:path*", destination: `${server}/api/unsplash/:path*` },
+      { source: "/api/notifications/:path*", destination: `${server}/api/notifications/:path*` },
     ];
   },
 };
