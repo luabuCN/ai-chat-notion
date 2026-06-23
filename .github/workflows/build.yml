@@ -1,11 +1,8 @@
-name: Build and Push Docker Images
+name: Build and Push Docker Images (Disabled — 现已改为服务器本地构建)
 
+# 已改为服务器本地 docker compose build，此工作流仅保留供手动使用
 on:
-  push:
-    branches: [dev, master]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
