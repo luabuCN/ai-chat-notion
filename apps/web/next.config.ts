@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
-// Server API 代理目标（本地默认 localhost:4000；Docker 镜像内由 API_PROXY_URL=http://server:4000 覆盖）
+// Server API 代理目标（rewrites 在构建时求值，Docker 构建时通过 ARG API_PROXY_URL 注入）
 const API_PROXY = process.env.API_PROXY_URL || "http://localhost:4000";
 
 const nextConfig: NextConfig = {

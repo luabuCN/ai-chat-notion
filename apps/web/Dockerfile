@@ -34,6 +34,10 @@ ARG AUTH_SECRET=build-time-placeholder-secret-min-32-chars
 ENV POSTGRES_URL=$POSTGRES_URL
 ENV AUTH_SECRET=$AUTH_SECRET
 
+# API 代理目标 —— rewrites() 在构建时求值，必须在 build 前注入
+ARG API_PROXY_URL=http://server:4000
+ENV API_PROXY_URL=$API_PROXY_URL
+
 ENV NODE_ENV=production
 RUN pnpm build --filter=@repo/web
 
@@ -48,7 +52,6 @@ COPY --from=base /app/apps/web/messages ./apps/web/messages
 ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
 ENV HOSTNAME=0.0.0.0
-ENV API_PROXY_URL=http://server:4000
 
 EXPOSE 8080
 
