@@ -8,8 +8,9 @@ cd "$DEPLOY_DIR"
 
 BRANCH="${1:-main}"
 export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
+export IMAGE_TAG="${IMAGE_TAG:-$(TZ="${TZ:-Asia/Shanghai}" date +%Y%m%d-%H%M%S)}"
 
-echo "==> Deploy ${DEPLOY_DIR} (branch: ${BRANCH})"
+echo "==> Deploy ${DEPLOY_DIR} (branch: ${BRANCH}, image tag: ${IMAGE_TAG})"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: docker not found" >&2
@@ -38,6 +39,16 @@ docker compose build web
 
 echo "==> Restart containers"
 docker compose up -d --remove-orphans
+
+echo "==> Remove old project images (keep ${IMAGE_TAG})"
+for repo in ai-chat-notion-server ai-chat-notion-web; do
+  docker images "$repo" --format '{{.Repository}}:{{.Tag}}' | while IFS= read -r img; do
+    tag="${img#*:}"
+    if [ "$tag" != "$IMAGE_TAG" ]; then
+      docker rmi "$img" 2>/dev/null || true
+    fi
+  done
+done
 
 echo "==> Remove dangling images"
 docker image prune -f
