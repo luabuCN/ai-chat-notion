@@ -71,7 +71,8 @@ ENV TURBO_CONCURRENCY=1
 RUN rm -rf apps/web/.next node_modules/.cache /root/.cache
 
 ENV NODE_ENV=production
-RUN pnpm --filter @repo/web exec next build
+# Turbopack 生产构建（Next 15.5 beta）：Rust 编译，比 webpack 更省 Node 堆内存
+RUN pnpm --filter @repo/web exec next build --turbopack
 
 FROM node:20-alpine AS production
 

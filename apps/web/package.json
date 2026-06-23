@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../.env.local -- next dev --turbopack --port 3000",
-    "build": "dotenv -e ../../.env.local -- next build",
+    "build": "dotenv -e ../../.env.local -- next build --turbopack",
     "start": "dotenv -e ../../.env.local -- next start",
     "lint": "npx ultracite@latest check",
     "format": "npx ultracite@latest fix"
