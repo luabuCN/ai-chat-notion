@@ -60,19 +60,21 @@ RUN pnpm --filter @repo/ai build
 RUN pnpm --filter @repo/editor build
 RUN pnpm --filter @repo/ui build
 
-# 限制 Node 堆；1536 不够（实测 next build 需 ~2GB 堆），3GB 机器须配 swap
+# 限制 Node 堆。须低于「构建时可用 RAM − Turbopack/Rust/系统开销」；3GB VPS 用 2048 + swap，勿设 3584
 ARG NODE_BUILD_HEAP_MB=2048
 ENV DOCKER_BUILD=1
 ENV NODE_OPTIONS="--max-old-space-size=${NODE_BUILD_HEAP_MB}"
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBO_CONCURRENCY=1
+# 降低 libuv 线程池，减轻 Alpine 低内存构建峰值
+ENV UV_THREADPOOL_SIZE=2
 
 # 释放构建前缓存，降低 next build 峰值内存
 RUN rm -rf apps/web/.next node_modules/.cache /root/.cache
 
 ENV NODE_ENV=production
-# Turbopack 生产构建（Next 15.5 beta）：Rust 编译，比 webpack 更省 Node 堆内存
-RUN pnpm --filter @repo/web exec next build --turbopack
+# Docker/Alpine 用 webpack（next.config 已开 webpackMemoryOptimizations）；Turbopack 在容器内更吃内存
+RUN pnpm --filter @repo/web exec next build
 
 FROM node:20-alpine AS production
 

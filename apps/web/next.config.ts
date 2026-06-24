@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps:false,
   // 低内存 VPS 构建：限制 webpack 并行度并启用内存优化
   experimental: {
+    ...(process.env.DOCKER_BUILD === "1" ? { } : {}),
     webpackMemoryOptimizations: true,
     // 独立 worker 会多占一份 Node 进程内存，低内存机器应关闭
     webpackBuildWorker: process.env.DOCKER_BUILD === "1" ? false : undefined,
@@ -29,6 +30,7 @@ const nextConfig: NextConfig = {
     // Docker 构建禁用 webpack 持久缓存，减少 PackFileCacheStrategy 内存峰值
     if (process.env.DOCKER_BUILD === "1" && !dev) {
       config.cache = false;
+      config.parallelism = 1;
     }
     return config;
   },
