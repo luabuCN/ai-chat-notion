@@ -59,33 +59,43 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     const server = API_PROXY;
+    const apiPrefixes = [
+      "/api/ai",
+      "/api/chat",
+      "/api/collab",
+      "/api/history",
+      "/api/token-usage",
+      "/api/models",
+      "/api/workspaces",
+      "/api/editor-documents",
+      "/api/document",
+      "/api/documents",
+      "/api/vote",
+      "/api/suggestions",
+      "/api/invite",
+      "/api/users",
+      "/api/uploadthing",
+      "/api/files",
+      "/api/pdf",
+      "/api/document-import",
+      "/api/web-scrape",
+      "/api/image",
+      "/api/unsplash",
+      "/api/notifications",
+    ];
+
+    // :path* 不匹配无后缀路径（如 /api/workspaces），需同时注册精确路径
+    const apiRewrites = apiPrefixes.flatMap((prefix) => [
+      { source: prefix, destination: `${server}${prefix}` },
+      {
+        source: `${prefix}/:path*`,
+        destination: `${server}${prefix}/:path*`,
+      },
+    ]);
+
     return [
-      // 健康检查
       { source: "/ping", destination: `${server}/ping` },
-      // 所有后端 API 代理到 server 容器
-      { source: "/api/ai/:path*", destination: `${server}/api/ai/:path*` },
-      { source: "/api/chat/:path*", destination: `${server}/api/chat/:path*` },
-      { source: "/api/collab/:path*", destination: `${server}/api/collab/:path*` },
-      { source: "/api/history/:path*", destination: `${server}/api/history/:path*` },
-      { source: "/api/token-usage/:path*", destination: `${server}/api/token-usage/:path*` },
-      { source: "/api/token-usage", destination: `${server}/api/token-usage` },
-      { source: "/api/models/:path*", destination: `${server}/api/models/:path*` },
-      { source: "/api/workspaces/:path*", destination: `${server}/api/workspaces/:path*` },
-      { source: "/api/editor-documents/:path*", destination: `${server}/api/editor-documents/:path*` },
-      { source: "/api/document/:path*", destination: `${server}/api/document/:path*` },
-      { source: "/api/documents/:path*", destination: `${server}/api/documents/:path*` },
-      { source: "/api/vote/:path*", destination: `${server}/api/vote/:path*` },
-      { source: "/api/suggestions/:path*", destination: `${server}/api/suggestions/:path*` },
-      { source: "/api/invite/:path*", destination: `${server}/api/invite/:path*` },
-      { source: "/api/users/:path*", destination: `${server}/api/users/:path*` },
-      { source: "/api/uploadthing/:path*", destination: `${server}/api/uploadthing/:path*` },
-      { source: "/api/files/:path*", destination: `${server}/api/files/:path*` },
-      { source: "/api/pdf/:path*", destination: `${server}/api/pdf/:path*` },
-      { source: "/api/document-import/:path*", destination: `${server}/api/document-import/:path*` },
-      { source: "/api/web-scrape/:path*", destination: `${server}/api/web-scrape/:path*` },
-      { source: "/api/image/:path*", destination: `${server}/api/image/:path*` },
-      { source: "/api/unsplash/:path*", destination: `${server}/api/unsplash/:path*` },
-      { source: "/api/notifications/:path*", destination: `${server}/api/notifications/:path*` },
+      ...apiRewrites,
     ];
   },
 };
