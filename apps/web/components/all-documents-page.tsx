@@ -70,6 +70,10 @@ const sourceConfig: Record<
   },
 };
 
+// 文档名称列：大屏占 50%，随视口变窄逐步缩小占比
+const documentNameColClass =
+  "min-w-0 overflow-hidden w-[38%] sm:w-[42%] md:w-[46%] lg:w-[50%]";
+
 // 权限 badge
 function PermissionBadge({ permission }: { permission: string | null }) {
   if (!permission) return <span className="text-muted-foreground">-</span>;
@@ -196,9 +200,9 @@ function DocumentRow({
         onClick={handleClick}
       >
         {/* 文档名称 */}
-        <TableCell>
+        <TableCell className={documentNameColClass}>
           <div
-            className="flex items-center gap-2 min-w-0"
+            className="flex items-center gap-2 min-w-0 overflow-hidden"
             style={{ paddingLeft: `${level * 24}px` }}
           >
             {/* 展开/折叠箭头 */}
@@ -230,10 +234,10 @@ function DocumentRow({
             {/* 标题 */}
             <span
               className={cn(
-                "truncate text-sm font-medium",
+                "min-w-0 flex-1 truncate text-sm font-medium",
                 doc.source === "trash" && "line-through text-muted-foreground"
               )}
-              title={doc.title}
+              title={doc.title || "未命名"}
             >
               {doc.title || "未命名"}
             </span>
@@ -251,8 +255,8 @@ function DocumentRow({
         </TableCell>
 
         {/* 所有者/空间 */}
-        <TableCell className="hidden lg:table-cell">
-          <span className="text-sm text-muted-foreground truncate">
+        <TableCell className="hidden max-w-0 lg:table-cell">
+          <span className="block truncate text-sm text-muted-foreground">
             {doc.ownerName || "-"}
           </span>
         </TableCell>
@@ -265,7 +269,7 @@ function DocumentRow({
         </TableCell>
 
         {/* 操作 */}
-        <TableCell className="text-right w-16">
+        <TableCell className="w-16 text-right">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -572,10 +576,10 @@ export function AllDocumentsPage() {
 
           {/* 表格 */}
           <div className="rounded-xl border border-border bg-card text-card-foreground shadow-notion-card overflow-hidden">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader className="bg-muted/40 [&_tr]:hover:bg-transparent">
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead scope="col" className="min-w-[200px]">
+                  <TableHead scope="col" className={documentNameColClass}>
                     文档名称
                   </TableHead>
                   <TableHead scope="col" className="hidden md:table-cell">
@@ -589,7 +593,7 @@ export function AllDocumentsPage() {
                   </TableHead>
                   <TableHead
                     scope="col"
-                    className="hidden w-[1%] whitespace-nowrap sm:table-cell"
+                    className="hidden sm:table-cell"
                     aria-sort={
                       updatedAtOrder === "desc"
                         ? "descending"

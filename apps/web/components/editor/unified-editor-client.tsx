@@ -8,6 +8,7 @@ import { apiUrl } from "@/lib/api-client";
 import "@repo/editor/styles";
 import type {
   CollaborativeUser,
+  CommentMentionNotifyParams,
   ConnectionStatus,
 } from "@repo/editor";
 
@@ -20,6 +21,8 @@ interface UnifiedEditorClientProps {
   documentId: string;
   /** 初始内容（JSON 字符串） */
   initialContent?: string;
+  /** 非协同模式下从数据库 yjsState 恢复正文（base64） */
+  initialYjsStateB64?: string | null;
   /** 用户信息（用于协同光标） */
   user?: CollaborativeUser;
   /** 协同服务器配置（null = 本地模式） */
@@ -46,12 +49,23 @@ interface UnifiedEditorClientProps {
   onLocalYjsState?: (state: Uint8Array) => void;
   /** 协同断开时仍通过 HTTP 持久化 yjs 快照 */
   enableHttpPersistence?: boolean;
+  /** 可提及的用户列表（由外部提供，透传给评论组件） */
+  mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
+  /** 通知跳转：目标评论 ID */
+  highlightCommentId?: string;
+  /** 通知跳转：目标评论所在 block ID */
+  highlightBlockId?: string;
+  /** 评论含 @提及时通知服务端 */
+  onCommentMentionNotify?: (
+    params: CommentMentionNotifyParams
+  ) => void | Promise<void>;
 }
 
 export const UnifiedEditorClient = memo(
   function UnifiedEditorClient({
     documentId,
     initialContent,
+    initialYjsStateB64,
     user,
     collabConfig,
     readonly,
@@ -65,6 +79,10 @@ export const UnifiedEditorClient = memo(
     onEditorReady,
     onLocalYjsState,
     enableHttpPersistence,
+    mentionableUsers,
+    highlightCommentId,
+    highlightBlockId,
+    onCommentMentionNotify,
   }: UnifiedEditorClientProps) {
     const router = useRouter();
     const navigate = useCallback(
@@ -109,6 +127,7 @@ export const UnifiedEditorClient = memo(
       <UnifiedEditor
         documentId={documentId}
         initialContent={initialContent}
+        initialYjsStateB64={initialYjsStateB64}
         user={user}
         collabConfig={stableCollabConfig}
         placeholder={placeholder ?? "Type / for commands, or press Space for AI..."}
@@ -126,6 +145,10 @@ export const UnifiedEditorClient = memo(
         onEditorReady={onEditorReady}
         onLocalYjsState={onLocalYjsState}
         enableHttpPersistence={enableHttpPersistence}
+        mentionableUsers={mentionableUsers}
+        highlightCommentId={highlightCommentId}
+        highlightBlockId={highlightBlockId}
+        onCommentMentionNotify={onCommentMentionNotify}
       />
     );
   }

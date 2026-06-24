@@ -22,6 +22,8 @@ model User {
   memberships        WorkspaceMember[]
   accounts           Account[]
   sessions           Session[]
+  receivedNotifications Notification[] @relation("receivedNotifications")
+  sentNotifications     Notification[] @relation("sentNotifications")
 }
 
 model Account {
@@ -289,12 +291,33 @@ model EditorDocument {
   childDocuments EditorDocument[]       @relation("DocumentHierarchy")
   collaborators  DocumentCollaborator[] // 文档协作者
   visitors       DocumentVisitor[]      // 文档访问记录
+  webPageScrape  WebPageScrape?
 
   @@index([userId, deletedAt])
   @@index([parentDocumentId])
   @@index([workspaceId, deletedAt])
   @@index([publicShareToken])
   @@map("EditorDocument")
+}
+
+// Firecrawl 网页抓取记录，与知识库文档一对一
+model WebPageScrape {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @unique @db.Uuid
+  sourceUrl  String
+  markdown   String   @default("")
+  html       String?
+  rawHtml    String?
+  summary    String?
+  metadata   Json?
+  warning    String?
+  scrapedAt  DateTime @default(now()) @db.Timestamp(6)
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+
+  document EditorDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([sourceUrl])
+  @@map("WebPageScrape")
 }
 
 // 文档协作者（访客协作）
@@ -334,4 +357,49 @@ model DocumentVisitor {
   @@index([userId])
   @@index([documentId])
   @@map("DocumentVisitor")
+}
+
+enum NotificationType {
+  SPACE_INVITE
+  DOC_SHARE
+  DOC_PERMISSION_CHANGED
+  SPACE_PERMISSION_CHANGED
+  DOC_REMOVED
+  SPACE_REMOVED
+  COMMENT
+  MENTION
+  SYSTEM
+}
+
+model UserMonthlyTokenUsage {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @db.Uuid
+  periodKey    String   @db.VarChar(7)
+  totalTokens  Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  updatedAt    DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([userId, periodKey])
+  @@index([userId])
+  @@map("UserMonthlyTokenUsage")
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  receiverId String           @db.Uuid
+  senderId   String?          @db.Uuid
+  type       NotificationType
+  title      String
+  content    String?
+  payload    Json?
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  receiver   User             @relation("receivedNotifications", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User?            @relation("sentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([receiverId, isRead])
+  @@index([receiverId, createdAt(sort: Desc)])
+  @@map("notifications")
 }

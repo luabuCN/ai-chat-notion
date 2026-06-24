@@ -17,13 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@repo/ui";
-import { Button } from "@repo/ui";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@repo/ui";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -37,7 +30,7 @@ import {
   useChatHistoryQuery,
   type ChatHistory,
 } from "@/hooks/use-chat-history-query";
-import { LoaderIcon, TrashIcon } from "./icons";
+import { LoaderIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
 
 type GroupedChats = {
@@ -100,7 +93,6 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   const pages: ChatHistory[] = data?.pages ?? [];
   const hasReachedEnd = pages.length > 0 && !hasNextPage;
@@ -141,25 +133,6 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     if (deleteId === id) {
       router.push(`/${workspaceSlug}/chat`);
     }
-  };
-
-  const handleDeleteAll = () => {
-    const deletePromise = apiFetch("/api/history", {
-      method: "DELETE",
-    });
-
-    toast.promise(deletePromise, {
-      loading: "Deleting all chats...",
-      success: () => {
-        queryClient.invalidateQueries({
-          queryKey: chatHistoryQueryKey(workspaceSlug || undefined),
-        });
-        router.push(`/${workspaceSlug}/chat`);
-        setShowDeleteAllDialog(false);
-        return "All chats deleted successfully";
-      },
-      error: "Failed to delete all chats",
-    });
   };
 
   if (!user) {
@@ -222,29 +195,11 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
           {!hasEmptyChatHistory && (
             <div className="flex items-center justify-between px-2 py-2 border-b shrink-0">
               <div className="text-sidebar-foreground/50 text-xs font-semibold uppercase">
-                History
+                历史对话
               </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-sidebar-foreground/70 hover:text-sidebar-foreground"
-                      onClick={() => setShowDeleteAllDialog(true)}
-                    >
-                      <TrashIcon size={14} />
-                      <span className="sr-only">Delete All</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Delete All</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
           )}
-          <SidebarMenu className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)] min-h-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-border [&::-webkit-scrollbar-track]:bg-transparent">
+          <SidebarMenu className="flex-1 overflow-y-auto max-h-[calc(100vh-50px)] min-h-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-border [&::-webkit-scrollbar-track]:bg-transparent">
             {pages.length > 0 &&
               (() => {
                 const chatsFromHistory = pages.flatMap((page) => page.chats);
@@ -252,7 +207,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                 const groupedChats = groupChatsByDate(chatsFromHistory);
 
                 return (
-                  <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-3">
                     {groupedChats.today.length > 0 && (
                       <div>
                         <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
@@ -369,11 +324,11 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
             />
 
             {hasReachedEnd ? (
-              <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500 shrink-0">
+              <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500 shrink-0">
                 You have reached the end of your chat history.
               </div>
             ) : (
-              <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400 shrink-0">
+              <div className="mt-2 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400 shrink-0">
                 <div className="animate-spin">
                   <LoaderIcon />
                 </div>
@@ -397,27 +352,6 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>
               Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        onOpenChange={setShowDeleteAllDialog}
-        open={showDeleteAllDialog}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete all chats?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete all
-              your chats and remove them from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAll}>
-              Delete All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

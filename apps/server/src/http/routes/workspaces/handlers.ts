@@ -13,18 +13,37 @@ import {
   generateWorkspaceSlug,
   updateUserCurrentWorkspace,
   hasWorkspaceAccess,
+  createNotification,
 } from "@repo/database";
+import { broadcast } from "../../../ws/connection-pool.js";
 import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 import { prisma } from "@repo/database";
 import { randomBytes } from "node:crypto";
 import { addDays } from "date-fns";
 import { getSessionFromRequest } from "../../../shared/auth.js";
 import { ApiError } from "../../../shared/errors.js";
+import { isSameEmail } from "../../../shared/utils.js";
 import {
   assertWorkspaceCanManage,
   isPermissionChangedError,
   permissionChangedResponse,
 } from "../../../shared/permission-assert.js";
+
+function roleToChinese(role: string | null | undefined): string {
+  switch (role) {
+    case "admin": return "管理员";
+    case "member": return "成员";
+    default: return role ?? "成员";
+  }
+}
+
+function permissionToChinese(perm: string | null | undefined): string {
+  switch (perm) {
+    case "edit": return "编辑";
+    case "view": return "查看";
+    default: return perm ?? "查看";
+  }
+}
 
 // ─── Root routes ─────────────────────────────────────────────────────────────
 
@@ -379,6 +398,34 @@ export async function updateMemberHandler(c: Context) {
       role,
       permission: nextRole === "admin" ? "edit" : permission,
     });
+
+    const workspaceInfo = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { name: true, slug: true },
+    });
+
+    const notification = await createNotification({
+      receiverId: userId,
+      senderId: session.user.id,
+      type: "SPACE_PERMISSION_CHANGED",
+      title: `你的空间权限已变更`,
+      content: `${workspaceInfo?.name ?? "空间"}: ${roleToChinese(targetMember.role)} → ${roleToChinese(nextRole ?? targetMember.role)}, ${permissionToChinese(targetMember.permission)} → ${permissionToChinese(nextRole === "admin" ? "edit" : permission)}`,
+      payload: {
+        workspaceId,
+        workspaceName: workspaceInfo?.name,
+        workspaceSlug: workspaceInfo?.slug,
+        oldRole: targetMember.role,
+        newRole: nextRole,
+        oldPermission: targetMember.permission,
+        newPermission: nextRole === "admin" ? "edit" : permission,
+      },
+    });
+
+    broadcast(userId, {
+      type: "new_notification",
+      notification,
+    });
+
     return c.json(member);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -443,6 +490,30 @@ export async function removeMemberHandler(c: Context) {
     }
 
     await removeWorkspaceMember({ workspaceId, userId });
+
+    const workspaceInfo = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { name: true, slug: true },
+    });
+
+    const notification = await createNotification({
+      receiverId: userId,
+      senderId: session.user.id,
+      type: "SPACE_REMOVED",
+      title: `你已被移出空间`,
+      content: workspaceInfo?.name ?? null,
+      payload: {
+        workspaceId,
+        workspaceName: workspaceInfo?.name,
+        workspaceSlug: workspaceInfo?.slug,
+      },
+    });
+
+    broadcast(userId, {
+      type: "new_notification",
+      notification,
+    });
+
     return c.json({ success: true });
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -467,6 +538,17 @@ export async function createInviteHandler(c: Context) {
   const id = c.req.param("id")!;
   const { email, role, permission } = await c.req.json();
 
+  if (!email) {
+    return new ApiError("bad_request:api", "Email is required").toResponse();
+  }
+
+  if (isSameEmail(email, session.user.email)) {
+    return new ApiError(
+      "bad_request:api",
+      "不能邀请自己的邮箱"
+    ).toResponse();
+  }
+
   try {
     await assertWorkspaceCanManage(id, session.user.id);
   } catch (error) {
@@ -489,6 +571,39 @@ export async function createInviteHandler(c: Context) {
       expiresAt: addDays(new Date(), 7), // 7 days expiration
     },
   });
+
+  // Look up invited user by email to send notification
+  const invitedUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (invitedUser) {
+    const ws = await prisma.workspace.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+
+    const notification = await createNotification({
+      receiverId: invitedUser.id,
+      senderId: session.user.id,
+      type: "SPACE_INVITE",
+      title: `${session.user.name} 邀请你加入空间「${ws?.name ?? "未知空间"}」`,
+      content: ws?.name ?? null,
+      payload: {
+        workspaceId: id,
+        workspaceName: ws?.name,
+        inviteToken: invite.token,
+        role: role || "member",
+        permission: permission || "view",
+      },
+    });
+
+    broadcast(invitedUser.id, {
+      type: "new_notification",
+      notification,
+    });
+  }
 
   return c.json({
     token: invite.token,

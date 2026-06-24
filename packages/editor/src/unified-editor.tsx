@@ -27,13 +27,17 @@ import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { TableHandle } from "./tiptap/menus/table-options-menu";
 import { CommentBlockMarginTrigger } from "./components/comment-prototype/comment-block-margin-trigger";
+import type { CommentMentionNotifyParams } from "./components/comment-prototype/comment-prototype-form";
 import { BlockDragHandleToolbar } from "./components/block-drag-handle-toolbar";
+import { LinkConfirmDialog } from "./components/link-confirm-dialog";
+import { handleLinkClick } from "./lib/link-click-handler";
 import AIPanel from "./components/ai-panel";
 import { TableOfContents } from "./components/table-of-contents";
 import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 import { SearchReplacePanel } from "./components/search-replace-panel";
+import { resolveCollabWsUrl } from "./lib/server-ws-origin";
 
 /** 监听图片预览自定义事件，用受控模式展示全屏预览（与 tiptap-editor 一致） */
 function ImagePreviewPortal() {
@@ -73,9 +77,20 @@ export type ConnectionStatus =
   | "disconnected"
   | "idle";
 
+function decodeBase64ToUint8Array(b64: string): Uint8Array {
+  const binary = globalThis.atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export interface UnifiedEditorProps {
   documentId: string;
   initialContent?: string;
+  /** 非协同模式下从数据库 yjsState 恢复正文（base64，服务端已解压） */
+  initialYjsStateB64?: string | null;
   placeholder?: string;
   onCreate?: (editor: Editor) => void;
   onUpdate?: (editor: Editor) => void;
@@ -105,7 +120,19 @@ export interface UnifiedEditorProps {
   onLocalYjsState?: (state: Uint8Array) => void;
   /** 协同 WS 不可用时仍通过 HTTP 上报 yjs 快照（与 onLocalYjsState 配合） */
   enableHttpPersistence?: boolean;
+  /** 可提及的用户列表（由外部提供，透传给评论组件） */
+  mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
+  /** 通知跳转：目标评论 ID */
+  highlightCommentId?: string;
+  /** 通知跳转：目标评论所在 block ID */
+  highlightBlockId?: string;
+  /** 评论含 @提及时通知服务端（由宿主层注入） */
+  onCommentMentionNotify?: (
+    params: CommentMentionNotifyParams
+  ) => void | Promise<void>;
 }
+
+export type { CommentMentionNotifyParams };
 
 /**
  * 统一编辑器组件
@@ -120,6 +147,7 @@ export interface UnifiedEditorProps {
 export function UnifiedEditor({
   documentId,
   initialContent,
+  initialYjsStateB64,
   placeholder,
   onCreate,
   onUpdate,
@@ -139,6 +167,10 @@ export function UnifiedEditor({
   collabConfig,
   onLocalYjsState,
   enableHttpPersistence = false,
+  mentionableUsers,
+  highlightCommentId,
+  highlightBlockId,
+  onCommentMentionNotify,
 }: UnifiedEditorProps) {
   const uploadFileRef = useRef(uploadFile);
   uploadFileRef.current = uploadFile;
@@ -210,8 +242,18 @@ export function UnifiedEditor({
     [documentId, collabConfig]
   );
 
-  // 创建 Yjs 文档
-  const ydoc = useMemo(() => new Y.Doc(), [documentId]);
+  // 创建 Yjs 文档；非协同模式可从 initialYjsStateB64 预灌正文
+  const ydoc = useMemo(() => {
+    const doc = new Y.Doc();
+    if (!collabConfig && initialYjsStateB64) {
+      try {
+        Y.applyUpdate(doc, decodeBase64ToUint8Array(initialYjsStateB64));
+      } catch {
+        // 解码失败时回退到 initialContent
+      }
+    }
+    return doc;
+  }, [collabConfig, documentId, initialYjsStateB64]);
 
   const [isWebSocketSynced, setIsWebSocketSynced] = useState(!collabConfig);
 
@@ -249,10 +291,7 @@ export function UnifiedEditor({
     const generation = providerGenerationRef.current + 1;
     providerGenerationRef.current = generation;
 
-    const serverUrl =
-      collabConfig?.serverUrl ||
-      process.env.NEXT_PUBLIC_HOCUSPOCUS_URL ||
-      "ws://localhost:4000/collab";
+    const serverUrl = collabConfig?.serverUrl || resolveCollabWsUrl();
 
     const p = new HocuspocusProvider({
       url: serverUrl,
@@ -469,6 +508,7 @@ export function UnifiedEditor({
           spellcheck: "false",
           class: "tiptap !pl-10",
         },
+        handleClick: handleLinkClick,
       },
       onCreate: ({ editor: e }) => {
         onCreate?.(e);
@@ -514,16 +554,29 @@ export function UnifiedEditor({
     }
 
     if (initialContent) {
-      const xmlFragment = ydoc.get("default", Y.XmlFragment);
-      const shouldApplyInitialContent =
-        editor.isEmpty || xmlFragment.length === 0;
+      if (!collabConfig) {
+        const xmlFragment = ydoc.get("default", Y.XmlFragment);
+        if (xmlFragment.length === 0) {
+          // 本地 / HTTP 降级：yjsState 未恢复时再落 content JSON
+          try {
+            const contentJson = JSON.parse(initialContent);
+            editor.commands.setContent(contentJson, { emitUpdate: false });
+          } catch {
+            // 保持空文档并继续展示，避免整页卡住
+          }
+        }
+      } else {
+        const xmlFragment = ydoc.get("default", Y.XmlFragment);
+        const shouldApplyInitialContent =
+          editor.isEmpty || xmlFragment.length === 0;
 
-      if (shouldApplyInitialContent) {
-        try {
-          const contentJson = JSON.parse(initialContent);
-          editor.commands.setContent(contentJson, { emitUpdate: false });
-        } catch {
-          // 保持空文档并继续展示，避免整页卡住
+        if (shouldApplyInitialContent) {
+          try {
+            const contentJson = JSON.parse(initialContent);
+            editor.commands.setContent(contentJson, { emitUpdate: false });
+          } catch {
+            // 保持空文档并继续展示，避免整页卡住
+          }
         }
       }
     }
@@ -611,6 +664,7 @@ export function UnifiedEditor({
         <TableOfContents editor={editor} />
         <ImagePreviewPortal />
         <SearchReplacePanel editor={editor} readonly />
+        <LinkConfirmDialog />
       </div>
     );
   }
@@ -618,12 +672,18 @@ export function UnifiedEditor({
   return (
     <div className={className} key={editorKey}>
       <ImagePreviewPortal />
+      <LinkConfirmDialog />
       {/* 编辑器主体 */}
       {editor && (
         <>
           <CommentBlockMarginTrigger
             currentUser={user}
+            documentId={documentId}
             editor={editor}
+            highlightBlockId={highlightBlockId}
+            highlightCommentId={highlightCommentId}
+            mentionableUsers={mentionableUsers}
+            onCommentMentionNotify={onCommentMentionNotify}
             uiEnabled={isCommentUiEnabled}
             ydoc={ydoc}
           />

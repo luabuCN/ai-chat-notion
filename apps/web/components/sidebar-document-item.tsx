@@ -89,8 +89,8 @@ const Item = ({
   const duplicateMutation = useDuplicateDocument();
   const moveMutation = useMoveDocument();
   const { setExpanded: forceExpand } = useSidebarDocumentsContext();
-  const [isHovered, setIsHovered] = useState(false);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const isViewingThisDocument = id
     ? isPathnameEditorDocument(pathname, id)
@@ -249,13 +249,11 @@ const Item = ({
           onClick?.();
         }
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       style={{
         paddingLeft: level ? `${level * 12 + 12}px` : "12px",
       }}
       className={cn(
-        "group/item relative flex min-h-[27px] w-full min-w-0 cursor-pointer items-center overflow-hidden py-1 pr-20 text-sm font-medium text-muted-foreground hover:bg-primary/5",
+        "group/item relative flex min-h-[27px] w-full min-w-0 cursor-pointer items-center overflow-hidden py-1 text-sm font-medium text-muted-foreground hover:bg-primary/5",
         isActive && "bg-primary/10 text-primary"
       )}
     >
@@ -295,7 +293,16 @@ const Item = ({
         </div>
       </div>
 
-      <span className="min-w-0 flex-1 truncate" title={label}>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate",
+          !!id &&
+            canEdit &&
+            "group-hover/item:pr-14 group-focus-within/item:pr-14",
+          isDropdownOpen && "pr-14"
+        )}
+        title={label}
+      >
         {label}
       </span>
       {isSearch && (
@@ -308,11 +315,13 @@ const Item = ({
       {!!id && canEdit && (
         <div
           className={cn(
-            "absolute right-2 flex items-center gap-x-2 transition-opacity",
-            isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+            "absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-x-2 opacity-0 transition-opacity group-hover/item:opacity-100 group-focus-within/item:opacity-100",
+            isDropdownOpen
+              ? "pointer-events-auto opacity-100"
+              : "pointer-events-none group-hover/item:pointer-events-auto group-focus-within/item:pointer-events-auto"
           )}
         >
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button
                 type="button"

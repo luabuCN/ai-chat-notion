@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
+import type { User } from "next-auth";
 import { ChatHeader } from "@/components/chat-header";
 import {
   AlertDialog,
@@ -31,10 +32,12 @@ import {
   resolveChatErrorMessage,
 } from "@/lib/utils";
 import { apiUrl } from "@/lib/api-client";
+import { setPageTitle } from "@/lib/page-metadata";
 import {
   useChatHistoryQuery,
   useInvalidateChatHistory,
 } from "@/hooks/use-chat-history-query";
+import { useTokenQuota } from "@/hooks/use-token-quota";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
@@ -50,6 +53,7 @@ export function Chat({
   isReadonly,
   autoResume,
   initialLastContext,
+  user,
 }: {
   id: string;
   initialMessages: ChatMessage[];
@@ -57,6 +61,7 @@ export function Chat({
   isReadonly: boolean;
   autoResume: boolean;
   initialLastContext?: AppUsage;
+  user?: User;
 }) {
   const invalidateChatHistory = useInvalidateChatHistory();
   const { setDataStream } = useDataStream();
@@ -74,6 +79,9 @@ export function Chat({
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
+  const pendingOpenUiRef = useRef(false);
+  const { quota: tokenQuota, isLoading: tokenQuotaLoading, applyQuotaUpdate } =
+    useTokenQuota();
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
@@ -117,12 +125,42 @@ export function Chat({
       if (dataPart.type === "data-usage") {
         setUsage(dataPart.data);
       }
+      if (dataPart.type === "data-tokenQuota") {
+        applyQuotaUpdate(dataPart.data);
+      }
     },
     onFinish: () => {
+      if (pendingOpenUiRef.current) {
+        setMessages((currentMessages) => {
+          const lastAssistantIndex = currentMessages.findLastIndex(
+            (message) => message.role === "assistant"
+          );
+
+          if (lastAssistantIndex === -1) {
+            return currentMessages;
+          }
+
+          return currentMessages.map((message, index) =>
+            index === lastAssistantIndex
+              ? {
+                  ...message,
+                  metadata: {
+                    ...message.metadata,
+                    createdAt:
+                      message.metadata?.createdAt || new Date().toISOString(),
+                    renderMode: "openui" as const,
+                  },
+                }
+              : message
+          );
+        });
+      }
+      pendingOpenUiRef.current = false;
       invalidateChatHistory(workspaceSlugRef.current || undefined);
     },
     onError: (error) => {
       console.error("chat error:", error);
+      pendingOpenUiRef.current = false;
 
       const description =
         error instanceof ChatSDKError
@@ -184,7 +222,7 @@ export function Chat({
       const allChats = history.pages.flatMap((page) => page.chats);
       const currentChat = allChats.find((c) => c.id === id);
       if (currentChat?.title) {
-        window.document.title = `${currentChat.title} - 知作`;
+        setPageTitle(`${currentChat.title} - 知作`);
       }
     }
   }, [id, history]);
@@ -221,7 +259,7 @@ export function Chat({
   return (
     <>
       <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col overflow-hidden bg-background">
-        <ChatHeader chatId={id} />
+        <ChatHeader chatId={id} user={user} />
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <AnimatePresence initial={false} mode="wait">
@@ -239,9 +277,16 @@ export function Chat({
                   isArtifactVisible={isArtifactVisible}
                   isReadonly={isReadonly}
                   messages={messages}
+                  onOpenUiActionStart={() => {
+                    pendingOpenUiRef.current = true;
+                  }}
                   regenerate={regenerate}
                   selectedModelId={initialChatModel}
+                  sendMessage={sendMessage}
                   setMessages={setMessages}
+                  streamingRenderMode={
+                    pendingOpenUiRef.current ? "openui" : undefined
+                  }
                   status={status}
                   votes={votes}
                 />
@@ -253,7 +298,7 @@ export function Chat({
             <motion.div
               className={
                 isHomeState
-                  ? "mx-auto flex w-full max-w-4xl flex-1 flex-col px-2 pt-8 pb-8 md:px-4 md:pt-10 md:pb-10"
+                  ? "mx-auto flex w-full max-w-4xl flex-1 flex-col px-2 pt-6 pb-8 md:px-4 md:pt-8 md:pb-10"
                   : "shrink-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4"
               }
               transition={{ duration: 0.24 }}
@@ -279,10 +324,13 @@ export function Chat({
                     ) : undefined
                   }
                   input={input}
-                  landingInputOffsetClassName="mt-4 md:mt-6"
+                  landingInputOffsetClassName="mt-3 md:mt-4"
                   landingPanelsPosition={isHomeState ? "bottom" : "inline"}
                   messages={messages}
                   onModelChange={setCurrentModelId}
+                  onOpenUiSubmit={(enabled) => {
+                    pendingOpenUiRef.current = enabled;
+                  }}
                   selectedModelId={currentModelId}
                   sendMessage={sendMessage}
                   setAttachments={setAttachments}
@@ -292,6 +340,8 @@ export function Chat({
                   showSuggestedActions={false}
                   status={status}
                   stop={stop}
+                  tokenQuota={tokenQuota}
+                  tokenQuotaLoading={tokenQuotaLoading}
                   usage={usage}
                   workspaceSlug={workspaceSlug}
                 />

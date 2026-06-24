@@ -1,3 +1,4 @@
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useState } from "react";
 import * as Y from "yjs";
 import type { CommentPrototypeEntry } from "./comment-prototype-form";
@@ -104,6 +105,40 @@ export function deleteCommentFromBlock(
       arr.delete(index, 1);
     }
     if (arr.length === 0) {
+      root.delete(blockId);
+    }
+  });
+}
+
+function collectBlockIdsInDoc(doc: ProseMirrorNode): Set<string> {
+  const ids = new Set<string>();
+  doc.descendants((node) => {
+    const rawId = node.attrs?.id;
+    if (typeof rawId === "string" && rawId.length > 0) {
+      ids.add(rawId);
+    }
+    return true;
+  });
+  return ids;
+}
+
+/**
+ * 正文块被删除后，清理 Y.Doc 中已无对应块的评论线程。
+ */
+export function purgeOrphanedCommentThreads(
+  ydoc: Y.Doc,
+  doc: ProseMirrorNode
+): void {
+  const liveBlockIds = collectBlockIdsInDoc(doc);
+  ydoc.transact(() => {
+    const root = getCommentsRoot(ydoc);
+    const orphanBlockIds: string[] = [];
+    root.forEach((_arr, blockId) => {
+      if (!liveBlockIds.has(blockId)) {
+        orphanBlockIds.push(blockId);
+      }
+    });
+    for (const blockId of orphanBlockIds) {
       root.delete(blockId);
     }
   });

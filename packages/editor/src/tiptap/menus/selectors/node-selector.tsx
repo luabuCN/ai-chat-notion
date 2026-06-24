@@ -4,6 +4,7 @@ import { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import {
   CheckIcon,
+  CheckSquare,
   ChevronDownIcon,
   Heading1,
   Heading2,
@@ -22,6 +23,7 @@ interface SelectorResult {
   isHeading3: boolean;
   isBulletList: boolean;
   isOrderedList: boolean;
+  isTaskList: boolean;
   isBlockquote: boolean;
 }
 
@@ -39,7 +41,10 @@ const items: MenuItem[] = [
     onClick: (editor) =>
       editor.chain().focus().toggleNode("paragraph", "paragraph").run(),
     isActive: (state) =>
-      state.isParagraph && !state.isBulletList && !state.isOrderedList,
+      state.isParagraph &&
+      !state.isBulletList &&
+      !state.isOrderedList &&
+      !state.isTaskList,
   },
   {
     name: "Heading 1",
@@ -62,12 +67,12 @@ const items: MenuItem[] = [
       editor.chain().focus().toggleHeading({ level: 3 }).run(),
     isActive: (state) => state.isHeading3,
   },
-  // {
-  //   name: "To-do List",
-  //   icon: CheckSquare,
-  //   onClick: (editor) => editor!.chain().focus().toggleTaskList().run(),
-  //   isActive: (editor) => editor!.isActive("taskItem"),
-  // },
+  {
+    name: "To-do List",
+    icon: CheckSquare,
+    onClick: (editor) => editor.chain().focus().toggleTaskList().run(),
+    isActive: (state) => state.isTaskList,
+  },
   {
     name: "Bullet List",
     icon: List,
@@ -110,6 +115,7 @@ export const NodeSelector = ({ editor }: { editor: Editor }) => {
       isHeading3: instance.editor.isActive("heading", { level: 3 }),
       isBulletList: instance.editor.isActive("bulletList"),
       isOrderedList: instance.editor.isActive("orderedList"),
+      isTaskList: instance.editor.isActive("taskList"),
       isBlockquote: instance.editor.isActive("blockquote"),
     }),
   });

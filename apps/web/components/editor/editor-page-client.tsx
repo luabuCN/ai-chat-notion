@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { CollaborationProvider } from "./collaboration-context";
 import { EditorHeaderWrapper } from "./editor-header-wrapper";
 import { EditorContent } from "./editor-content";
@@ -14,10 +14,10 @@ import { useLocalStorage } from "usehooks-ts";
 import {
   useConvertTask,
   isConvertTaskPipelineBusy,
-} from "@/lib/pdf/convert-store";
+} from "@/lib/document-import/convert-store";
 import { EditorScrollNav } from "./editor-scroll-nav";
 import { useEditorPageShortcuts } from "@/lib/use-editor-page-shortcuts";
-import { FileQuestion, ShieldAlert, LogIn } from "lucide-react";
+import { ArrowLeftRight, FileQuestion, ShieldAlert, LogIn } from "lucide-react";
 import Link from "next/link";
 
 interface EditorPageClientProps {
@@ -40,7 +40,8 @@ export function EditorPageClient({
 }: EditorPageClientProps) {
   const { data: document, isPending: isDocumentPending, error } =
     useGetDocument(documentId);
-  const { currentWorkspace } = useWorkspace();
+  const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace();
+  const router = useRouter();
   const params = useParams();
   const { state, isMobile } = useSidebar();
   const [mounted, setMounted] = useState(false);
@@ -99,8 +100,85 @@ export function EditorPageClient({
     ? "0"
     : "var(--sidebar-width)";
 
+  // 文档已被移到回收站（非所有者），自动跳转到空编辑器
+  useEffect(() => {
+    const docError = error as any;
+    if (
+      docError &&
+      !isDocumentPending &&
+      docError.statusCode === 403 &&
+      docError.cause === "document_deleted"
+    ) {
+      router.replace("/editor");
+    }
+  }, [error, isDocumentPending, router]);
+
+  const handleGoToDocumentWorkspace = useCallback(async () => {
+    if (!document?.workspaceId) {
+      return;
+    }
+    const targetWorkspace = workspaces.find((w) => w.id === document.workspaceId);
+    if (!targetWorkspace) {
+      return;
+    }
+    await switchWorkspace(targetWorkspace);
+    router.replace(`/${targetWorkspace.slug}/editor/${documentId}`);
+  }, [document?.workspaceId, documentId, router, switchWorkspace, workspaces]);
+
   // 文档加载出错（无权限 / 不存在）
   const docError = error as any;
+
+  // 文档属于其他空间（URL 空间与文档实际空间不一致）
+  if (!isDocumentPending && document && !docError) {
+    const docWorkspaceId = document.workspaceId;
+    const isWorkspaceMismatch =
+      docWorkspaceId != null &&
+      currentWorkspace?.id != null &&
+      docWorkspaceId !== currentWorkspace.id;
+    const targetWorkspace = isWorkspaceMismatch
+      ? workspaces.find((w) => w.id === docWorkspaceId)
+      : undefined;
+    const targetWorkspaceName =
+      targetWorkspace?.name ?? targetWorkspace?.slug ?? "其他空间";
+
+    if (isWorkspaceMismatch) {
+      return (
+        <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
+          <div className="flex flex-1 items-center justify-center p-8">
+            <div className="flex flex-col items-center gap-4 text-center max-w-md">
+              <ArrowLeftRight className="size-16 text-muted-foreground/60" />
+              <h2 className="text-xl font-semibold text-foreground">
+                文档不在当前空间
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                此文档属于「{targetWorkspaceName}」空间，请切换到正确空间后再查看
+              </p>
+              <div className="flex gap-3 mt-2">
+                {targetWorkspace ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleGoToDocumentWorkspace();
+                    }}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    <ArrowLeftRight className="size-4" />
+                    前往正确空间
+                  </button>
+                ) : null}
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+                >
+                  返回首页
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
 
   if (docError && !isDocumentPending) {
     const statusCode = docError.statusCode ?? 0;

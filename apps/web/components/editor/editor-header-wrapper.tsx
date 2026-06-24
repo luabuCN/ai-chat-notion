@@ -5,6 +5,7 @@ import { useMutationState } from "@tanstack/react-query";
 import { EditorHeader } from "./editor-header";
 import { TrashBanner } from "./trash-banner";
 import { useGetDocument, documentKeys } from "@/hooks/use-document-query";
+import { getFaviconUrl, setFavicon, setPageTitle } from "@/lib/page-metadata";
 
 interface EditorHeaderWrapperProps {
   locale: string;
@@ -48,31 +49,13 @@ export function EditorHeaderWrapper({
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-    if (document) {
-      // 动态更新标题
-      const title = document.title || "未命名";
-      window.document.title = `${title} - 知作`;
-
-      // 动态更新 favicon
-      const icon = document.icon;
-      let faviconUrl = "/favicon.ico";
-
-      if (icon) {
-        // 如果是 emoji 则转换为 SVG Data URL
-        faviconUrl = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${icon}</text></svg>`;
-      }
-
-      const link: HTMLLinkElement | null =
-        window.document.querySelector("link[rel*='icon']");
-      if (link) {
-        link.href = faviconUrl;
-      } else {
-        const newLink = window.document.createElement("link");
-        newLink.rel = "shortcut icon";
-        newLink.href = faviconUrl;
-        window.document.getElementsByTagName("head")[0].appendChild(newLink);
-      }
+    if (!document) {
+      return;
     }
+
+    const title = document.title || "未命名";
+    setPageTitle(`${title} - 知作`);
+    setFavicon(getFaviconUrl(document.icon));
   }, [document?.title, document?.icon]);
 
   useEffect(() => {

@@ -18,17 +18,26 @@ import {
   useRef,
   useState,
 } from "react";
-import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(workbench)/chat/actions";
-import { usePdfUpload } from "@/app/(workbench)/chat/pdf-actions";
-import { usePdfConversionBusy } from "@/lib/pdf/convert-store";
+import { useDocumentImportUpload } from "@/lib/document-import/import-actions";
+import {
+  DOCUMENT_IMPORT_ACCEPT,
+  isSupportedDocumentImport,
+} from "@/lib/document-import/constants";
+import { useDocumentImportBusy } from "@/lib/document-import/convert-store";
 import { SelectItem } from "@repo/ui";
 
+import type { TokenQuota } from "@repo/database";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { cn, fetcher } from "@/lib/utils";
+import { apiFetch, apiJson } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
+import { markdownToTiptap } from "@repo/editor";
+import { documentKeys } from "@/hooks/use-document-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFileUploadMutation } from "@/hooks/use-file-upload-mutation";
 import { useModels } from "@/hooks/use-models";
 import type { ModelInfo } from "@/lib/api-types";
@@ -46,24 +55,29 @@ import { ArrowUpIcon, CpuIcon, PaperclipIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { ContextSelector, type SelectedDocument } from "./context-selector";
-import { Button } from "@repo/ui";
+import { TokenQuotaIndicator } from "./token-quota-indicator";
+import { Button, Input } from "@repo/ui";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
-import { Brain, Clock3, FileUp, Image, Video, XIcon } from "lucide-react";
-
-type RecentChat = {
-  id: string;
-  title: string;
-  createdAt: string;
-};
-
-type RecentHistoryResponse = {
-  chats: RecentChat[];
-};
+import {
+  Brain,
+  Download,
+  FileUp,
+  Globe2,
+  Image,
+  LayoutTemplate,
+  Loader2,
+  Upload,
+  Video,
+  XIcon,
+} from "lucide-react";
+import NextImage from "next/image";
+import pdfToIllustration from "@/assets/images/pdf_to.png";
+import { RecentDocumentsCarousel } from "./recent-documents-carousel";
 
 function buildChatPath(chatId: string, workspaceSlug?: string) {
   return workspaceSlug ? `/${workspaceSlug}/chat/${chatId}` : `/chat/${chatId}`;
@@ -84,12 +98,15 @@ function PureMultimodalInput({
   selectedModelId,
   onModelChange,
   usage,
+  tokenQuota,
+  tokenQuotaLoading,
   workspaceSlug,
   landingInputOffsetClassName,
   showLandingPanels = false,
   showSuggestedActions = true,
   greeting,
   landingPanelsPosition = "inline",
+  onOpenUiSubmit,
 }: {
   chatId: string;
   input: string;
@@ -105,14 +122,21 @@ function PureMultimodalInput({
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
+  tokenQuota?: TokenQuota;
+  tokenQuotaLoading?: boolean;
   workspaceSlug?: string;
   landingInputOffsetClassName?: string;
   showLandingPanels?: boolean;
   showSuggestedActions?: boolean;
   greeting?: ReactNode;
   landingPanelsPosition?: "inline" | "bottom";
+  onOpenUiSubmit?: (enabled: boolean) => void;
 }) {
   const [enableReasoning, setEnableReasoning] = useState(false);
+  const [enableOpenUiPreference, setEnableOpenUiPreference] = useLocalStorage(
+    "open-ui-enabled",
+    false
+  );
   const [selectedDocuments, setSelectedDocuments] = useState<
     SelectedDocument[]
   >([]);
@@ -157,6 +181,14 @@ function PureMultimodalInput({
     );
   }, [selectedModel]);
 
+  const supportsOpenUi = useMemo(() => {
+    return Boolean(
+      selectedModel?.supports_image_in ||
+        selectedModel?.supports_video_in ||
+        selectedModel?.supports_reasoning
+    );
+  }, [selectedModel]);
+
   // Reset reasoning when model changes and doesn't support it
   useEffect(() => {
     if (!supportsReasoning && enableReasoning) {
@@ -164,23 +196,7 @@ function PureMultimodalInput({
     }
   }, [supportsReasoning, enableReasoning]);
 
-  const adjustHeight = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "44px";
-    }
-  }, []);
-
-  useEffect(() => {
-    if (textareaRef.current) {
-      adjustHeight();
-    }
-  }, [adjustHeight]);
-
-  const resetHeight = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "44px";
-    }
-  }, []);
+  const enableOpenUi = enableOpenUiPreference && supportsOpenUi;
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
@@ -193,11 +209,10 @@ function PureMultimodalInput({
       // Prefer DOM value over localStorage to handle hydration
       const finalValue = domValue || localStorageInput || "";
       setInput(finalValue);
-      adjustHeight();
     }
     // Only run once after hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adjustHeight, localStorageInput, setInput]);
+  }, [localStorageInput, setInput]);
 
   useEffect(() => {
     setLocalStorageInput(input);
@@ -249,6 +264,10 @@ function PureMultimodalInput({
       );
     }
 
+    const shouldEnableOpenUi = enableOpenUi && supportsOpenUi;
+
+    onOpenUiSubmit?.(shouldEnableOpenUi);
+
     sendMessage(
       {
         role: "user",
@@ -280,6 +299,7 @@ function PureMultimodalInput({
       },
       {
         body: {
+          enableOpenUi: shouldEnableOpenUi,
           enableReasoning: enableReasoning && supportsReasoning,
           modelCapabilities: {
             supports_image_in: selectedModel?.supports_image_in ?? false,
@@ -294,7 +314,6 @@ function PureMultimodalInput({
     setAttachments([]);
     setSelectedDocuments([]);
     setLocalStorageInput("");
-    resetHeight();
     setInput("");
 
     if (width && width > 768) {
@@ -309,8 +328,10 @@ function PureMultimodalInput({
     setLocalStorageInput,
     width,
     chatId,
-    resetHeight,
+    enableOpenUi,
     enableReasoning,
+    onOpenUiSubmit,
+    supportsOpenUi,
     supportsReasoning,
     supportsFileInput,
     selectedModel,
@@ -443,34 +464,41 @@ function PureMultimodalInput({
   const isPanelsAtBottom =
     showLandingPanels && landingPanelsPosition === "bottom";
 
-  const pdfInputRef = useRef<HTMLInputElement>(null);
-  const { handlePdfUpload } = usePdfUpload({ workspaceSlug });
-  const pdfConversionBusy = usePdfConversionBusy();
+  const documentImportInputRef = useRef<HTMLInputElement>(null);
+  const { handleDocumentImportUpload } = useDocumentImportUpload({ workspaceSlug });
+  const documentImportBusy = useDocumentImportBusy();
 
   const handleFileUpload = () => {
-    if (pdfConversionBusy) {
-      toast.error("已有 PDF 正在转换或保存中，请稍后再试");
+    if (documentImportBusy) {
+      toast.error("已有文档正在转换或保存中，请稍后再试");
       return;
     }
-    pdfInputRef.current?.click();
+    documentImportInputRef.current?.click();
   };
 
-  const handlePdfFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleDocumentImportFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (pdfConversionBusy) {
-      if (pdfInputRef.current) pdfInputRef.current.value = "";
+    if (documentImportBusy) {
+      if (documentImportInputRef.current) documentImportInputRef.current.value = "";
       return;
     }
-    await handlePdfUpload(file);
-    if (pdfInputRef.current) pdfInputRef.current.value = "";
+    await handleDocumentImportUpload(file);
+    if (documentImportInputRef.current) documentImportInputRef.current.value = "";
   };
 
 
   const centeredContent = (
     <>
       {greeting && (
-        <div className="mb-6 w-full md:mb-8">{greeting}</div>
+        <div
+          className={cn(
+            "w-full",
+            showLandingPanels ? "mb-4 md:mb-5" : "mb-6 md:mb-8"
+          )}
+        >
+          {greeting}
+        </div>
       )}
       {showSuggestedActions &&
         messages.length === 0 &&
@@ -555,7 +583,7 @@ function PureMultimodalInput({
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             autoFocus
-            className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/90 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden md:min-h-[92px]"
+            className="grow min-h-0 resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/90 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
             maxHeight={200}
@@ -563,13 +591,19 @@ function PureMultimodalInput({
             onChange={handleInput}
             placeholder="Send a message..."
             ref={textareaRef}
-            rows={1}
+            rows={3}
             value={input}
           />{" "}
           {/* <Context {...contextProps} /> */}
         </div>
         <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
+            <OpenUiToggle
+              enabled={enableOpenUi}
+              onToggle={setEnableOpenUiPreference}
+              supportsOpenUi={supportsOpenUi}
+              status={status}
+            />
             <AttachmentsButton
               fileInputRef={fileInputRef}
               supportsFileInput={supportsFileInput}
@@ -594,24 +628,41 @@ function PureMultimodalInput({
             />
           </PromptInputTools>
 
-          {status === "submitted" ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <PromptInputSubmit
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-              data-testid="send-button"
-            >
-              <ArrowUpIcon size={14} />
-            </PromptInputSubmit>
-          )}
+          <div className="flex items-center gap-1.5">
+            <TokenQuotaIndicator
+              isLoading={tokenQuotaLoading}
+              quota={tokenQuota}
+            />
+            {status === "submitted" ? (
+              <StopButton setMessages={setMessages} stop={stop} />
+            ) : (
+              <PromptInputSubmit
+                className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+                disabled={
+                  !input.trim() ||
+                  uploadQueue.length > 0 ||
+                  (tokenQuota?.remaining ?? 1) <= 0
+                }
+                status={status}
+                data-testid="send-button"
+              >
+                <ArrowUpIcon size={14} />
+              </PromptInputSubmit>
+            )}
+          </div>
         </PromptInputToolbar>
       </PromptInput>
     </>
   );
 
  
+  const showRecentDocumentsCarousel =
+    showLandingPanels && messages.length === 0 && status === "ready";
+
+  const recentDocumentsCarousel = showRecentDocumentsCarousel && (
+    <RecentDocumentsCarousel workspaceSlug={workspaceSlug} />
+  );
+
   const landingPanels = showLandingPanels &&
     messages.length === 0 &&
     status === "ready" && (
@@ -624,11 +675,12 @@ function PureMultimodalInput({
         transition={{ duration: 0.28, ease: "easeOut", delay: 0.08 }}
       >
         <LandingUploadCard
-          conversionBusy={pdfConversionBusy}
-          disabled={status !== "ready" || pdfConversionBusy}
+          conversionBusy={documentImportBusy}
+          disabled={status !== "ready" || documentImportBusy}
           onClick={() => handleFileUpload()}
+          onFileSelect={handleDocumentImportUpload}
         />
-        <RecentChatsCard workspaceSlug={workspaceSlug} />
+        <SaveWebPageCard workspaceSlug={workspaceSlug} />
       </motion.div>
     );
 
@@ -651,19 +703,22 @@ function PureMultimodalInput({
         type="file"
       />
       <input
-        accept="application/pdf"
+        accept={DOCUMENT_IMPORT_ACCEPT}
         className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
-        onChange={handlePdfFileChange}
-        ref={pdfInputRef}
+        onChange={handleDocumentImportFileChange}
+        ref={documentImportInputRef}
         tabIndex={-1}
         type="file"
       />
 
       {isPanelsAtBottom ? (
         <>
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+          <div className="flex shrink-0 flex-col items-center justify-start pt-16 md:pt-20">
             <div className="w-full">{centeredContent}</div>
           </div>
+          {recentDocumentsCarousel ? (
+            <div className="shrink-0 pt-5 md:pt-6">{recentDocumentsCarousel}</div>
+          ) : null}
           <div className="shrink-0 pt-5">
             <AnimatePresence initial={false}>
               {landingPanels}
@@ -703,6 +758,12 @@ export const MultimodalInput = memo(
     if (prevProps.landingPanelsPosition !== nextProps.landingPanelsPosition) {
       return false;
     }
+    if (prevProps.tokenQuotaLoading !== nextProps.tokenQuotaLoading) {
+      return false;
+    }
+    if (!equal(prevProps.tokenQuota, nextProps.tokenQuota)) {
+      return false;
+    }
 
     return true;
   }
@@ -710,120 +771,294 @@ export const MultimodalInput = memo(
 
 function LandingUploadCard({
   onClick,
+  onFileSelect,
   disabled,
   conversionBusy,
 }: {
   onClick: () => void;
+  onFileSelect: (file: File) => void;
   disabled: boolean;
   conversionBusy: boolean;
 }) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const processDroppedFile = useCallback(
+    (file: File) => {
+      if (disabled) {
+        return;
+      }
+      if (!isSupportedDocumentImport(file)) {
+        toast.error("仅支持 PDF、Word、Markdown 格式");
+        return;
+      }
+      onFileSelect(file);
+    },
+    [disabled, onFileSelect]
+  );
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+      const file = event.dataTransfer.files[0];
+      if (file) {
+        processDroppedFile(file);
+      }
+    },
+    [processDroppedFile]
+  );
+
+  const handleDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (!disabled) {
+        setIsDragging(true);
+      }
+    },
+    [disabled]
+  );
+
+  const handleDragLeave = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+    },
+    []
+  );
+
+  const handleDropZoneClick = useCallback(() => {
+    if (!disabled) {
+      onClick();
+    }
+  }, [disabled, onClick]);
+
+  const handleDropZoneKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!disabled && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        onClick();
+      }
+    },
+    [disabled, onClick]
+  );
+
   return (
     <motion.div
       className={cn(
-        "group flex min-h-[172px] flex-col justify-between rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]",
+        "group flex h-full min-h-[172px] flex-col gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]",
         disabled && "opacity-80"
       )}
     >
-      <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+      <div className="flex shrink-0 items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <FileUp size={16} />
         </div>
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className="font-medium text-[17px]">上传文档</div>
-        </div>
-      </div>
-      <div className="space-y-3">
-        {conversionBusy && (
-          <p className="text-[12px] font-medium text-amber-700 dark:text-amber-400">
-            当前有 PDF 正在转换或保存，请等待完成后再上传。
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled}
-            onClick={onClick}
-            type="button"
-          >
-            上传 PDF
-          </button>
-          <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
-            粘贴图片
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+            支持 PDF、Word、MD
           </span>
         </div>
+      </div>
+
+      {conversionBusy ? (
+        <p className="shrink-0 text-[12px] font-medium text-amber-700 dark:text-amber-400">
+          当前有文档正在转换或保存，请等待完成后再上传。
+        </p>
+      ) : null}
+
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 items-center rounded-xl border border-dashed border-border/80 px-4 py-3 transition-colors",
+          isDragging && "border-primary/50 bg-primary/5",
+          !disabled && "cursor-pointer hover:border-border hover:bg-background/60"
+        )}
+        onClick={handleDropZoneClick}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onKeyDown={handleDropZoneKeyDown}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+      >
+        <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-2">
+          <div className="font-semibold text-[15px] leading-snug text-foreground">
+            <p>拖拽文件到此处</p>
+            <p>自动同步知识库</p>
+          </div>
+          <Button
+            className="h-auto gap-1.5 rounded-full px-4 py-1.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[13px]"
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClick();
+            }}
+            type="button"
+          >
+            <Upload size={13} />
+            选择文件
+          </Button>
+        </div>
+
+        <NextImage
+            alt=""
+            className="relative h-[120px] w-auto object-contain"
+            height={pdfToIllustration.height}
+            quality={100}
+            sizes="300px"
+            src={pdfToIllustration}
+            width={pdfToIllustration.width}
+          />
       </div>
     </motion.div>
   );
 }
 
-function RecentChatsCard({ workspaceSlug }: { workspaceSlug?: string }) {
-  const workspaceParam = workspaceSlug
-    ? `&workspace=${encodeURIComponent(workspaceSlug)}`
-    : "";
-  const { data, isLoading } = useSWR<RecentHistoryResponse>(
-    `/api/history?limit=5${workspaceParam}`,
-    fetcher
-  );
+function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [pageUrl, setPageUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const recentChats = data?.chats?.slice(0, 2) ?? [];
+  const handleSaveWebPage = useCallback(async () => {
+    const trimmedUrl = pageUrl.trim();
+    if (!trimmedUrl) {
+      toast.error("请输入网页链接");
+      return;
+    }
+
+    setIsSaving(true);
+    const toastId = toast.loading("正在抓取网页并保存到知识库...");
+
+    try {
+      const result = await apiJson<{
+        id: string;
+        title: string;
+        sourcePageUrl: string | null;
+        markdown: string;
+        warning: string | null;
+      }>("/api/web-scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: trimmedUrl,
+          workspaceSlug,
+        }),
+      });
+
+      const tiptapDoc = markdownToTiptap(result.markdown);
+      const saveRes = await apiFetch(`/api/editor-documents/${result.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: JSON.stringify(tiptapDoc),
+          yjsState: null,
+        }),
+      });
+      if (!saveRes.ok) {
+        throw new Error("文档内容保存失败");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+      await queryClient.invalidateQueries({
+        queryKey: documentKeys.detail(result.id),
+      });
+
+      toast.success(`已保存「${result.title}」`, { id: toastId });
+
+      if (result.warning) {
+        toast.warning(result.warning, { duration: 6000 });
+      }
+
+      const editorPath = workspaceSlug
+        ? `/${workspaceSlug}/editor/${result.id}`
+        : `/editor/${result.id}`;
+      router.push(editorPath);
+      setPageUrl("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "网页保存失败，请重试",
+        { id: toastId }
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [pageUrl, workspaceSlug, router, queryClient]);
+
+  const handleDownloadExtension = useCallback(() => {
+    toast.info(
+      "浏览器插件尚未发布。请在项目根目录运行 pnpm --filter @repo/extensions zip 打包，再在 chrome://extensions 中加载解压后的扩展。",
+      { duration: 8000 }
+    );
+  }, []);
+
+  const handleUrlKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter" && !isSaving) {
+        event.preventDefault();
+        void handleSaveWebPage();
+      }
+    },
+    [handleSaveWebPage, isSaving]
+  );
 
   return (
     <motion.div
-      className="rounded-2xl border border-border/70 bg-background/95 p-4"
+      className="flex h-full min-h-[172px] flex-col gap-4 rounded-2xl border border-border/70 bg-background/95 p-4 md:min-h-[188px]"
       transition={{ type: "spring", stiffness: 320, damping: 28 }}
     >
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
-          <Clock3 size={16} />
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Globe2 size={16} />
         </div>
         <div>
-          <div className="font-medium text-[17px]">最近更新</div>
+          <div className="font-medium text-[17px]">保存网页</div>
           <div className="text-[13px] text-muted-foreground">
-            从最近对话里继续追问
+            输入链接或使用浏览器插件识别到知识库
           </div>
         </div>
       </div>
 
-      <div className="space-y-2">
-        {isLoading &&
-          Array.from({ length: 3 }).map((_, index) => (
-            <div
-              className="h-12 animate-pulse rounded-xl bg-muted/60"
-              key={index}
-            />
-          ))}
+      <div className="flex flex-1 flex-col justify-center gap-3">
+        <div className="flex gap-2">
+          <Input
+            className="min-w-0 flex-1 h-auto rounded-xl border-border/80 bg-muted/20 py-2.5 text-[13px] shadow-none placeholder:text-muted-foreground focus-visible:border-border focus-visible:bg-background/60 focus-visible:ring-0 md:text-[13px]"
+            disabled={isSaving}
+            onChange={(event) => setPageUrl(event.target.value)}
+            onKeyDown={handleUrlKeyDown}
+            placeholder="https://example.com/article"
+            type="url"
+            value={pageUrl}
+          />
+          <Button
+            className="h-auto shrink-0 gap-1.5 rounded-xl px-4 py-2.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[14px]"
+            disabled={isSaving || !pageUrl.trim()}
+            onClick={() => {
+              void handleSaveWebPage();
+            }}
+            type="button"
+          >
+            {isSaving ? <Loader2 className="animate-spin" size={14} /> : null}
+            {isSaving ? "保存中" : "保存"}
+          </Button>
+        </div>
 
-        {!isLoading && recentChats.length === 0 && (
-          <div className="rounded-xl bg-muted/35 px-4 py-6 text-center text-muted-foreground text-sm">
-            还没有最近记录，发出第一条消息后会显示在这里
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-border/60" />
+          <span className="text-[11px] text-muted-foreground">或</span>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
 
-        {!isLoading &&
-          recentChats.map((chat) => (
-            <button
-              className="flex w-full items-center justify-between rounded-xl border border-transparent bg-muted/20 px-3 py-2.5 text-left transition-colors hover:border-border hover:bg-muted/40"
-              key={chat.id}
-              onClick={() => {
-                window.location.href = buildChatPath(chat.id, workspaceSlug);
-              }}
-              type="button"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium text-[13px]">
-                  {chat.title}
-                </div>
-                <div className="mt-1 text-[12px] text-muted-foreground">
-                  {new Date(chat.createdAt).toLocaleString("zh-CN", {
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              </div>
-            </button>
-          ))}
+        <Button
+          className="h-auto w-full gap-2 rounded-xl border-border/80 bg-muted/20 py-2.5 text-[13px] font-normal shadow-none hover:border-border hover:bg-muted/40 active:scale-100 [&_svg]:size-[14px]"
+          disabled={isSaving}
+          onClick={handleDownloadExtension}
+          type="button"
+          variant="outline"
+        >
+          <Download size={14} />
+          下载浏览器插件
+        </Button>
       </div>
     </motion.div>
   );
@@ -855,6 +1090,59 @@ function PureAttachmentsButton({
 }
 
 const AttachmentsButton = memo(PureAttachmentsButton);
+
+function PureOpenUiToggle({
+  enabled,
+  onToggle,
+  supportsOpenUi,
+  status,
+}: {
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  supportsOpenUi: boolean;
+  status: UseChatHelpers<ChatMessage>["status"];
+}) {
+  const isDisabled = status !== "ready" || !supportsOpenUi;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={isDisabled ? 0 : -1}>
+            <Button
+              className={cn(
+                "aspect-square h-8 rounded-lg p-1 transition-colors",
+                enabled && supportsOpenUi
+                  ? "bg-accent text-accent-foreground hover:bg-accent/80"
+                  : "hover:bg-accent"
+              )}
+              data-testid="openui-toggle"
+              disabled={isDisabled}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!isDisabled) {
+                  onToggle(!enabled);
+                }
+              }}
+              variant="ghost"
+            >
+              <LayoutTemplate size={15} />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {supportsOpenUi
+            ? enabled
+              ? "生成式 UI 已启用"
+              : "启用生成式 UI 回复"
+            : "当前模型不支持生成式 UI 回复"}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+const OpenUiToggle = memo(PureOpenUiToggle);
 
 function PureReasoningToggle({
   enabled,

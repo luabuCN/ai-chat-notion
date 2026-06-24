@@ -7,6 +7,7 @@ export {
   type UnifiedEditorProps,
   type CollaborativeUser,
   type ConnectionStatus,
+  type CommentMentionNotifyParams,
 } from "./unified-editor";
 export {
   EDITOR_SELECT_FROM_MATERIAL_LIBRARY,
@@ -30,5 +31,6 @@ export * from "./tiptap/default-extensions";
 export * from "./hooks/use-editor-export";
 export * from "./hooks/use-slash-command";
 export * from "./lib/markdown-converter";
+export * from "./lib/html-converter";
 export * from "./lib/user-utils";
 export type { Editor as TiptapEditorType } from "@tiptap/core";

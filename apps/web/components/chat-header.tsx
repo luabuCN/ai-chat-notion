@@ -1,15 +1,25 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useWindowSize } from "usehooks-ts";
+import type { User } from "next-auth";
 import { SidebarToggle } from "@/components/sidebar-toggle";
-import { Button } from "@repo/ui";
-import { PlusIcon, VercelIcon } from "./icons";
-import { useSidebar } from "@repo/ui";
+import { SidebarHistory } from "@/components/sidebar-history";
+import { ClockRewind, PlusIcon } from "./icons";
+import {
+  Button,
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  useSidebar,
+} from "@repo/ui";
 
-function PureChatHeader({ chatId }: { chatId: string }) {
+function PureChatHeader({ chatId, user }: { chatId: string; user?: User }) {
   const router = useRouter();
   const params = useParams();
   const workspaceSlug =
@@ -19,28 +29,62 @@ function PureChatHeader({ chatId }: { chatId: string }) {
       ? params.slug[0]
       : "";
   const { open } = useSidebar();
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { width: windowWidth } = useWindowSize();
 
   return (
-    <header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
-      {(!open || windowWidth < 768) && (
-        <>
-          <SidebarToggle variant="outline" />
-          <Button
-            className="order-2 ml-auto h-8 px-2 md:order-1 md:ml-0 md:h-fit md:px-2"
-            onClick={() => {
-              router.push(`/${workspaceSlug}/chat`);
-              router.refresh();
-            }}
-            variant="outline"
-          >
-            <PlusIcon />
-            <span className="md:sr-only">New Chat</span>
-          </Button>
-        </>
-      )}
-    </header>
+    <>
+      <header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
+        {(!open || windowWidth < 768) && (
+          <>
+            <SidebarToggle variant="outline" />
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => {
+                    router.push(`/${workspaceSlug}/chat`);
+                    router.refresh();
+                  }}
+                >
+                  <PlusIcon />
+                  <span className="sr-only">新建对话</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>新建对话</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <ClockRewind />
+                  <span className="sr-only">历史记录</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>历史记录</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </header>
+
+      <Sheet onOpenChange={setHistoryOpen} open={historyOpen}>
+        <SheetContent className="w-80 p-0 sm:max-w-80">
+          <SheetTitle className="sr-only">History</SheetTitle>
+          <SidebarHistory user={user} />
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 

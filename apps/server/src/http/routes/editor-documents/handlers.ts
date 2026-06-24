@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import crypto from "node:crypto";
+import { gunzipSync } from "node:zlib";
 import {
   createEditorDocument,
   getEditorDocumentById,
@@ -17,9 +18,12 @@ import {
   unpublishEditorDocument,
   restoreEditorDocument,
   prisma,
+  createNotification,
 } from "@repo/database";
 import { getSessionFromRequest } from "../../../shared/auth.js";
+import { broadcast } from "../../../ws/connection-pool.js";
 import { ApiError } from "../../../shared/errors.js";
+import { isSameEmail } from "../../../shared/utils.js";
 import { verifyDocumentAccess } from "../../../shared/document-access.js";
 import { verifyWorkspaceAccess } from "../../../shared/workspace-access.js";
 import {
@@ -28,6 +32,31 @@ import {
   isPermissionChangedError,
   permissionChangedResponse,
 } from "../../../shared/permission-assert.js";
+
+function isGzipCompressed(buffer: Buffer): boolean {
+  return buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+}
+
+function serializeYjsStateForApi(
+  yjsState: Buffer | Uint8Array | null | undefined
+): string | null {
+  if (!yjsState || yjsState.length === 0) {
+    return null;
+  }
+  let buf = Buffer.from(yjsState);
+  if (isGzipCompressed(buf)) {
+    buf = gunzipSync(buf);
+  }
+  return buf.toString("base64");
+}
+
+function permissionToChinese(perm: string | null | undefined): string {
+  switch (perm) {
+    case "edit": return "编辑";
+    case "view": return "查看";
+    default: return perm ?? "查看";
+  }
+}
 
 // ─── Root CRUD ───────────────────────────────────────────────────────────────
 
@@ -250,6 +279,9 @@ export async function getAllDocumentsHandler(c: Context) {
           parentDocumentId: true,
           updatedAt: true,
           isFavorite: true,
+          coverImage: true,
+          coverImageType: true,
+          coverImagePosition: true,
         },
         orderBy: { updatedAt: "desc" },
       });
@@ -283,6 +315,9 @@ export async function getAllDocumentsHandler(c: Context) {
           deletedAt: null,
           hasChildren: flatHasChildrenMap.get(doc.id) ?? false,
           isFavorite: doc.isFavorite,
+          coverImage: doc.coverImage,
+          coverImageType: doc.coverImageType,
+          coverImagePosition: doc.coverImagePosition,
         });
       }
     } else {
@@ -693,8 +728,19 @@ export async function getEditorDocumentHandler(c: Context) {
     } = await verifyDocumentAccess(
       id,
       session?.user.id,
-      session?.user.email
+      session?.user.email,
+      { ignoreDeletedAt: true }
     );
+
+    if (document?.deletedAt) {
+      const canViewTrash = access === "owner" || canManage;
+      if (!canViewTrash) {
+        if (!session) {
+          return new ApiError("unauthorized:document").toResponse();
+        }
+        return new ApiError("forbidden:document", "document_deleted").toResponse();
+      }
+    }
 
     if (access === "none") {
       if (!session) {
@@ -703,9 +749,12 @@ export async function getEditorDocumentHandler(c: Context) {
       return new ApiError("forbidden:document").toResponse();
     }
 
+    const { yjsState: yjsStateBuffer, ...documentFields } = document;
+
     return c.json(
       {
-        ...document,
+        ...documentFields,
+        yjsState: serializeYjsStateForApi(yjsStateBuffer),
         accessLevel: access,
         canManage,
         hasCollaborators,
@@ -915,6 +964,13 @@ export async function addCollaboratorHandler(c: Context) {
       ).toResponse();
     }
 
+    if (isSameEmail(email, session.user.email)) {
+      return new ApiError(
+        "bad_request:api",
+        "不能邀请自己的邮箱"
+      ).toResponse();
+    }
+
     const existing = await prisma.documentCollaborator.findUnique({
       where: {
         documentId_email: {
@@ -950,6 +1006,32 @@ export async function addCollaboratorHandler(c: Context) {
         acceptedAt: null,
       },
     });
+
+    // Send notification to the invited user if they have an account
+    if (invitedUser) {
+      const doc = await prisma.editorDocument.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+
+      const notification = await createNotification({
+        receiverId: invitedUser.id,
+        senderId: session.user.id,
+        type: "DOC_SHARE",
+        title: `${session.user.name} 分享了文档给你`,
+        content: doc?.title ?? null,
+        payload: {
+          documentId,
+          documentTitle: doc?.title,
+          inviteToken: token,
+        },
+      });
+
+      broadcast(invitedUser.id, {
+        type: "new_notification",
+        notification,
+      });
+    }
 
     return c.json(collaborator, 201);
   } catch (error) {
@@ -992,6 +1074,12 @@ export async function updateCollaboratorHandler(c: Context) {
       ).toResponse();
     }
 
+    const existingCollaborator = await prisma.documentCollaborator.findUnique({
+      where: {
+        documentId_email: { documentId, email },
+      },
+    });
+
     const collaborator = await prisma.documentCollaborator.update({
       where: {
         documentId_email: {
@@ -1001,6 +1089,33 @@ export async function updateCollaboratorHandler(c: Context) {
       },
       data: { permission },
     });
+
+    // Notify the collaborator about permission change
+    if (collaborator.userId) {
+      const doc = await prisma.editorDocument.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+
+      const notification = await createNotification({
+        receiverId: collaborator.userId,
+        senderId: session.user.id,
+        type: "DOC_PERMISSION_CHANGED",
+        title: `你的文档权限已变更`,
+        content: `${doc?.title ?? "文档"}: ${permissionToChinese(existingCollaborator?.permission)} → ${permissionToChinese(permission)}`,
+        payload: {
+          documentId,
+          documentTitle: doc?.title,
+          oldPermission: existingCollaborator?.permission,
+          newPermission: permission,
+        },
+      });
+
+      broadcast(collaborator.userId, {
+        type: "new_notification",
+        notification,
+      });
+    }
 
     return c.json(collaborator, 200);
   } catch (error) {
@@ -1040,6 +1155,12 @@ export async function removeCollaboratorHandler(c: Context) {
       email: session.user.email,
     });
 
+    const collaboratorToRemove = await prisma.documentCollaborator.findUnique({
+      where: {
+        documentId_email: { documentId, email },
+      },
+    });
+
     await prisma.documentCollaborator.delete({
       where: {
         documentId_email: {
@@ -1048,6 +1169,31 @@ export async function removeCollaboratorHandler(c: Context) {
         },
       },
     });
+
+    // Notify the removed collaborator
+    if (collaboratorToRemove?.userId) {
+      const doc = await prisma.editorDocument.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+
+      const notification = await createNotification({
+        receiverId: collaboratorToRemove.userId,
+        senderId: session.user.id,
+        type: "DOC_REMOVED",
+        title: `你已被移出文档`,
+        content: doc?.title ?? null,
+        payload: {
+          documentId,
+          documentTitle: doc?.title,
+        },
+      });
+
+      broadcast(collaboratorToRemove.userId, {
+        type: "new_notification",
+        notification,
+      });
+    }
 
     return c.json({ success: true }, 200);
   } catch (error) {
@@ -1157,7 +1303,19 @@ export async function getEditorDocumentPathHandler(c: Context) {
   const id = c.req.param("id")!;
 
   try {
-    const { access } = await verifyDocumentAccess(id, session.user.id);
+    const { access, document, canManage } = await verifyDocumentAccess(
+      id,
+      session.user.id,
+      session.user.email,
+      { ignoreDeletedAt: true }
+    );
+
+    if (document?.deletedAt) {
+      const canViewTrash = access === "owner" || canManage;
+      if (!canViewTrash) {
+        return new ApiError("forbidden:document").toResponse();
+      }
+    }
 
     if (access === "none") {
       return new ApiError("forbidden:document").toResponse();
@@ -1507,6 +1665,199 @@ export async function acceptCollaboratorInviteHandler(c: Context) {
     return new ApiError(
       "bad_request:api",
       "Failed to accept invite"
+    ).toResponse();
+  }
+}
+
+// ─── Comment @mention ────────────────────────────────────────────────────────
+
+export async function getMentionableUsersHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:document").toResponse();
+  }
+
+  const documentId = c.req.param("id")!;
+
+  try {
+    const { access } = await verifyDocumentAccess(
+      documentId,
+      session.user.id,
+      session.user.email
+    );
+    if (access === "none") {
+      return new ApiError("forbidden:document").toResponse();
+    }
+
+    const doc = await prisma.editorDocument.findUnique({
+      where: { id: documentId },
+      select: { workspaceId: true },
+    });
+    if (!doc) {
+      return new ApiError("not_found:document").toResponse();
+    }
+
+    const usersMap = new Map<
+      string,
+      { id: string; name: string; email: string; avatarUrl: string | null }
+    >();
+
+    // Workspace members
+    if (doc.workspaceId) {
+      const members = await prisma.workspaceMember.findMany({
+        where: { workspaceId: doc.workspaceId },
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+        },
+      });
+      for (const m of members) {
+        if (m.userId !== session.user.id) {
+          usersMap.set(m.userId, {
+            id: m.userId,
+            name: m.user.name ?? m.user.email,
+            email: m.user.email,
+            avatarUrl: m.user.avatarUrl,
+          });
+        }
+      }
+    }
+
+    // Document collaborators (status=accepted) — no User relation on model; lookup by userId
+    const collaborators = await prisma.documentCollaborator.findMany({
+      where: { documentId, status: "accepted", userId: { not: null } },
+      select: { userId: true },
+    });
+    const collabUserIds = [
+      ...new Set(
+        collaborators
+          .map((collab) => collab.userId)
+          .filter(
+            (id): id is string =>
+              id != null && id !== session.user.id && !usersMap.has(id)
+          )
+      ),
+    ];
+    if (collabUserIds.length > 0) {
+      const collabUsers = await prisma.user.findMany({
+        where: { id: { in: collabUserIds } },
+        select: { id: true, name: true, email: true, avatarUrl: true },
+      });
+      for (const user of collabUsers) {
+        usersMap.set(user.id, {
+          id: user.id,
+          name: user.name ?? user.email,
+          email: user.email,
+          avatarUrl: user.avatarUrl,
+        });
+      }
+    }
+
+    const users = Array.from(usersMap.values()).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      avatar: u.avatarUrl ?? undefined,
+    }));
+
+    return c.json({ users }, 200);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return error.toResponse();
+    }
+    return new ApiError(
+      "bad_request:api",
+      "Failed to get mentionable users"
+    ).toResponse();
+  }
+}
+
+export async function createCommentNotificationHandler(c: Context) {
+  const session = await getSessionFromRequest(c.req.raw);
+  if (!session) {
+    return new ApiError("unauthorized:document").toResponse();
+  }
+
+  const documentId = c.req.param("id")!;
+
+  try {
+    const { access } = await verifyDocumentAccess(
+      documentId,
+      session.user.id,
+      session.user.email
+    );
+    if (access === "none") {
+      return new ApiError("forbidden:document").toResponse();
+    }
+
+    const { blockId, body, mentions, commentId: clientCommentId } =
+      (await c.req.json()) as {
+        blockId: string;
+        body: string;
+        mentions: Array<{ id: string; name: string; avatar?: string }>;
+        commentId?: string;
+      };
+
+    if (!blockId || !body) {
+      return new ApiError(
+        "bad_request:api",
+        "blockId and body are required"
+      ).toResponse();
+    }
+
+    const commentId =
+      typeof clientCommentId === "string" && clientCommentId.length > 0
+        ? clientCommentId
+        : crypto.randomUUID();
+    const notifiedUserIds: string[] = [];
+
+    const doc = await prisma.editorDocument.findUnique({
+      where: { id: documentId },
+      select: {
+        workspaceId: true,
+        workspace: { select: { slug: true, name: true } },
+      },
+    });
+
+    if (Array.isArray(mentions) && mentions.length > 0) {
+      for (const mention of mentions) {
+        if (!mention.id || mention.id === session.user.id) continue;
+
+        const notification = await createNotification({
+          senderId: session.user.id,
+          receiverId: mention.id,
+          type: "MENTION",
+          title: `${session.user.name} 在评论中提到了你`,
+          content:
+            body.length > 100 ? body.slice(0, 100) + "..." : body,
+          payload: {
+            documentId,
+            blockId,
+            commentId,
+            workspaceId: doc?.workspaceId ?? null,
+            workspaceSlug: doc?.workspace?.slug ?? null,
+            workspaceName: doc?.workspace?.name ?? null,
+          },
+        });
+
+        broadcast(mention.id, {
+          type: "new_notification",
+          notification,
+        });
+
+        notifiedUserIds.push(mention.id);
+      }
+    }
+
+    return c.json({ commentId, notifiedUserIds }, 200);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return error.toResponse();
+    }
+    return new ApiError(
+      "bad_request:api",
+      "Failed to create comment notification"
     ).toResponse();
   }
 }

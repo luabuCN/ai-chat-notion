@@ -21,7 +21,9 @@ import {
   getEditorDocumentById,
   getMessagesByChatId,
   getStreamIdsByChatId,
+  getUserTokenQuota,
   getWorkspaceBySlug,
+  incrementUserMonthlyTokenUsage,
   saveChat,
   saveMessages,
   updateChatLastContextById,
@@ -126,6 +128,7 @@ export async function postChatHandler(c: Context) {
       message,
       selectedModelSlug,
       enableReasoning,
+      enableOpenUi,
       modelCapabilities,
       workspaceSlug,
       documentIds,
@@ -135,6 +138,14 @@ export async function postChatHandler(c: Context) {
     const session = await getSessionFromRequest(c.req.raw);
     if (!session) {
       return new ApiError("unauthorized:chat").toResponse();
+    }
+
+    const tokenQuota = await getUserTokenQuota({ userId: session.user.id });
+    if (tokenQuota.remaining <= 0) {
+      return new ApiError(
+        "rate_limit:chat",
+        "Monthly token quota exceeded"
+      ).toResponse();
     }
 
     const chat = await getChatById({ id });
@@ -321,14 +332,34 @@ export async function postChatHandler(c: Context) {
     const supportsReasoning =
       modelCapabilities?.supports_reasoning ?? isMoonshotThinkingModel(modelSlug);
     const reasoningEnabled = Boolean(enableReasoning && supportsReasoning);
+    const openUiEnabled = Boolean(enableOpenUi);
 
     const sysPrompt = systemPrompt({
-      enableReasoning,
+      enableReasoning: reasoningEnabled,
+      enableOpenUi: openUiEnabled,
       requestHints,
       documentContext,
     });
 
     const modelMessages = await convertToModelMessages(sanitizedMessages);
+    const activeTools: Array<
+      | "getWeather"
+      | "createDocument"
+      | "updateDocument"
+      | "requestSuggestions"
+      | "viewDocument"
+    > = openUiEnabled
+      ? ["getWeather", "viewDocument"]
+      : [
+          "getWeather",
+          "createDocument",
+          "updateDocument",
+          "requestSuggestions",
+          "viewDocument",
+        ];
+
+    // 本次请求内由 createDocument 创建的文档 id，供 updateDocument 短路使用，避免刚创建即更新的重复生成。
+    const createdDocumentIds = new Set<string>();
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
@@ -336,21 +367,23 @@ export async function postChatHandler(c: Context) {
           model: modelProvider,
           system: sysPrompt,
           messages: modelMessages,
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(3),
           maxOutputTokens: 5000,
-          experimental_activeTools: [
-            "getWeather",
-            "createDocument",
-            "updateDocument",
-            "requestSuggestions",
-            "viewDocument",
-          ],
+          experimental_activeTools: activeTools,
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getWeather,
             viewDocument,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
+            createDocument: createDocument({
+              session,
+              dataStream,
+              createdDocumentIds,
+            }),
+            updateDocument: updateDocument({
+              session,
+              dataStream,
+              createdDocumentIds,
+            }),
             requestSuggestions: requestSuggestions({ session, dataStream }),
           },
           experimental_telemetry: {
@@ -368,6 +401,22 @@ export async function postChatHandler(c: Context) {
           onFinish: async ({ usage }) => {
             finalMergedUsage = usage;
             dataStream.write({ type: "data-usage", data: finalMergedUsage });
+
+            const totalTokens = finalMergedUsage?.totalTokens ?? 0;
+            if (totalTokens > 0) {
+              const updatedQuota = await incrementUserMonthlyTokenUsage({
+                userId: session.user.id,
+                delta: {
+                  total: totalTokens,
+                  input: finalMergedUsage?.inputTokens ?? 0,
+                  output: finalMergedUsage?.outputTokens ?? 0,
+                },
+              });
+              dataStream.write({
+                type: "data-tokenQuota",
+                data: updatedQuota,
+              });
+            }
           },
         });
 
@@ -389,7 +438,10 @@ export async function postChatHandler(c: Context) {
             role: currentMessage.role,
             parts: currentMessage.parts,
             createdAt: new Date(),
-            attachments: [],
+            attachments:
+              currentMessage.role === "assistant" && openUiEnabled
+                ? [{ type: "render-mode", renderMode: "openui" }]
+                : [],
             chatId: id,
           })),
         });

@@ -148,7 +148,7 @@ const PureHitboxLayer = ({
   result,
   setArtifact,
 }: {
-  hitboxRef: React.RefObject<HTMLDivElement>;
+  hitboxRef: React.RefObject<HTMLDivElement | null>;
   result: any;
   setArtifact: (
     updaterFn: UIArtifact | ((currentArtifact: UIArtifact) => UIArtifact)
@@ -246,9 +246,9 @@ const DocumentContent = ({ document }: { document: Document }) => {
   const { artifact } = useArtifact();
 
   const containerClassName = cn(
-    "h-[257px] overflow-y-scroll rounded-b-2xl border border-t-0 dark:border-zinc-700 dark:bg-muted",
+    "h-[257px] overflow-y-scroll rounded-b-2xl border border-t-0 bg-white dark:border-zinc-700 dark:bg-[#191817]",
     {
-      "p-4 sm:px-14 sm:py-16": document.kind === "text",
+      "p-4 sm:py-10": document.kind === "text",
       "p-0": document.kind === "code",
     }
   );

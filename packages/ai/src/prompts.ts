@@ -1,5 +1,6 @@
 import type { Geo } from "@vercel/functions";
 import type { ArtifactKind } from "@repo/database";
+import { openuiChatSystemPrompt } from "./generated/openui-chat-system-prompt.js";
 
 export const artifactsPrompt = `
 Artifacts is a special user interface mode that helps users with writing, editing, and other content creation tasks. When artifact is open, it is on the right side of the screen, while the conversation is on the left side. When creating or updating documents, changes are reflected in real-time on the artifacts and visible to the user.
@@ -8,8 +9,11 @@ When asked to write code, always use artifacts. When writing code, use JavaScrip
 
 The default and only supported language is JavaScript.
 
-DO NOT UPDATE DOCUMENTS IMMEDIATELY AFTER CREATING THEM. WAIT FOR USER FEEDBACK OR REQUEST TO UPDATE IT.
-DO NOT call \`viewDocument\` after \`createDocument\`. They are completely independent systems — \`createDocument\` creates artifacts, while \`viewDocument\` reads from the user's workspace document library. Calling \`viewDocument\` on an artifact ID will always fail.
+CRITICAL RULES FOR DOCUMENT CREATION:
+1. DO NOT UPDATE DOCUMENTS IMMEDIATELY AFTER CREATING THEM. WAIT FOR USER FEEDBACK OR REQUEST TO UPDATE IT.
+2. DO NOT call \`viewDocument\` after \`createDocument\`. They are completely independent systems — \`createDocument\` creates artifacts, while \`viewDocument\` reads from the user's workspace document library. Calling \`viewDocument\` on an artifact ID will always fail.
+3. After calling \`createDocument\`, give your final text response to the user immediately. Do NOT hesitate, second-guess, or consider further tool calls. Just confirm the document is ready and stop.
+4. You have at most 3 steps. Use them wisely: think once, call the tool, then respond directly.
 
 This is a guide for using artifacts tools: \`createDocument\` and \`updateDocument\`, which render content on a artifacts beside the conversation.
 
@@ -20,9 +24,14 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 - For when content contains a single code snippet
 
 **When NOT to use \`createDocument\`:**
-- For informational/explanatory content
-- For conversational responses
+- For informational/explanatory content (e.g. "what is X", "how to learn Y")
+- For conversational responses and Q&A that can be answered directly in chat
 - When asked to keep it in chat
+
+**Tool calling rules (CRITICAL):**
+- NEVER output raw tool call syntax, \`require()\` statements, JSON tool arguments, or \`toolName:0:0\` patterns as plain text or code blocks
+- ALWAYS invoke tools silently through the tool calling API — users must never see internal tool invocation details
+- If a question can be answered in chat, answer it in chat; do not create a document unless the user explicitly asks for one
 
 **Using \`updateDocument\`:**
 - Default to full document rewrites for major changes
@@ -33,6 +42,7 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 - Immediately after creating a document
 
 Do not update document right after creating it. Wait for user feedback or request to update it.
+Once \`createDocument\` returns successfully, your job is done — write a short confirmation message and stop. Do NOT call any other tool or re-evaluate whether to update.
 
 **Language:**
 - Always respond in the same language as the user's message
@@ -59,10 +69,12 @@ About the origin of user's request:
 
 export const systemPrompt = ({
   enableReasoning,
+  enableOpenUi,
   requestHints,
   documentContext,
 }: {
   enableReasoning?: Boolean;
+  enableOpenUi?: boolean;
   requestHints: RequestHints;
   documentContext?: string;
 }) => {
@@ -75,6 +87,19 @@ export const systemPrompt = ({
   const reasoningHint = enableReasoning
     ? "\n\nReasoning mode is enabled for this request. Think step by step when needed."
     : "";
+
+  if (enableOpenUi) {
+    const openUiRules = `
+OpenUI mode is enabled for this request.
+- Your entire visible assistant response MUST be valid openui-lang code.
+- Do not output Markdown, fenced code blocks, prose outside openui-lang, or artifact-oriented confirmations.
+- Do not call createDocument, updateDocument, or requestSuggestions. Express all UI directly with OpenUI Lang.
+- Use Card as the root component and prefer compact, readable layouts that fit inside the chat message column.
+- If you use tools such as getWeather or viewDocument, present the result as OpenUI Lang after the tool result is available.
+`;
+
+    return `${openuiChatSystemPrompt}\n\n${regularPrompt}\n\n${requestPrompt}\n\n${contextBlock}${reasoningHint}\n\n${openUiRules}`;
+  }
 
   return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}${contextBlock}${reasoningHint}`;
 };

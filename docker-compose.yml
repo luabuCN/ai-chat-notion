@@ -1,19 +1,28 @@
-# Dokploy Compose 部署（在 Dokploy Environment 填写变量）
+# 服务器本地构建部署（在 Dokploy Environment 或 .env / .env.test 填写变量）
 # - 数据库和 Redis 使用远程服务，不在本地启动
-# - 镜像由 GitHub Actions 构建并推送到 GHCR，Dokploy 仅拉取镜像
-# - 域名：Dokploy → Domains → web 容器端口 8080，server 容器端口 4000
+# - 镜像在服务器上通过 docker compose build 直接构建，无需 GitHub Actions
+# - dev / master 并行：scripts/deploy.sh 按分支选 env 文件与 COMPOSE_PROJECT_NAME，端口互不冲突
+#   dev    → .env       → web 8080 / server 4000
+#   master → .env.test  → web 3000 / server 5000
+# - 低内存 VPS（≤4GB）：在 env 文件设 COMPOSE_PARALLEL_LIMIT=1，避免 web/server 同时构建 OOM
 
-name: ai-chat-notion
+name: ${COMPOSE_PROJECT_NAME:-ai-chat-notion}
 
 services:
   server:
-    image: ghcr.io/${GHCR_OWNER:-luabucn}/ai-chat-notion/server:${IMAGE_TAG:-dev}
-    pull_policy: always
+    container_name: ai-chat-notion-server-${DEPLOY_BRANCH_SLUG:-local}
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+      args:
+        # 海外 VPS 默认 npm 官方源；国内构建机可设 NPM_REGISTRY=https://registry.npmmirror.com
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    image: ai-chat-notion-server:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
       - "${SERVER_HTTP_PORT:-4000}:4000"
     env_file:
-      - path: .env
+      - path: ${COMPOSE_ENV_FILE:-.env}
         required: false
     environment:
       NODE_ENV: production
@@ -44,13 +53,26 @@ services:
       start_period: 30s
 
   web:
-    image: ghcr.io/${GHCR_OWNER:-luabucn}/ai-chat-notion/web:${IMAGE_TAG:-dev}
-    pull_policy: always
+    container_name: ai-chat-notion-web-${DEPLOY_BRANCH_SLUG:-local}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+        # 3GB VPS + swap 用 2048；仍 OOM 可试 2560（须 COMPOSE_PARALLEL_LIMIT=1）
+        NODE_BUILD_HEAP_MB: ${NODE_BUILD_HEAP_MB:-2048}
+        # NEXT_PUBLIC_* 在 next build 时写入客户端 bundle，必须在构建时注入
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
+        NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
+        NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
+        # API 代理目标 —— rewrites() 在构建时求值，必须在 build 前注入
+        API_PROXY_URL: ${API_PROXY_URL:-http://server:4000}
+    image: ai-chat-notion-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:8080"
     env_file:
-      - path: .env
+      - path: ${COMPOSE_ENV_FILE:-.env}
         required: false
     environment:
       NODE_ENV: production

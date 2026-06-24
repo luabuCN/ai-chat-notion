@@ -1,0 +1,60 @@
+name: Deploy via SSH
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER || 'root' }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          command_timeout: 110m
+          script: |
+            set -e
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH || '/opt/ai-chat-notion' }}"
+            REPO_URL="${{ vars.REPO_URL || format('https://github.com/{0}.git', github.repository) }}"
+            BRANCH="${{ github.ref_name }}"
+            GIT_TOKEN="${{ secrets.GIT_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}"
+
+            auth_repo_url() {
+              url="$1"
+              if [ -n "$GIT_TOKEN" ] && printf '%s' "$url" | grep -q '^https://github.com/'; then
+                printf 'https://x-access-token:%s@%s\n' "$GIT_TOKEN" "${url#https://}"
+              else
+                printf '%s\n' "$url"
+              fi
+            }
+
+            mkdir -p "$(dirname "$DEPLOY_PATH")"
+
+            if [ -d "$DEPLOY_PATH/.git" ]; then
+              cd "$DEPLOY_PATH"
+              # 允许后续 deploy 在不同分支间切换
+              git remote set-branches origin '*' 2>/dev/null || true
+            elif [ ! -e "$DEPLOY_PATH" ] || [ -z "$(ls -A "$DEPLOY_PATH" 2>/dev/null)" ]; then
+              rm -rf "$DEPLOY_PATH"
+              git clone --branch "$BRANCH" "$(auth_repo_url "$REPO_URL")" "$DEPLOY_PATH"
+              cd "$DEPLOY_PATH"
+            else
+              echo "ERROR: $DEPLOY_PATH is not empty and not a git repository" >&2
+              exit 1
+            fi
+
+            chmod +x scripts/deploy.sh
+            ./scripts/deploy.sh "$BRANCH"

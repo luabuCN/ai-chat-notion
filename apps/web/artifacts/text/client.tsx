@@ -1,3 +1,4 @@
+import { FilePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Artifact } from "@/components/create-artifact";
 import { DiffView } from "@/components/diffview";
@@ -76,7 +77,7 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
     }
 
     return (
-      <div className="flex flex-row px-4 py-8 md:p-20">
+      <div className="flex w-full flex-row px-4 py-8 md:p-10">
         <Editor
           content={content}
           currentVersionIndex={currentVersionIndex}
@@ -141,6 +142,16 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
       onClick: ({ content }) => {
         navigator.clipboard.writeText(content);
         toast.success("Copied to clipboard!");
+      },
+    },
+    {
+      icon: <FilePlus size={18} />,
+      description: "生成文档",
+      onClick: ({ content, title, openGenerateDocument }) => {
+        openGenerateDocument?.(title, content);
+      },
+      isDisabled: ({ openGenerateDocument, content }) => {
+        return !openGenerateDocument || !content.trim();
       },
     },
   ],

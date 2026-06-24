@@ -1,22 +1,23 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { User } from "next-auth";
 
-import { BotIcon, ClockRewind, ImageIcon } from "@/components/icons";
-import { FileText } from "lucide-react";
-import { SidebarHistory } from "@/components/sidebar-history";
+import { ImageIcon } from "@/components/icons";
+import { FileText, Search, Sparkles } from "lucide-react";
 import { SidebarDocuments } from "@/components/sidebar-documents";
 import { SidebarSharedDocuments } from "@/components/sidebar-shared-documents";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { SidebarTrash } from "@/components/sidebar-trash";
+import { QuickSearchPalette } from "@/components/quick-search-palette";
+import { NotificationCenter } from "@/components/notification/notification-center";
 import {
   WorkspaceSwitcher,
   type Workspace,
 } from "@/components/workspace-switcher";
 import { useWorkspace } from "@/components/workspace-provider";
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import {
   Sidebar,
   SidebarContent,
@@ -25,7 +26,6 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -36,10 +36,31 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
   const { currentWorkspace, workspaces, refreshWorkspaces } = useWorkspace();
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false);
 
   const isChatActive = /\/[^\/]+\/chat(\/|$)/.test(pathname ?? "");
   const isImageActive = /\/[^\/]+\/image(\/|$)/.test(pathname ?? "");
   const isDocumentsActive = /\/[^\/]+\/documents(\/|$)/.test(pathname ?? "");
+
+  const activeSlug = currentWorkspace?.slug ?? workspaces[0]?.slug;
+
+  const prefetchPaths = useMemo(
+    () =>
+      activeSlug
+        ? [
+            `/${activeSlug}/chat`,
+            `/${activeSlug}/image`,
+            `/${activeSlug}/documents`,
+          ]
+        : [],
+    [activeSlug],
+  );
+
+  useEffect(() => {
+    for (const path of prefetchPaths) {
+      router.prefetch(path);
+    }
+  }, [router, prefetchPaths]);
 
   const handleWorkspaceSwitch = (workspace: Workspace) => {
     router.push(`/${workspace.slug}/chat`);
@@ -74,7 +95,22 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    isActive={false}
+                    onClick={() => {
+                      setOpenMobile(false);
+                      setQuickSearchOpen(true);
+                    }}
+                  >
+                    <Search className="size-4" />
+                    <span>快速搜索</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
                     isActive={isChatActive}
+                    onMouseEnter={() => {
+                      if (activeSlug) router.prefetch(`/${activeSlug}/chat`);
+                    }}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -85,24 +121,16 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       router.refresh();
                     }}
                   >
-                    <BotIcon />
+                    <Sparkles />
                     <span>AI 灵感助手</span>
                   </SidebarMenuButton>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <SidebarMenuAction showOnHover>
-                        <ClockRewind />
-                        <span className="sr-only">History</span>
-                      </SidebarMenuAction>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-80 p-0">
-                      <SidebarHistory user={user} />
-                    </PopoverContent>
-                  </Popover>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={isImageActive}
+                    onMouseEnter={() => {
+                      if (activeSlug) router.prefetch(`/${activeSlug}/image`);
+                    }}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -120,6 +148,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={isDocumentsActive}
+                    onMouseEnter={() => {
+                      if (activeSlug)
+                        router.prefetch(`/${activeSlug}/documents`);
+                    }}
                     onClick={() => {
                       setOpenMobile(false);
                       if (currentWorkspace) {
@@ -134,6 +166,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                     <span>所有文档</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <NotificationCenter />
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -143,6 +176,12 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
       </Sidebar>
+      <QuickSearchPalette
+        open={quickSearchOpen}
+        onOpenChange={setQuickSearchOpen}
+        workspaceId={currentWorkspace?.id}
+        workspaceSlug={currentWorkspace?.slug ?? workspaces[0]?.slug ?? ""}
+      />
     </>
   );
 }

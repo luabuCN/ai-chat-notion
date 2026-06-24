@@ -9,5 +9,9 @@ export * from "./queries/stream.js";
 export * from "./queries/editor-document.js";
 export * from "./queries/workspace.js";
 export * from "./queries/image-generation.js";
+export * from "./queries/notification.js";
+export * from "./queries/web-page-scrape.js";
+export * from "./queries/token-usage.js";
+export * from "./token-quota.js";
 
 

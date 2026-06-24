@@ -3,6 +3,7 @@ import equal from "fast-deep-equal";
 import { AnimatePresence } from "framer-motion";
 import { ArrowDownIcon } from "lucide-react";
 import { memo, useEffect } from "react";
+import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@repo/database";
 import type { ChatMessage } from "@/lib/types";
@@ -15,36 +16,64 @@ type MessagesProps = {
   status: UseChatHelpers<ChatMessage>["status"];
   votes: Vote[] | undefined;
   messages: ChatMessage[];
+  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   isArtifactVisible: boolean;
   selectedModelId: string;
+  streamingRenderMode?: "openui";
+  onOpenUiActionStart?: () => void;
 };
+
+function assistantPartHasVisibleContent(
+  part: ChatMessage["parts"][number]
+): boolean {
+  if (part.type === "text" && part.text?.trim()) {
+    return true;
+  }
+
+  if (
+    part.type === "reasoning" &&
+    "text" in part &&
+    part.text &&
+    part.text !== "[REDACTED]"
+  ) {
+    return true;
+  }
+
+  if (part.type.startsWith("tool-")) {
+    return true;
+  }
+
+  return false;
+}
 
 function PureMessages({
   chatId,
   status,
   votes,
   messages,
+  sendMessage,
   setMessages,
   regenerate,
   isReadonly,
   selectedModelId,
+  streamingRenderMode,
+  onOpenUiActionStart,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
     endRef: messagesEndRef,
     isAtBottom,
     scrollToBottom,
-    hasSentMessage,
-  } = useMessages({
-    status,
-  });
+  } = useMessages();
+
+  const isArtifactStreaming = useArtifactSelector(
+    (state) => state.status === "streaming"
+  );
 
   useDataStream();
-  console.log(messages, "messages=======");
-
   useEffect(() => {
     if (status === "submitted") {
       requestAnimationFrame(() => {
@@ -52,12 +81,24 @@ function PureMessages({
         if (container) {
           container.scrollTo({
             top: container.scrollHeight,
-            behavior: "smooth",
+            behavior: "auto",
           });
         }
       });
     }
   }, [status, messagesContainerRef]);
+
+  const lastMessage = messages.at(-1);
+  const lastMessageHasVisibleContent =
+    lastMessage?.parts?.some(assistantPartHasVisibleContent) ?? false;
+
+  const showThinking =
+    !isArtifactStreaming &&
+    (status === "submitted" ||
+      (status === "streaming" &&
+        messages.length > 0 &&
+        lastMessage?.role === "assistant" &&
+        !lastMessageHasVisibleContent));
 
   return (
     <div
@@ -73,14 +114,7 @@ function PureMessages({
               isLastMessage &&
               message.role === "assistant" &&
               status === "streaming" &&
-              !message.parts?.some(
-                (p) =>
-                  (p.type === "text" && p.text?.trim()) ||
-                  (p.type === "reasoning" &&
-                    "text" in p &&
-                    p.text &&
-                    p.text !== "[REDACTED]")
-              );
+              !message.parts?.some(assistantPartHasVisibleContent);
 
             // 如果最后一条消息是空的 assistant 消息且在 streaming，则不渲染
             if (isEmptyAssistantMessage) {
@@ -94,8 +128,15 @@ function PureMessages({
                 isReadonly={isReadonly}
                 key={message.id}
                 message={message}
+                messages={messages}
+                onOpenUiActionStart={onOpenUiActionStart}
                 regenerate={regenerate}
-                requiresScrollPadding={hasSentMessage && isLastMessage}
+                renderModeOverride={
+                  isLastMessage && message.role === "assistant"
+                    ? streamingRenderMode
+                    : undefined
+                }
+                sendMessage={sendMessage}
                 setMessages={setMessages}
                 vote={
                   votes
@@ -107,20 +148,7 @@ function PureMessages({
           })}
 
           <AnimatePresence mode="wait">
-            {(status === "submitted" ||
-              (status === "streaming" &&
-                messages.length > 0 &&
-                messages.at(-1)?.role === "assistant" &&
-                !messages
-                  .at(-1)
-                  ?.parts?.some(
-                    (p) =>
-                      (p.type === "text" && p.text?.trim()) ||
-                      (p.type === "reasoning" &&
-                        "text" in p &&
-                        p.text &&
-                        p.text !== "[REDACTED]")
-                  ))) && <ThinkingMessage key="thinking" />}
+            {showThinking && <ThinkingMessage key="thinking" />}
           </AnimatePresence>
 
           <div
@@ -145,8 +173,8 @@ function PureMessages({
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
-  if (prevProps.isArtifactVisible && nextProps.isArtifactVisible) {
-    return true;
+  if (prevProps.status === "streaming" || nextProps.status === "streaming") {
+    return false;
   }
 
   if (prevProps.status !== nextProps.status) {
@@ -165,5 +193,5 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     return false;
   }
 
-  return false;
+  return true;
 });

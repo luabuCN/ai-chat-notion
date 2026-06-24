@@ -6,6 +6,7 @@ import {
   createCollabServer,
 } from "./collab/server.js";
 import { serverConfig } from "./shared/config.js";
+import { attachNotificationWs } from "./ws/notification-ws.js";
 
 console.log("[Server] Starting HTTP API and Collab services...");
 
@@ -31,12 +32,17 @@ attachCollabToHttpServer(
   serverConfig.collabPath
 );
 
+attachNotificationWs(httpServer as HttpServer, "/ws/notifications");
+
 const collabUrl = `${serverConfig.apiOrigin.replace(/^http/, "ws")}${serverConfig.collabPath}`;
 
 console.log(
   `[Server] HTTP API running on http://localhost:${serverConfig.httpPort}`
 );
 console.log(`[Server] Collab WebSocket running on ${collabUrl}`);
+console.log(
+  `[Server] Notification WebSocket running on ws://localhost:${serverConfig.httpPort}/ws/notifications`
+);
 
 async function shutdown() {
   console.log("\n[Server] Shutting down gracefully...");

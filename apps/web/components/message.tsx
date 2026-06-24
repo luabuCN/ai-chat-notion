@@ -1,8 +1,10 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import type { ActionEvent } from "@openuidev/react-lang";
 import equal from "fast-deep-equal";
 import { motion } from "framer-motion";
-import { memo, useState } from "react";
+import dynamic from "next/dynamic";
+import { memo, useCallback, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Vote } from "@repo/database";
@@ -31,24 +33,58 @@ import { SummarizePageUserCard } from "./summarize-page-user-card";
 import { Weather } from "./weather";
 import { FileText } from "lucide-react";
 
+const OpenUiMessageRenderer = dynamic(
+  () =>
+    import("./openui-message-renderer").then(
+      (mod) => mod.OpenUiMessageRenderer
+    ),
+  {
+    loading: () => (
+      <div
+        aria-label="正在生成界面"
+        className="w-full max-w-3xl rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm"
+        role="status"
+      >
+        <div className="flex items-start gap-3">
+          <div className="size-9 shrink-0 animate-pulse rounded-xl bg-muted" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="h-4 w-40 animate-pulse rounded-full bg-muted" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-full animate-pulse rounded-full bg-muted/80" />
+              <div className="h-3.5 w-[86%] animate-pulse rounded-full bg-muted/80" />
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+);
+
 const PurePreviewMessage = ({
   chatId,
   message,
+  messages,
   vote,
   isLoading,
+  sendMessage,
   setMessages,
   regenerate,
   isReadonly,
-  requiresScrollPadding,
+  renderModeOverride,
+  onOpenUiActionStart,
 }: {
   chatId: string;
   message: ChatMessage;
+  messages: ChatMessage[];
   vote: Vote | undefined;
   isLoading: boolean;
+  sendMessage?: UseChatHelpers<ChatMessage>["sendMessage"];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
-  requiresScrollPadding: boolean;
+  renderModeOverride?: "openui";
+  onOpenUiActionStart?: () => void;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const params = useParams();
@@ -67,8 +103,50 @@ const PurePreviewMessage = ({
   const metadata = message.metadata as MessageMetadata | undefined;
   const documentRefs = metadata?.documentRefs || [];
   const isErrorMessage = metadata?.isError === true;
+  const renderMode = metadata?.renderMode ?? renderModeOverride;
+  const isOpenUiLoading =
+    message.role === "assistant" && renderMode === "openui" && isLoading;
+
+  const handleOpenUiAction = useCallback(
+    (event: ActionEvent) => {
+      if (event.type !== "continue_conversation") {
+        return;
+      }
+
+      const paramsMessage = event.params.message;
+      const text =
+        typeof paramsMessage === "string" && paramsMessage.trim()
+          ? paramsMessage
+          : event.humanFriendlyMessage;
+
+      if (!text?.trim()) {
+        return;
+      }
+
+      if (!sendMessage) {
+        return;
+      }
+
+      onOpenUiActionStart?.();
+      sendMessage(
+        {
+          role: "user",
+          parts: [{ type: "text", text }],
+        },
+        {
+          body: {
+            enableOpenUi: true,
+          },
+        }
+      );
+    },
+    [onOpenUiActionStart, sendMessage]
+  );
 
   useDataStream();
+
+  // 同一条助手消息里，同一个文档 id 只渲染一个预览框，避免 create + update（或重复工具调用）导致重复预览。
+  const renderedDocumentIds = new Set<string>();
 
   return (
     <motion.div
@@ -92,10 +170,6 @@ const PurePreviewMessage = ({
 
         <div
           className={cn("flex flex-col min-w-0", {
-            "gap-2 md:gap-4": message.parts?.some(
-              (p) => p.type === "text" && p.text?.trim()
-            ),
-            "min-h-96": message.role === "assistant" && requiresScrollPadding,
             "w-full": message.role === "assistant" || mode === "edit",
             "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]":
               message.role === "user" && mode !== "edit",
@@ -165,11 +239,25 @@ const PurePreviewMessage = ({
                   }
                 }
 
+                const sanitizedText = sanitizeText(part.text ?? "");
+                const shouldRenderOpenUi =
+                  message.role === "assistant" &&
+                  renderMode === "openui" &&
+                  !isErrorMessage;
+
+                if (
+                  message.role === "assistant" &&
+                  !sanitizedText.trim() &&
+                  !(shouldRenderOpenUi && isLoading)
+                ) {
+                  return null;
+                }
+
                 return (
                   <div key={key}>
                     <MessageContent
                       className={cn({
-                        "w-fit break-words rounded-2xl px-3 py-2 text-right text-white whitespace-pre-wrap":
+                        "w-fit wrap-break-word rounded-2xl px-3 py-2 text-right text-white whitespace-pre-wrap":
                           message.role === "user",
                         "bg-transparent px-2 py-1 text-left":
                           message.role === "assistant" && !isErrorMessage,
@@ -183,9 +271,38 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      <Response className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground">
-                        {sanitizeText(part.text)}
-                      </Response>
+                      {shouldRenderOpenUi ? (
+                        <OpenUiMessageRenderer
+                          fallback={
+                            <Response
+                              animated
+                              caret={isLoading ? "circle" : undefined}
+                              className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                              isAnimating={isLoading}
+                            >
+                              {sanitizedText}
+                            </Response>
+                          }
+                          isStreaming={isLoading}
+                          onAction={handleOpenUiAction}
+                          text={sanitizedText}
+                        />
+                      ) : (
+                        <Response
+                          animated
+                          caret={
+                            message.role === "assistant" && isLoading
+                              ? "circle"
+                              : undefined
+                          }
+                          className="[&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5 [&_li::marker]:text-muted-foreground"
+                          isAnimating={
+                            message.role === "assistant" && isLoading
+                          }
+                        >
+                          {sanitizedText}
+                        </Response>
+                      )}
                     </MessageContent>
                   </div>
                 );
@@ -234,7 +351,18 @@ const PurePreviewMessage = ({
             }
 
             if (type === "tool-createDocument") {
-              const { toolCallId } = part;
+              const { toolCallId, state } = part;
+
+              const createdDocId =
+                part.output && !("error" in part.output)
+                  ? part.output.id
+                  : undefined;
+              if (createdDocId) {
+                if (renderedDocumentIds.has(createdDocId)) {
+                  return null;
+                }
+                renderedDocumentIds.add(createdDocId);
+              }
 
               if (part.output && "error" in part.output) {
                 return (
@@ -244,6 +372,19 @@ const PurePreviewMessage = ({
                   >
                     Error creating document: {String(part.output.error)}
                   </div>
+                );
+              }
+
+              if (
+                (state === "input-streaming" || state === "input-available") &&
+                part.input
+              ) {
+                return (
+                  <DocumentPreview
+                    args={part.input}
+                    isReadonly={isReadonly}
+                    key={toolCallId}
+                  />
                 );
               }
 
@@ -257,7 +398,18 @@ const PurePreviewMessage = ({
             }
 
             if (type === "tool-updateDocument") {
-              const { toolCallId } = part;
+              const { toolCallId, state } = part;
+
+              const updatedDocId =
+                part.output && !("error" in part.output)
+                  ? part.output.id
+                  : undefined;
+              if (updatedDocId) {
+                if (renderedDocumentIds.has(updatedDocId)) {
+                  return null;
+                }
+                renderedDocumentIds.add(updatedDocId);
+              }
 
               if (part.output && "error" in part.output) {
                 return (
@@ -266,6 +418,20 @@ const PurePreviewMessage = ({
                     key={toolCallId}
                   >
                     Error updating document: {String(part.output.error)}
+                  </div>
+                );
+              }
+
+              if (
+                (state === "input-streaming" || state === "input-available") &&
+                part.input
+              ) {
+                return (
+                  <div className="relative" key={toolCallId}>
+                    <DocumentPreview
+                      args={{ ...part.input, isUpdate: true }}
+                      isReadonly={isReadonly}
+                    />
                   </div>
                 );
               }
@@ -377,12 +543,13 @@ const PurePreviewMessage = ({
             </div>
           )}
 
-          {!isReadonly && !isErrorMessage && (
+          {!isReadonly && !isErrorMessage && !isOpenUiLoading && (
             <MessageActions
               chatId={chatId}
               isLoading={isLoading}
               key={`action-${message.id}`}
               message={message}
+              messages={messages}
               setMode={setMode}
               vote={vote}
             />
@@ -400,9 +567,6 @@ export const PreviewMessage = memo(
       return false;
     }
     if (prevProps.message.id !== nextProps.message.id) {
-      return false;
-    }
-    if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding) {
       return false;
     }
     if (!equal(prevProps.message.parts, nextProps.message.parts)) {
@@ -434,7 +598,7 @@ export const ThinkingMessage = () => {
           <SparklesIcon size={14} />
         </div>
 
-        <div className="flex w-full flex-col gap-2 md:gap-4">
+        <div className="flex w-full flex-col gap-1 md:gap-2">
           <div className="p-0 text-muted-foreground text-sm">
             Thinking
             {[0, 1, 2].map((index) => (

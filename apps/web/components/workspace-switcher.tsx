@@ -38,7 +38,8 @@ import {
 } from "lucide-react";
 import { WorkspaceSettingsDialog } from "./workspace-settings-dialog";
 import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, getApiErrorMessage } from "@/lib/api-client";
+import { toast } from "sonner";
 
 export type Workspace = {
   id: string;
@@ -106,9 +107,13 @@ export function WorkspaceSwitcher({
         if (data.token) {
           setInviteLink(`${window.location.origin}/invite/${data.token}`);
         }
+      } else {
+        const error = await res.json();
+        toast.error(getApiErrorMessage(error, "生成邀请链接失败"));
       }
     } catch (error) {
       console.error("Failed to generate invite link:", error);
+      toast.error("生成邀请链接失败");
     } finally {
       setIsLoadingLink(false);
     }

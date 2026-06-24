@@ -2,14 +2,36 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
-// Server API 代理目标（本地默认 localhost:4000；Docker 镜像内由 API_PROXY_URL=http://server:4000 覆盖）
-const API_PROXY = process.env.API_PROXY_URL || "http://localhost:4000";
+// Server API 代理目标（rewrites 在构建时求值，Docker/GitHub Actions 构建时通过 ARG API_PROXY_URL 注入）
+const API_PROXY =
+  process.env.API_PROXY_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "http://server:4000"
+    : "http://localhost:4000");
 
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: false,
   transpilePackages: ["@repo/database","@repo/editor","@repo/ui","@repo/ai"],
   productionBrowserSourceMaps:false,
+  // 低内存 VPS 构建：限制 webpack 并行度并启用内存优化
+  experimental: {
+    webpackMemoryOptimizations: true,
+    // 独立 worker 会多占一份 Node 进程内存，低内存机器应关闭
+    webpackBuildWorker: process.env.DOCKER_BUILD === "1" ? false : undefined,
+    optimizePackageImports: [
+      "lodash",
+      "lucide-react",
+      "@radix-ui/react-icons",
+    ],
+  },
+  webpack: (config, { dev }) => {
+    // Docker 构建禁用 webpack 持久缓存，减少 PackFileCacheStrategy 内存峰值
+    if (process.env.DOCKER_BUILD === "1" && !dev) {
+      config.cache = false;
+    }
+    return config;
+  },
   images: {
     dangerouslyAllowSVG: true,
     remotePatterns: [
@@ -45,6 +67,8 @@ const nextConfig: NextConfig = {
       { source: "/api/chat/:path*", destination: `${server}/api/chat/:path*` },
       { source: "/api/collab/:path*", destination: `${server}/api/collab/:path*` },
       { source: "/api/history/:path*", destination: `${server}/api/history/:path*` },
+      { source: "/api/token-usage/:path*", destination: `${server}/api/token-usage/:path*` },
+      { source: "/api/token-usage", destination: `${server}/api/token-usage` },
       { source: "/api/models/:path*", destination: `${server}/api/models/:path*` },
       { source: "/api/workspaces/:path*", destination: `${server}/api/workspaces/:path*` },
       { source: "/api/editor-documents/:path*", destination: `${server}/api/editor-documents/:path*` },
@@ -57,8 +81,11 @@ const nextConfig: NextConfig = {
       { source: "/api/uploadthing/:path*", destination: `${server}/api/uploadthing/:path*` },
       { source: "/api/files/:path*", destination: `${server}/api/files/:path*` },
       { source: "/api/pdf/:path*", destination: `${server}/api/pdf/:path*` },
+      { source: "/api/document-import/:path*", destination: `${server}/api/document-import/:path*` },
+      { source: "/api/web-scrape/:path*", destination: `${server}/api/web-scrape/:path*` },
       { source: "/api/image/:path*", destination: `${server}/api/image/:path*` },
       { source: "/api/unsplash/:path*", destination: `${server}/api/unsplash/:path*` },
+      { source: "/api/notifications/:path*", destination: `${server}/api/notifications/:path*` },
     ];
   },
 };

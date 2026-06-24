@@ -22,6 +22,8 @@ import {
   recordVisitHandler,
   getCollaboratorInviteHandler,
   acceptCollaboratorInviteHandler,
+  getMentionableUsersHandler,
+  createCommentNotificationHandler,
 } from "./handlers.js";
 
 export const editorDocumentRoutes = new Hono();
@@ -61,3 +63,7 @@ editorDocumentRoutes.post("/:id/publish", publishEditorDocumentHandler);
 editorDocumentRoutes.delete("/:id/publish", unpublishEditorDocumentHandler);
 editorDocumentRoutes.post("/:id/restore", restoreEditorDocumentHandler);
 editorDocumentRoutes.post("/:id/visit", recordVisitHandler);
+
+// Comment @mention
+editorDocumentRoutes.get("/:id/mentionable-users", getMentionableUsersHandler);
+editorDocumentRoutes.post("/:id/comments", createCommentNotificationHandler);

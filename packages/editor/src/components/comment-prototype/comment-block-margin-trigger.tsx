@@ -19,16 +19,19 @@ import {
   buildMarginCueGeomForBlockId,
   COMMENT_MARGIN_GAP_PX,
   getCommentAnchorFromPos,
+  scrollBlockIntoViewIfNeeded,
   shouldShowTrailingCommentCue,
 } from "./comment-margin-utils";
 import {
   CommentPrototypeForm,
+  type CommentMentionNotifyParams,
   type CommentPrototypeEntry,
 } from "./comment-prototype-form";
 import { useCommentSelectionHandoffStore } from "./comment-selection-handoff-store";
 import {
   addCommentToBlock,
   deleteCommentFromBlock,
+  purgeOrphanedCommentThreads,
   useCommentThreadsByBlockId,
 } from "./comment-store-yjs";
 
@@ -54,6 +57,18 @@ type CommentBlockMarginTriggerProps = {
   uiEnabled?: boolean;
   /** 用作评论作者占位 */
   currentUser?: CommentPrototypeUser;
+  /** 文档 ID，透传给 CommentPrototypeForm 以获取可提及用户 */
+  documentId?: string;
+  /** 通知跳转：目标评论 ID */
+  highlightCommentId?: string;
+  /** 通知跳转：目标评论所在 block ID */
+  highlightBlockId?: string;
+  /** 可提及的用户列表（由外部提供） */
+  mentionableUsers?: Array<{ id: string; name: string; email?: string; avatar?: string }>;
+  /** 评论含 @提及时通知服务端（由 apps/web 注入 apiFetch） */
+  onCommentMentionNotify?: (
+    params: CommentMentionNotifyParams
+  ) => void | Promise<void>;
 };
 
 const PANEL_WIDTH_PX = 320;
@@ -88,6 +103,11 @@ function CommentBlockMarginTriggerInner({
   ydoc,
   uiEnabled = false,
   currentUser,
+  documentId,
+  highlightCommentId,
+  highlightBlockId,
+  mentionableUsers,
+  onCommentMentionNotify,
 }: CommentBlockMarginTriggerProps) {
   const isAiBusy = useAIPanelStore(
     (state) =>
@@ -325,21 +345,43 @@ function CommentBlockMarginTriggerInner({
   );
 
   const handlePrototypeAdd = useCallback(
-    (body: string) => {
+    (body: string, mentions: import("./comment-prototype-form").MentionUser[] = []) => {
       const blockId = activeBlockIdRef.current;
       if (!blockId || !ydoc) {
         return;
+      }
+      const commentId = generateUUID();
+      if (
+        mentions.length > 0 &&
+        documentId &&
+        onCommentMentionNotify
+      ) {
+        void onCommentMentionNotify({
+          documentId,
+          blockId,
+          commentId,
+          body,
+          mentions,
+        });
       }
       addCommentToBlock(ydoc, blockId, {
         authorAvatar: currentUser?.avatar,
         authorColor: currentUser?.color,
         authorName: currentUser?.name ?? "原型用户",
         body,
+        mentions: mentions.length > 0 ? mentions : undefined,
         createdAtMs: Date.now(),
-        id: generateUUID(),
+        id: commentId,
       });
     },
-    [currentUser?.avatar, currentUser?.color, currentUser?.name, ydoc]
+    [
+      currentUser?.avatar,
+      currentUser?.color,
+      currentUser?.name,
+      documentId,
+      onCommentMentionNotify,
+      ydoc,
+    ]
   );
 
   const handlePrototypeDelete = useCallback(
@@ -382,6 +424,16 @@ function CommentBlockMarginTriggerInner({
     setMounted(true);
   }, []);
 
+  // Pin comment panel first, then scroll only if the block is off-screen.
+  useEffect(() => {
+    if (!highlightCommentId || !highlightBlockId || !editor?.view) return;
+
+    setPinnedBlockId(highlightBlockId);
+    requestAnimationFrame(() => {
+      scrollBlockIntoViewIfNeeded(editor.view, highlightBlockId);
+    });
+  }, [highlightCommentId, highlightBlockId, editor]);
+
   useEffect(() => {
     return () => {
       cancelScheduledHideLiveCue();
@@ -389,8 +441,31 @@ function CommentBlockMarginTriggerInner({
   }, [cancelScheduledHideLiveCue]);
 
   useEffect(() => {
+    if (!ydoc) {
+      return;
+    }
+
+    const onTransaction = ({
+      transaction,
+    }: {
+      transaction: { doc: typeof editor.state.doc; docChanged: boolean };
+    }) => {
+      if (!transaction.docChanged) {
+        return;
+      }
+      purgeOrphanedCommentThreads(ydoc, transaction.doc);
+    };
+
+    editor.on("transaction", onTransaction);
+    return () => {
+      editor.off("transaction", onTransaction);
+    };
+  }, [editor, ydoc]);
+
+  useEffect(() => {
     const view = editor.view;
     const root = view.dom;
+    const commentedIds = commentedBlockIdSet;
 
     const pickCue = (clientX: number, clientY: number) => {
       if (!(editor.isEditable && !isAiBusy)) {
@@ -407,6 +482,13 @@ function CommentBlockMarginTriggerInner({
 
       const anchorInfo = getCommentAnchorFromPos(view, coords.pos);
       if (!anchorInfo?.rect) {
+        return null;
+      }
+
+      if (
+        anchorInfo.isEmpty &&
+        !(anchorInfo.blockId && commentedIds.has(anchorInfo.blockId))
+      ) {
         return null;
       }
 
@@ -455,7 +537,13 @@ function CommentBlockMarginTriggerInner({
       root.removeEventListener("pointerleave", onPointerLeaveEditor);
       root.removeEventListener("pointercancel", onPointerLeaveEditor);
     };
-  }, [cancelScheduledHideLiveCue, editor, isAiBusy, scheduleHideLiveCue]);
+  }, [
+    cancelScheduledHideLiveCue,
+    commentedBlockIdSet,
+    editor,
+    isAiBusy,
+    scheduleHideLiveCue,
+  ]);
 
   /** 滚动、视口缩放、编辑器布局变化后按 blockId 重算图标/面板位置 */
   useLayoutEffect(() => {
@@ -721,6 +809,10 @@ function CommentBlockMarginTriggerInner({
             comments={activeComments}
             onAddComment={handlePrototypeAdd}
             onDeleteComment={handlePrototypeDelete}
+            documentId={documentId}
+            mentionableUsers={mentionableUsers}
+            highlightCommentId={highlightCommentId}
+            highlightBlockId={highlightBlockId}
           />
         </div>
       )}

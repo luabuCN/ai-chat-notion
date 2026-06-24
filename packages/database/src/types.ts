@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import type { Suggestion } from "./queries.js";
 import type { AppUsage } from "./usage.js";
+import type { TokenQuota } from "./token-quota.js";
 
 export type ArtifactKind = "text" | "code" | "image" | "sheet";
 
@@ -19,10 +20,12 @@ export type CustomUIDataTypes = {
   clear: null;
   finish: null;
   usage: AppUsage;
+  tokenQuota: TokenQuota;
 };
 
 export type MessageMetadata = {
   createdAt: string;
+  renderMode?: "markdown" | "openui";
 };
 
 export type ChatMessage = UIMessage<

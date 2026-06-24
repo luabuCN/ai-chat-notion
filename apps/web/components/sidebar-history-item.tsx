@@ -29,20 +29,23 @@ const PureChatItem = ({
 }) => {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive}>
+      <SidebarMenuButton
+        asChild
+        isActive={isActive}
+        className="pr-2! group-hover/menu-item:pr-8!"
+      >
         <Link
           href={`/${workspaceSlug}/chat/${chat.id}`}
           onClick={() => setOpenMobile(false)}
         >
-          <span>{chat.title}</span>
+          <span className="text-black!">{chat.title}</span>
         </Link>
       </SidebarMenuButton>
 
       <DropdownMenu modal={true}>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction
-            className="mr-0.5 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            showOnHover={!isActive}
+            className="mr-0.5 opacity-0 group-hover/menu-item:opacity-100 data-[state=open]:opacity-0 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
           >
             <MoreHorizontalIcon />
             <span className="sr-only">More</span>

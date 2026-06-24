@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@repo/ui/button";
 import { Input } from "@repo/ui/input";
@@ -9,6 +9,16 @@ import type { DragEvent } from "react";
 import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ImageUploadPlaceholderOptions } from "./image-upload-placeholder";
+
+/** 预加载图片，等待其完全加载后再返回 */
+function preloadImage(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Image failed to load"));
+    img.src = src;
+  });
+}
 
 export function ImageUploadPlaceholderView({
   editor,
@@ -23,6 +33,8 @@ export function ImageUploadPlaceholderView({
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [embedUrl, setEmbedUrl] = useState("");
+  // 新增：图片加载中状态（上传完成但图片尚未加载完）
+  const [imageLoading, setImageLoading] = useState(false);
 
   const replaceWithImage = (src: string) => {
     const pos = getPos();
@@ -65,11 +77,19 @@ export function ImageUploadPlaceholderView({
     setUploading(true);
     try {
       const url = await uploadFile(file);
+      setUploading(false);
+      setImageLoading(true);
+      try {
+        await preloadImage(url);
+      } catch {
+        // 预加载失败不阻塞，仍尝试替换
+      }
       replaceWithImage(url);
     } catch {
       toast.error("图片上传失败，请重试");
-    } finally {
       setUploading(false);
+    } finally {
+      setImageLoading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -93,14 +113,23 @@ export function ImageUploadPlaceholderView({
     void handleFiles(e.dataTransfer.files);
   };
 
-  const handleEmbedSubmit = () => {
+  const handleEmbedSubmit = async () => {
     const trimmed = embedUrl.trim();
     if (!trimmed) {
       return;
     }
+    setImageLoading(true);
+    try {
+      await preloadImage(trimmed);
+    } catch {
+      // 预加载失败不阻塞，仍尝试嵌入
+    }
     replaceWithImage(trimmed);
     setEmbedUrl("");
+    setImageLoading(false);
   };
+
+  const isLoading = uploading || imageLoading;
 
   if (!editor.isEditable) {
     return (
@@ -119,7 +148,7 @@ export function ImageUploadPlaceholderView({
           dragActive
             ? "border-primary bg-primary/5"
             : "border-muted-foreground/25 bg-muted/20"
-        } ${uploading ? "pointer-events-none opacity-70" : ""}`}
+        } ${isLoading ? "pointer-events-none opacity-70" : ""}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -144,6 +173,14 @@ export function ImageUploadPlaceholderView({
                 aria-hidden
               />
               <p className="text-sm text-muted-foreground">上传中…</p>
+            </>
+          ) : imageLoading ? (
+            <>
+              <Loader2Icon
+                className="size-10 text-muted-foreground animate-spin"
+                aria-hidden
+              />
+              <p className="text-sm text-muted-foreground">加载图片中…</p>
             </>
           ) : (
             <>
@@ -184,7 +221,7 @@ export function ImageUploadPlaceholderView({
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                handleEmbedSubmit();
+                void handleEmbedSubmit();
               }
             }}
             className="flex-1"
@@ -193,8 +230,10 @@ export function ImageUploadPlaceholderView({
             type="button"
             variant="secondary"
             className="shrink-0 sm:w-auto"
-            disabled={!embedUrl.trim()}
-            onClick={handleEmbedSubmit}
+            disabled={!embedUrl.trim() || isLoading}
+            onClick={() => {
+              void handleEmbedSubmit();
+            }}
           >
             嵌入链接
           </Button>

@@ -58,6 +58,7 @@ export default async function Page(props: {
           initialLastContext={chat.lastContext ?? undefined}
           initialMessages={uiMessages}
           isReadonly={session?.user?.id !== chat.userId}
+          user={session.user}
         />
         <DataStreamHandler />
       </>
@@ -73,6 +74,7 @@ export default async function Page(props: {
         initialLastContext={chat.lastContext ?? undefined}
         initialMessages={uiMessages}
         isReadonly={session?.user?.id !== chat.userId}
+        user={session.user}
       />
       <DataStreamHandler />
     </>

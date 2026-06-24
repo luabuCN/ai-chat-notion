@@ -107,6 +107,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     refreshWorkspaces();
   }, [refreshWorkspaces]);
 
+  // 监听外部触发的空间列表刷新（如收到空间权限变更通知时）
+  useEffect(() => {
+    const handler = () => refreshWorkspaces();
+    window.addEventListener("refresh-workspaces", handler);
+    return () => window.removeEventListener("refresh-workspaces", handler);
+  }, [refreshWorkspaces]);
+
   return (
     <WorkspaceContext.Provider
       value={{

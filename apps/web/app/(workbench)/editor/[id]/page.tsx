@@ -2,7 +2,8 @@ import { EditorPageClient } from "@/components/editor/editor-page-client";
 import { getUserLocale } from "@/i18n/service";
 import { auth } from "@/app/(auth)/auth";
 import { prisma } from "@repo/database";
-import { Metadata } from "next";
+import { buildDocumentPageMetadata } from "@/lib/page-metadata";
+import type { Metadata } from "next";
 
 export async function generateMetadata({
   params,
@@ -15,18 +16,7 @@ export async function generateMetadata({
     select: { title: true, icon: true },
   });
 
-  const titleText = document?.title?.trim() || "未命名";
-
-  return {
-    title: `${titleText} - 知作`,
-    icons: document?.icon
-      ? [
-          {
-            url: `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${document.icon}</text></svg>`,
-          },
-        ]
-      : [{ url: "/favicon.ico" }],
-  };
+  return buildDocumentPageMetadata(document);
 }
 
 export default async function Page({

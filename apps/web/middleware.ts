@@ -5,6 +5,18 @@ import {
   isDevelopmentEnvironment,
   isLocalHttpEnvironment,
 } from "./lib/constants";
+import { locales } from "./i18n/config";
+
+const LOCALE_COOKIE_NAME = "NEXT_LOCALE";
+const FALLBACK_LOCALE = "zh";
+
+// 当 NEXT_LOCALE cookie 存在但不在语言包内时，重写为 zh
+function normalizeLocaleCookie(request: NextRequest, response: NextResponse) {
+  const locale = request.cookies.get(LOCALE_COOKIE_NAME)?.value;
+  if (locale && !locales.includes(locale)) {
+    response.cookies.set(LOCALE_COOKIE_NAME, FALLBACK_LOCALE, { path: "/" });
+  }
+}
 
 // 创建带有用户信息的响应
 function createResponseWithUserHeaders(
@@ -47,6 +59,14 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
   }
+
+  const response = await handleRequest(request);
+  normalizeLocaleCookie(request, response);
+  return response;
+}
+
+async function handleRequest(request: NextRequest): Promise<NextResponse> {
+  const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api/auth")) {
     return NextResponse.next();

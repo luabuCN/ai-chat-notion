@@ -16,6 +16,8 @@ build
 #serve
 dist
 
+docs
+
 # misc
 .DS_Store
 *.pem
@@ -35,8 +37,10 @@ yarn-error.log*
 
 # turbo
 .turbo
+*.tsbuildinfo
 
 .env
+.env.test
 .vercel
 .env*.local
 

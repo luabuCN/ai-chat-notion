@@ -4,6 +4,7 @@ const SERVER_API_PREFIXES = [
   "/api/chat",
   "/api/collab/token",
   "/api/history",
+  "/api/token-usage",
   "/api/models",
   "/api/workspaces",
   "/api/editor-documents",
@@ -15,8 +16,11 @@ const SERVER_API_PREFIXES = [
   "/api/users",
   "/api/image",
   "/api/pdf",
+  "/api/document-import",
+  "/api/web-scrape",
   "/api/files",
   "/api/unsplash",
+  "/api/notifications",
 ] as const;
 
 export const API_ORIGIN =
@@ -54,6 +58,25 @@ export function apiUrl(path: string | URL): string {
   return `${API_ORIGIN}${url.pathname}${url.search}${url.hash}`;
 }
 
+const INTERNAL_API_CAUSE_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+export function getApiErrorMessage(
+  payload: { message?: string; cause?: string },
+  fallback = "操作失败"
+): string {
+  const cause = payload.cause?.trim();
+  if (cause && !INTERNAL_API_CAUSE_PATTERN.test(cause)) {
+    return cause;
+  }
+
+  const message = payload.message?.trim();
+  if (message) {
+    return message;
+  }
+
+  return fallback;
+}
+
 export async function apiFetch(
   input: string | URL,
   init?: RequestInit
@@ -75,7 +98,7 @@ export async function apiJson<T>(
     let message = response.statusText;
     try {
       const body = await response.json();
-      message = body.message ?? body.error ?? body.cause ?? message;
+      message = getApiErrorMessage(body, message);
     } catch {
       // keep status text
     }

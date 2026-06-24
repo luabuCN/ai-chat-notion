@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EditorPageHeader } from "./editor-page-header";
 import { UnifiedEditorClient } from "./unified-editor-client";
 import { PdfConvertingOverlay } from "./pdf-converting-overlay";
 import { EditorLoadingSkeleton, EditorBodyLoadingSkeleton } from "./editor-loading-skeleton";
 import { useGetDocument, useUpdateDocument } from "@/hooks/use-document-query";
 import { apiFetch } from "@/lib/api-client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCollabToken } from "@/hooks/use-collab-token";
+import { useCollabWsUrl } from "@/hooks/use-server-ws-origin";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   generateUserColor,
   markdownToTiptap,
+  type CommentMentionNotifyParams,
   type ConnectionStatus as EditorConnectionStatus,
 } from "@repo/editor";
 import {
@@ -24,7 +27,7 @@ import {
   subscribeConvertTask,
   getConvertTask,
   isConvertTaskPipelineBusy,
-} from "@/lib/pdf/convert-store";
+} from "@/lib/document-import/convert-store";
 import { EDITOR_PAGE_REQUEST_SAVE } from "@/lib/use-editor-page-shortcuts";
 
 /**
@@ -87,6 +90,63 @@ export function EditorContent({
   const { connectedUsers, setConnectedUsers, setConnectionStatus } = useCollaboration();
   const queryClient = useQueryClient();
 
+  const { data: mentionableUsersData } = useQuery({
+    queryKey: ["mentionable-users", documentId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/editor-documents/${documentId}/mentionable-users`);
+      if (!res.ok) return { users: [] };
+      return res.json() as Promise<{ users: Array<{ id: string; name: string; email?: string; avatar?: string }> }>;
+    },
+    staleTime: 60_000,
+  });
+  const mentionableUsers = mentionableUsersData?.users ?? [];
+
+  const handleCommentMentionNotify = useCallback(
+    async ({
+      documentId: docId,
+      blockId,
+      commentId,
+      body,
+      mentions,
+    }: CommentMentionNotifyParams) => {
+      if (mentions.length === 0) {
+        return;
+      }
+      try {
+        const res = await apiFetch(`/api/editor-documents/${docId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blockId, body, mentions, commentId }),
+        });
+        if (!res.ok) {
+          toast.error("提及通知发送失败");
+        }
+      } catch {
+        toast.error("提及通知发送失败");
+      }
+    },
+    []
+  );
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const highlightCommentId = searchParams.get("comment") || undefined;
+  const highlightBlockId = searchParams.get("block") || undefined;
+
+  // 通知跳转高亮 1s 后清除 URL 参数，避免刷新或重渲染再次触发闪烁
+  useEffect(() => {
+    if (!highlightCommentId && !highlightBlockId) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      router.replace(pathname);
+    }, 1000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [highlightBlockId, highlightCommentId, pathname, router]);
+
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [content, setContent] = useState("");
@@ -100,6 +160,8 @@ export function EditorContent({
   /** 本地 PATCH yjsState 去重：避免与服务端往返后与防抖快照误判重复写入 */
   const prevLocalYjsStateB64Ref = useRef<string | null>(null);
   const [permissionRevoked, setPermissionRevoked] = useState(false);
+  /** PDF 转换完成后递增，强制重挂载编辑器以应用新 initialContent */
+  const [editorContentEpoch, setEditorContentEpoch] = useState(0);
   /** 协同 WS 不可用时走 HTTP 落库（content + yjsState） */
   const [collabPersistenceFallback, setCollabPersistenceFallback] =
     useState(false);
@@ -120,24 +182,32 @@ export function EditorContent({
   const isOwner = (document as any)?.accessLevel === "owner";
 
   /**
-   * 工作台编辑页：默认可编辑文档一律走协同 WS（持久化由 collab-server 写 yjsState）。
-   * 预览只读分享仍走 `PreviewEditorClient` + `content` JSON，不经此组件。
+   * 工作台编辑页：有访问权限的文档一律走协同 WS（持久化由 collab-server 写 yjsState）。
+   * view 权限在服务端会以 readOnly 连接，只同步正文、不可写入。
+   * 公开预览页仍走 `PreviewEditorClient` + `content` JSON，不经此组件。
    * `forcePlainLocalPersistence` 为极少数需强制 HTTP-only 的场景保留降级开关。
    */
   const shouldConnectCollab = useMemo(() => {
     if (forcePlainLocalPersistence) return false;
+    /** PDF 转换流水线中禁止连协同，否则空 yjs 会覆盖后续 PATCH 的正文 */
+    if (conversionLocked) return false;
     if (!document) return false;
     if (permissionRevoked) return false;
     if (document.id !== documentId) return false;
+    /** 回收站文档只走 HTTP CRUD，不连协同 WS */
+    if (document.deletedAt) return false;
 
     const accessLevel = (document as any)?.accessLevel;
     if (!accessLevel) return false;
 
-    // 只读权限：不建立协同连接（也无编辑保存）
-    if (accessLevel === "view") return false;
-
     return true;
-  }, [document, documentId, forcePlainLocalPersistence, permissionRevoked]);
+  }, [
+    conversionLocked,
+    document,
+    documentId,
+    forcePlainLocalPersistence,
+    permissionRevoked,
+  ]);
 
   // 协同编辑 token（仅在需要连接协同时获取）
   const {
@@ -149,21 +219,7 @@ export function EditorContent({
   const useHttpPersistence =
     !shouldConnectCollab || collabPersistenceFallback || isCollabTokenError;
 
-  // 协同服务器 URL：直接连接 server 容器的 WebSocket 端口
-  const collabServerUrl = (() => {
-    const envUrl = process.env.NEXT_PUBLIC_HOCUSPOCUS_URL;
-    if (envUrl) return envUrl;
-    // 从 NEXT_PUBLIC_APP_URL 推导：替换 http→ws，端口改为 4000，加 /collab
-    try {
-      const u = new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:8080");
-      u.protocol = u.protocol.replace("http", "ws");
-      u.port = "4000";
-      u.pathname = "/collab";
-      return u.toString();
-    } catch {
-      return "ws://localhost:4000/collab";
-    }
-  })();
+  const collabServerUrl = useCollabWsUrl();
 
   // 协同配置（null = 本地模式，不连接 WebSocket）
   const collabConfig = useMemo(() => {
@@ -176,13 +232,25 @@ export function EditorContent({
     };
   }, [shouldConnectCollab, collabData?.token, collabServerUrl]);
 
+  /** 非协同模式时从 API 返回的 yjsState（base64）恢复正文 */
+  const initialYjsStateB64 = useMemo(() => {
+    if (collabConfig) {
+      return null;
+    }
+    const raw = (document as { yjsState?: string | null } | undefined)?.yjsState;
+    if (typeof raw === "string" && raw.length > 0) {
+      return raw;
+    }
+    return null;
+  }, [collabConfig, document]);
+
   /** 文档或协同模式切换时需重新等待编辑器就绪（勿把 token 放进 key，避免 token 就绪后整页重挂载） */
   const editorMountKey = useMemo(
     () =>
       `${documentId}:${shouldConnectCollab ? "collab" : "plain"}:${
         permissionRevoked ? "revoked" : "active"
-      }`,
-    [documentId, permissionRevoked, shouldConnectCollab]
+      }:e${editorContentEpoch}`,
+    [documentId, editorContentEpoch, permissionRevoked, shouldConnectCollab]
   );
 
   /** 供异步回调读取：关闭协同后仍可能收到「已断开」，此时不应再更新顶栏状态 */
@@ -391,26 +459,31 @@ export function EditorContent({
     }
   }, [error]);
 
+  const applyPdfConvertedContent = useCallback((markdown: string) => {
+    const tiptapJson = markdownToTiptap(markdown);
+    const jsonStr = JSON.stringify(tiptapJson);
+    setContent(jsonStr);
+    prevContentRef.current = jsonStr;
+    isInitializedRef.current = true;
+    setEditorContentEpoch((epoch) => epoch + 1);
+  }, []);
+
   // 订阅 PDF 转换完成事件
   useEffect(() => {
     const existing = getConvertTask(documentId);
     if (existing?.status === "done" && existing.markdown) {
-      const tiptapJson = markdownToTiptap(existing.markdown);
-      const jsonStr = JSON.stringify(tiptapJson);
-      setContent(jsonStr);
-      prevContentRef.current = jsonStr;
-      isInitializedRef.current = true;
+      applyPdfConvertedContent(existing.markdown);
     }
 
     return subscribeConvertTask(documentId, (task) => {
       if (task?.status === "done" && task.markdown) {
-        const tiptapJson = markdownToTiptap(task.markdown);
-        const jsonStr = JSON.stringify(tiptapJson);
-        setContent(jsonStr);
-        prevContentRef.current = jsonStr;
-        isInitializedRef.current = true;
+        applyPdfConvertedContent(task.markdown);
       }
     });
+  }, [applyPdfConvertedContent, documentId]);
+
+  useEffect(() => {
+    setEditorContentEpoch(0);
   }, [documentId]);
 
   // 防抖保存标题
@@ -841,9 +914,14 @@ export function EditorContent({
                 key={editorMountKey}
                 documentId={documentId}
                 initialContent={content}
+                initialYjsStateB64={initialYjsStateB64}
                 user={user}
                 collabConfig={collabConfig}
                 readonly={effectiveReadOnly || conversionLocked}
+                mentionableUsers={mentionableUsers}
+                highlightCommentId={highlightCommentId}
+                highlightBlockId={highlightBlockId}
+                onCommentMentionNotify={handleCommentMentionNotify}
                 onConnectedUsersChange={setConnectedUsers}
                 onConnectionStatusChange={handleConnectionStatusChange}
                 onPermissionRevoked={handlePermissionRevoked}

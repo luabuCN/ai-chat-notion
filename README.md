@@ -349,9 +349,9 @@ pnpm build
 
 确保配置所有必需环境变量，并将 `NEXT_PUBLIC_HOCUSPOCUS_URL` 指向生产环境的 WebSocket 地址（如 `wss://your-domain.com/collab`）。
 
-### 后端服务
+### 后端服务（Docker / Dokploy）
 
-支持 Docker 部署（HTTP API + 协同 WebSocket 同进程）：
+支持 Docker 部署（HTTP API + 协同 WebSocket 同进程）。**server 容器启动时会自动执行 `prisma db push`**，将 `schema.prisma` 全量同步到数据库（与本地 `pnpm db:push` 一致），无需逐表 migration。
 
 ```bash
 cd apps/server
@@ -361,6 +361,8 @@ docker run -p 4000:4000 \
   -e AUTH_SECRET=your-secret \
   ai-chat-notion-server
 ```
+
+若 schema 变更会删除列/表导致数据丢失，需显式设置 `PRISMA_ACCEPT_DATA_LOSS=true` 才会强制推送。
 
 ---
 

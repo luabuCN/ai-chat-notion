@@ -16,9 +16,6 @@ marked.use({
 });
 
 export const buildDocumentFromContent = (content: string) => {
-  console.log("=== buildDocumentFromContent called ===");
-  console.log("Input content (first 200 chars):", content?.substring(0, 200));
-
   // Check if we're in a browser environment
   if (typeof window === "undefined" || typeof document === "undefined") {
     console.warn("buildDocumentFromContent called in non-browser environment");
@@ -29,7 +26,6 @@ export const buildDocumentFromContent = (content: string) => {
   }
 
   if (!content || content.trim() === "") {
-    console.log("Empty content, returning empty doc");
     return documentSchema.nodeFromJSON({
       type: "doc",
       content: [{ type: "paragraph" }],

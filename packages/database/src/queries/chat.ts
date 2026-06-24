@@ -1,6 +1,10 @@
 import { ChatSDKError } from "../errors.js";
 import { prisma } from "../client.js";
 import { AppUsage } from "../usage.js";
+import {
+  deleteDocumentsByIds,
+  extractArtifactDocumentIdsFromMessages,
+} from "./document.js";
 import { Chat } from "./types.js";
 
 export async function saveChat({
@@ -31,6 +35,13 @@ export async function saveChat({
 
 export async function deleteChatById({ id }: { id: string }) {
   try {
+    const messages = await prisma.message.findMany({
+      where: { chatId: id },
+      select: { parts: true },
+    });
+    const documentIds = extractArtifactDocumentIdsFromMessages(messages);
+    await deleteDocumentsByIds({ ids: documentIds });
+
     await prisma.vote.deleteMany({ where: { chatId: id } });
     await prisma.message.deleteMany({ where: { chatId: id } });
     await prisma.stream.deleteMany({ where: { chatId: id } });
@@ -58,6 +69,13 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
     }
 
     const chatIds = userChats.map((c: { id: string }) => c.id);
+
+    const messages = await prisma.message.findMany({
+      where: { chatId: { in: chatIds } },
+      select: { parts: true },
+    });
+    const documentIds = extractArtifactDocumentIdsFromMessages(messages);
+    await deleteDocumentsByIds({ ids: documentIds });
 
     await prisma.vote.deleteMany({ where: { chatId: { in: chatIds } } });
     await prisma.message.deleteMany({ where: { chatId: { in: chatIds } } });

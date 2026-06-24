@@ -1,5 +1,7 @@
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { ResolvedPos } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
+import scrollIntoView from "scroll-into-view-if-needed";
 import type { CommentMarginCueGeom } from "./comment-margin-types";
 
 const SKIP_BLOCK_TYPES = new Set(["image", "attachment", "youtube"]);
@@ -31,12 +33,24 @@ export function findCommentAnchorDepth($pos: ResolvedPos): number | null {
   return 1;
 }
 
+/** 块内无可见文字时不展示 hover 评论入口（已有评论的块仍由持久图标负责）。 */
+export function isEmptyCommentAnchorNode(node: ProseMirrorNode): boolean {
+  if (SKIP_BLOCK_TYPES.has(node.type.name)) {
+    return true;
+  }
+  if (node.type.name === "table") {
+    return false;
+  }
+  return node.textContent.trim().length === 0;
+}
+
 export function getCommentAnchorFromPos(
   view: EditorView,
   pos: number
 ): {
   anchorPos: number;
   blockId: string | null;
+  isEmpty: boolean;
   rect: DOMRect | null;
 } | null {
   const { doc } = view.state;
@@ -76,6 +90,7 @@ export function getCommentAnchorFromPos(
   return {
     anchorPos,
     blockId,
+    isEmpty: isEmptyCommentAnchorNode(anchorNode),
     rect: element.getBoundingClientRect(),
   };
 }
@@ -161,20 +176,10 @@ export function buildMarginCueGeomForAnchorPos(
   };
 }
 
-/**
- * 按 stable blockId 查找节点并构造图标几何。
- *
- * 持久图标依赖此函数：评论以 blockId 为 key 持久化，渲染时再回到当前文档查找。
- * 命中策略与 `findCommentAnchorDepth` 对齐：跳过表格单元格等中间结构，仅对
- * 顶层 textblock / 整个 table 命中（哪个匹配先返回哪个）。
- */
-export function buildMarginCueGeomForBlockId(
-  view: EditorView,
-  blockId: string,
-  gapPx = DEFAULT_MARGIN_GAP_PX
-): CommentMarginCueGeom | null {
+/** 在文档中按 block attrs.id 查找 ProseMirror 位置。 */
+function findBlockPosById(view: EditorView, blockId: string): number {
   if (!blockId) {
-    return null;
+    return -1;
   }
   const { doc } = view.state;
   let foundPos = -1;
@@ -192,6 +197,47 @@ export function buildMarginCueGeomForBlockId(
     }
     return true;
   });
+  return foundPos;
+}
+
+/**
+ * 通知跳转等场景：仅在目标块不可见时滚动，且限定在 `#editor-scroll-container` 内。
+ * 避免 `scrollIntoView({ block: "center" })` 在已在当前文档时把页面强行往下推。
+ */
+export function scrollBlockIntoViewIfNeeded(
+  view: EditorView,
+  blockId: string
+): void {
+  const foundPos = findBlockPosById(view, blockId);
+  if (foundPos < 0) {
+    return;
+  }
+  const element = view.nodeDOM(foundPos);
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  const boundary = document.getElementById("editor-scroll-container");
+  scrollIntoView(element, {
+    scrollMode: "if-needed",
+    block: "nearest",
+    behavior: "smooth",
+    ...(boundary ? { boundary } : {}),
+  });
+}
+
+/**
+ * 按 stable blockId 查找节点并构造图标几何。
+ *
+ * 持久图标依赖此函数：评论以 blockId 为 key 持久化，渲染时再回到当前文档查找。
+ * 命中策略与 `findCommentAnchorDepth` 对齐：跳过表格单元格等中间结构，仅对
+ * 顶层 textblock / 整个 table 命中（哪个匹配先返回哪个）。
+ */
+export function buildMarginCueGeomForBlockId(
+  view: EditorView,
+  blockId: string,
+  gapPx = DEFAULT_MARGIN_GAP_PX
+): CommentMarginCueGeom | null {
+  const foundPos = findBlockPosById(view, blockId);
   if (foundPos < 0) {
     return null;
   }

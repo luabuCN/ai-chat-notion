@@ -13,6 +13,8 @@ import {
   type TiptapImagePreviewDetail,
 } from "./tiptap/extensions/image/image";
 import { DefaultBubbleMenu } from "./tiptap/menus/default-bubble-menu";
+import { LinkConfirmDialog } from "./components/link-confirm-dialog";
+import { handleLinkClick } from "./lib/link-click-handler";
 import { MediaBubbleMenu } from "./tiptap/menus/media-bubble-menu";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 import { CommentBlockMarginTrigger } from "./components/comment-prototype/comment-block-margin-trigger";
@@ -132,6 +134,7 @@ export function TiptapEditor({
         spellcheck: "false",
         class: "tiptap !pl-10",
       },
+      handleClick: handleLinkClick,
     },
     onCreate: ({ editor }) => {
       onCreate?.(editor);
@@ -180,6 +183,7 @@ export function TiptapEditor({
         />
         <TableOfContents editor={editor} />
         <ImagePreviewPortal />
+        <LinkConfirmDialog />
       </div>
     );
   }
@@ -187,6 +191,7 @@ export function TiptapEditor({
   return (
     <div className={className}>
       <ImagePreviewPortal />
+      <LinkConfirmDialog />
       {editor && (
         <>
           <CommentBlockMarginTrigger editor={editor} />
