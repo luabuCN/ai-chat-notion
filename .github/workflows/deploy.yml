@@ -46,9 +46,11 @@ jobs:
 
             if [ -d "$DEPLOY_PATH/.git" ]; then
               cd "$DEPLOY_PATH"
+              # 允许后续 deploy 在不同分支间切换
+              git remote set-branches origin '*' 2>/dev/null || true
             elif [ ! -e "$DEPLOY_PATH" ] || [ -z "$(ls -A "$DEPLOY_PATH" 2>/dev/null)" ]; then
               rm -rf "$DEPLOY_PATH"
-              git clone --branch "$BRANCH" --single-branch "$(auth_repo_url "$REPO_URL")" "$DEPLOY_PATH"
+              git clone --branch "$BRANCH" "$(auth_repo_url "$REPO_URL")" "$DEPLOY_PATH"
               cd "$DEPLOY_PATH"
             else
               echo "ERROR: $DEPLOY_PATH is not empty and not a git repository" >&2

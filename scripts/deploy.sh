@@ -8,14 +8,29 @@ cd "$DEPLOY_DIR"
 
 BRANCH="${1:-main}"
 
-# git pull 会更新本脚本；必须 pull 后重新 exec，否则仍在跑旧版 deploy.sh
+sync_repo() {
+  echo "==> Sync git (branch: ${BRANCH})"
+  # 解除 single-branch 克隆限制，否则 fetch 其他分支可能失败
+  git remote set-branches origin '*' 2>/dev/null || true
+  git fetch origin "${BRANCH}" --force --prune
+  if ! git show-ref --verify --quiet "refs/remotes/origin/${BRANCH}"; then
+    echo "ERROR: origin/${BRANCH} not found — push the branch or check remote URL" >&2
+    exit 1
+  fi
+  # 显式 checkout 目标分支，避免仍在旧分支上 reset 导致代码与分支名不一致
+  git checkout -B "${BRANCH}" "origin/${BRANCH}"
+  echo "==> Git HEAD: $(git branch --show-current) @ $(git rev-parse --short HEAD) — $(git log -1 --format='%s')"
+}
+
+# 第一次 sync 后 exec，确保后续执行的是刚拉下来的 deploy.sh
 if [ "${DEPLOY_UPDATED:-}" != "1" ]; then
-  echo "==> Pull latest code (branch: ${BRANCH})"
-  git fetch origin "${BRANCH}"
-  git reset --hard "origin/${BRANCH}"
+  sync_repo
   export DEPLOY_UPDATED=1
-  exec "$0" "$@"
+  exec env DEPLOY_UPDATED=1 "$0" "$@"
 fi
+
+# exec 后再次 sync，确保构建用的是目标分支最新 commit
+sync_repo
 
 export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
 export IMAGE_TAG="${IMAGE_TAG:-$(TZ="${TZ:-Asia/Shanghai}" date +%Y%m%d-%H%M%S)}"
