@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # 在 VPS 上执行：拉代码 → 顺序构建 → 重启 → 清理悬空镜像
 # 用法: ./scripts/deploy.sh [branch]
+#
+# 多环境并行（dev + master 同时运行）：
+#   - dev    → .env，Compose 项目 ai-chat-notion-dev，默认端口 web 8080 / server 4000
+#   - master → .env.test，Compose 项目 ai-chat-notion-master，默认端口 web 3000 / server 5000
+#   两套容器通过 COMPOSE_PROJECT_NAME 隔离网络，镜像 tag 默认与分支 slug 一致
 set -euo pipefail
 
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,7 +38,6 @@ fi
 sync_repo
 
 export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
-export IMAGE_TAG="${IMAGE_TAG:-$(TZ="${TZ:-Asia/Shanghai}" date +%Y%m%d-%H%M%S)}"
 # Docker 容器名只允许 [a-zA-Z0-9][a-zA-Z0-9_.-]*；feature/foo → feature-foo
 DEPLOY_BRANCH_SLUG="$(
   echo "$BRANCH" |
@@ -49,7 +53,37 @@ if [ -z "$DEPLOY_BRANCH_SLUG" ]; then
 fi
 export DEPLOY_BRANCH_SLUG
 
-echo "==> Deploy ${DEPLOY_DIR} (branch: ${BRANCH}, slug: ${DEPLOY_BRANCH_SLUG}, image tag: ${IMAGE_TAG})"
+# 按分支选择 env 文件、Compose 项目名（允许环境变量覆盖）
+case "$DEPLOY_BRANCH_SLUG" in
+  dev)
+    ENV_FILE="${ENV_FILE:-.env}"
+    COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-ai-chat-notion-dev}"
+    ;;
+  master | main)
+    ENV_FILE="${ENV_FILE:-.env.test}"
+    COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-ai-chat-notion-master}"
+    ;;
+  *)
+    ENV_FILE="${ENV_FILE:-.env}"
+    COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-ai-chat-notion-${DEPLOY_BRANCH_SLUG}}"
+    ;;
+esac
+export ENV_FILE
+export COMPOSE_ENV_FILE="$ENV_FILE"
+export COMPOSE_PROJECT_NAME
+# 默认用分支 slug 作为镜像 tag，避免 dev/master 互相覆盖
+export IMAGE_TAG="${IMAGE_TAG:-$DEPLOY_BRANCH_SLUG}"
+
+compose() {
+  docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT_NAME" "$@"
+}
+
+echo "==> Deploy ${DEPLOY_DIR}"
+echo "    branch: ${BRANCH}"
+echo "    slug: ${DEPLOY_BRANCH_SLUG}"
+echo "    env file: ${ENV_FILE}"
+echo "    compose project: ${COMPOSE_PROJECT_NAME}"
+echo "    image tag: ${IMAGE_TAG}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: docker not found" >&2
@@ -61,27 +95,33 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f .env ]; then
-  echo "ERROR: .env not found — copy dokploy.env.example and configure secrets" >&2
+if [ ! -f "$ENV_FILE" ]; then
+  echo "ERROR: ${ENV_FILE} not found — copy dokploy.env.example (dev) or .env.test.example (master)" >&2
   exit 1
 fi
 
 echo "==> Build server (COMPOSE_PARALLEL_LIMIT=${COMPOSE_PARALLEL_LIMIT})"
-docker compose build --pull server
+compose build --pull server
 
 echo "==> Build web"
-docker compose build web
+compose build web
 
 echo "==> Restart containers"
-docker compose up -d --remove-orphans
+compose up -d --remove-orphans
 
-echo "==> Remove old project images (keep ${IMAGE_TAG})"
+echo "==> Remove old images for ${COMPOSE_PROJECT_NAME} (keep tag ${IMAGE_TAG})"
 for repo in ai-chat-notion-server ai-chat-notion-web; do
   docker images "$repo" --format '{{.Repository}}:{{.Tag}}' | while IFS= read -r img; do
     tag="${img#*:}"
-    if [ "$tag" != "$IMAGE_TAG" ]; then
-      docker rmi "$img" 2>/dev/null || true
+    if [ "$tag" = "$IMAGE_TAG" ]; then
+      continue
     fi
+    # 只清理同分支的历史 tag（形如 dev-20250624-120000），不影响另一套环境
+    case "$tag" in
+      "${DEPLOY_BRANCH_SLUG}" | "${DEPLOY_BRANCH_SLUG}"-*)
+        docker rmi "$img" 2>/dev/null || true
+        ;;
+    esac
   done
 done
 
@@ -91,5 +131,5 @@ docker image prune -f
 echo "==> Prune stale build cache"
 docker builder prune -f --filter "until=24h" 2>/dev/null || docker builder prune -f
 
-echo "==> Done"
-docker compose ps
+echo "==> Done (${COMPOSE_PROJECT_NAME})"
+compose ps

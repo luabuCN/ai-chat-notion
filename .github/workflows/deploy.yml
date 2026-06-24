@@ -6,7 +6,6 @@ on:
       - main
       - master
       - dev
-      - docker-local
   workflow_dispatch:
 
 concurrency:
