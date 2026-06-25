@@ -34,12 +34,10 @@ COPY apps/server ./apps/server
 
 RUN pnpm --filter @repo/database exec prisma generate \
   && mkdir -p /prisma-artifacts \
-  && if [ -d node_modules/.prisma ]; then \
-       cp -a node_modules/.prisma /prisma-artifacts/; \
-     else \
-       PRISMA_DIR="$(find /app/node_modules -path '*/node_modules/.prisma' -type d | head -1)" \
-       && cp -a "$PRISMA_DIR" /prisma-artifacts/.prisma; \
-     fi
+  && PRISMA_CLIENT="$(find /app/node_modules -path '*/.prisma/client/default.js' -type f | head -1)" \
+  && PRISMA_DIR="$(dirname "$(dirname "$PRISMA_CLIENT")")" \
+  && cp -a "$PRISMA_DIR" /prisma-artifacts/.prisma \
+  && test -f /prisma-artifacts/.prisma/client/default.js
 RUN pnpm --filter @repo/database build
 RUN pnpm --filter @repo/ai build
 RUN pnpm --filter @repo/server exec tsc --skipLibCheck
@@ -78,7 +76,23 @@ COPY --from=base /app/apps/server/dist ./apps/server/dist
 COPY --from=base /app/apps/server/package.json ./apps/server/
 
 # Reuse Prisma Client from the build stage — avoids a second download from binaries.prisma.sh.
-COPY --from=base /prisma-artifacts/.prisma ./node_modules/.prisma
+# pnpm nests @prisma/client under .pnpm/.../node_modules; root node_modules/.prisma alone is not enough.
+COPY --from=base /prisma-artifacts/.prisma /tmp/prisma-generated/.prisma
+RUN set -e; \
+  ARTIFACT="/tmp/prisma-generated/.prisma"; \
+  if [ ! -f "$ARTIFACT/client/default.js" ]; then \
+    echo "Missing Prisma client artifacts from build stage" >&2; \
+    exit 1; \
+  fi; \
+  mkdir -p node_modules/.prisma; \
+  cp -a "$ARTIFACT"/. node_modules/.prisma/; \
+  find node_modules -path '*/node_modules/@prisma/client/package.json' -type f | while read -r pkg; do \
+    target="$(dirname "$(dirname "$pkg")")/.prisma"; \
+    rm -rf "$target"; \
+    cp -a "$ARTIFACT" "$target"; \
+  done; \
+  rm -rf /tmp/prisma-generated; \
+  find node_modules -path '*/.prisma/client/default.js' -type f | grep -q .
 RUN rm -rf /root/.cache /root/.npm \
   && (test -x node_modules/.bin/prisma \
     || find node_modules -path '*/prisma/build/index.js' -type f | grep -q .)
