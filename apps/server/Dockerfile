@@ -76,7 +76,8 @@ COPY --from=base /app/apps/server/dist ./apps/server/dist
 COPY --from=base /app/apps/server/package.json ./apps/server/
 
 # Reuse Prisma Client from the build stage — avoids a second download from binaries.prisma.sh.
-# pnpm nests @prisma/client under .pnpm/.../node_modules; root node_modules/.prisma alone is not enough.
+# pnpm generates into <store>/@prisma+client.../node_modules/.prisma (a sibling of the @prisma
+# scope folder). pnpm install recreates a throwing stub there, so overwrite that exact location.
 COPY --from=base /prisma-artifacts/.prisma /tmp/prisma-generated/.prisma
 RUN set -e; \
   ARTIFACT="/tmp/prisma-generated/.prisma"; \
@@ -84,14 +85,18 @@ RUN set -e; \
     echo "Missing Prisma client artifacts from build stage" >&2; \
     exit 1; \
   fi; \
-  mkdir -p node_modules/.prisma; \
-  cp -a "$ARTIFACT"/. node_modules/.prisma/; \
-  find node_modules -path '*/node_modules/@prisma/client/package.json' -type f | while read -r pkg; do \
-    target="$(dirname "$(dirname "$pkg")")/.prisma"; \
-    rm -rf "$target"; \
-    cp -a "$ARTIFACT" "$target"; \
+  COPIED=0; \
+  for client_dir in $(find node_modules -type d -path '*/node_modules/@prisma/client'); do \
+    nm_dir="$(dirname "$(dirname "$client_dir")")"; \
+    rm -rf "$nm_dir/.prisma"; \
+    cp -a "$ARTIFACT" "$nm_dir/.prisma"; \
+    COPIED=$((COPIED + 1)); \
   done; \
   rm -rf /tmp/prisma-generated; \
+  if [ "$COPIED" -eq 0 ]; then \
+    echo "No @prisma/client install location found in node_modules" >&2; \
+    exit 1; \
+  fi; \
   find node_modules -path '*/.prisma/client/default.js' -type f | grep -q .
 RUN rm -rf /root/.cache /root/.npm \
   && (test -x node_modules/.bin/prisma \
