@@ -66,8 +66,8 @@ COPY packages/ai/package.json ./packages/ai/
 COPY apps/server/package.json ./apps/server/
 
 ENV NODE_ENV=production
-RUN --mount=type=cache,id=pnpm-store-server-prod,target=/root/.local/share/pnpm/store \
-  pnpm install --frozen-lockfile --prod --filter @repo/server...
+# Do not use a cache mount here — pnpm symlinks into the store; unmounting the cache breaks node_modules at runtime.
+RUN pnpm install --frozen-lockfile --prod --filter @repo/server...
 
 COPY --from=base /app/packages/database/prisma ./packages/database/prisma
 COPY --from=base /app/packages/database/dist ./packages/database/dist
@@ -79,8 +79,9 @@ COPY --from=base /app/apps/server/package.json ./apps/server/
 
 # Reuse Prisma Client from the build stage — avoids a second download from binaries.prisma.sh.
 COPY --from=base /prisma-artifacts/.prisma ./node_modules/.prisma
-RUN pnpm store prune \
-  && rm -rf /root/.cache /root/.npm /root/.local/share/pnpm/store
+RUN rm -rf /root/.cache /root/.npm \
+  && (test -x node_modules/.bin/prisma \
+    || find node_modules -path '*/prisma/build/index.js' -type f | grep -q .)
 
 COPY docker/entrypoint-server.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
