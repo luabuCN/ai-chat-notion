@@ -16,7 +16,7 @@ RUN npm config set registry ${NPM_REGISTRY} \
   && npm cache clean --force
 WORKDIR /app
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY .npmrc pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
 COPY packages/ai/package.json ./packages/ai/
 COPY packages/database/package.json ./packages/database/
 COPY packages/editor/package.json ./packages/editor/

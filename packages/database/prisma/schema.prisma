@@ -1,6 +1,7 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  // Docker runtime is node:20-alpine (musl). Avoid rhel targets — they re-download from binaries.prisma.sh on every prod-stage generate.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

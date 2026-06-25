@@ -23,28 +23,56 @@ const SERVER_API_PREFIXES = [
   "/api/notifications",
 ] as const;
 
+/** 流式接口必须走同源 Route Handler 代理，不能重定向到 API_ORIGIN（会绕过防缓冲代理） */
+const STREAMING_API_PREFIXES = [
+  "/api/chat",
+  "/api/ai/openai",
+  "/api/ai/completion",
+  "/api/pdf",
+  "/api/document-import",
+] as const;
+
 export const API_ORIGIN =
   process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/$/, "") || "";
 
-export function isServerApiPath(input: string | URL): boolean {
+function resolvePathname(input: string | URL): string {
   const value = typeof input === "string" ? input : input.href;
-  let pathname: string;
 
   try {
     const base =
       globalThis.location?.origin ?? (API_ORIGIN || "http://localhost");
-    pathname = new URL(value, base).pathname;
+    return new URL(value, base).pathname;
   } catch {
-    pathname = value.split("?")[0]?.split("#")[0] ?? value;
+    return value.split("?")[0]?.split("#")[0] ?? value;
   }
+}
+
+export function isServerApiPath(input: string | URL): boolean {
+  const pathname = resolvePathname(input);
 
   return SERVER_API_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 }
 
+export function isStreamingApiPath(input: string | URL): boolean {
+  const pathname = resolvePathname(input);
+
+  return STREAMING_API_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
 export function apiUrl(path: string | URL): string {
   const value = typeof path === "string" ? path : path.href;
+
+  // 流式接口保持同源，由 app/api/*/route.ts 透传 upstream.body
+  if (isStreamingApiPath(value)) {
+    if (value.startsWith("/")) {
+      return value;
+    }
+    return resolvePathname(value);
+  }
 
   if (!API_ORIGIN || !isServerApiPath(value)) {
     return value;

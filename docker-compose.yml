@@ -17,6 +17,8 @@ services:
       args:
         # 海外 VPS 默认 npm 官方源；国内构建机可设 NPM_REGISTRY=https://registry.npmmirror.com
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+        # 国内 VPS 访问 binaries.prisma.sh 不稳定时可设 PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
+        PRISMA_ENGINES_MIRROR: ${PRISMA_ENGINES_MIRROR:-}
     image: ai-chat-notion-server:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
@@ -84,6 +86,8 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
       NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
       NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
+      # Route Handler 流式代理目标（运行时读取，与 next.config rewrites 一致）
+      API_PROXY_URL: ${API_PROXY_URL:-http://server:4000}
       PORT: 8080
       API_KEY: ${API_KEY:-}
       MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
