@@ -84,6 +84,8 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://127.0.0.1:8080}
       NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://127.0.0.1:4000/collab}
       NEXT_PUBLIC_API_ORIGIN: ${API_ORIGIN:-http://127.0.0.1:4000}
+      # Route Handler 流式代理目标（运行时读取，与 next.config rewrites 一致）
+      API_PROXY_URL: ${API_PROXY_URL:-http://server:4000}
       PORT: 8080
       API_KEY: ${API_KEY:-}
       MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}

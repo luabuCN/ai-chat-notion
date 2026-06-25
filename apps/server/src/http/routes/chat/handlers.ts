@@ -55,6 +55,13 @@ import { updateDocument } from "../../ai/tools/update-document.js";
 import { viewDocument } from "../../ai/tools/view-document.js";
 import { postRequestBodySchema, type PostRequestBody } from "./schema.js";
 
+const SSE_RESPONSE_HEADERS = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache, no-transform",
+  Connection: "keep-alive",
+  "X-Accel-Buffering": "no",
+} as const;
+
 let globalStreamContext: ResumableStreamContext | null = null;
 
 function isMoonshotThinkingModel(modelSlug: string): boolean {
@@ -463,7 +470,9 @@ export async function postChatHandler(c: Context) {
       },
     });
 
-    return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+    return new Response(stream.pipeThrough(new JsonToSseTransformStream()), {
+      headers: SSE_RESPONSE_HEADERS,
+    });
   } catch (error) {
     if (error instanceof ApiError) {
       return error.toResponse();
@@ -620,12 +629,18 @@ export async function getChatStreamHandler(c: Context) {
     const mostRecentMessage = messages.at(-1);
 
     if (!mostRecentMessage || mostRecentMessage.role !== "assistant") {
-      return new Response(emptyDataStream, { status: 200 });
+      return new Response(emptyDataStream, {
+        status: 200,
+        headers: SSE_RESPONSE_HEADERS,
+      });
     }
 
     const messageCreatedAt = new Date(mostRecentMessage.createdAt);
     if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
-      return new Response(emptyDataStream, { status: 200 });
+      return new Response(emptyDataStream, {
+        status: 200,
+        headers: SSE_RESPONSE_HEADERS,
+      });
     }
 
     const restoredStream = createUIMessageStream<ChatMessage>({
@@ -640,9 +655,9 @@ export async function getChatStreamHandler(c: Context) {
 
     return new Response(
       restoredStream.pipeThrough(new JsonToSseTransformStream()),
-      { status: 200 },
+      { status: 200, headers: SSE_RESPONSE_HEADERS },
     );
   }
 
-  return new Response(stream, { status: 200 });
+  return new Response(stream, { status: 200, headers: SSE_RESPONSE_HEADERS });
 }

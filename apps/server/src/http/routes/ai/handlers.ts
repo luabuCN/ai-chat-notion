@@ -147,6 +147,8 @@ export async function openaiHandler(c: Context) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-store",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     });
   }
