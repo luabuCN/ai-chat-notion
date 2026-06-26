@@ -6,11 +6,17 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Workspace } from "./workspace-switcher";
 import { apiFetch } from "@/lib/api-client";
+
+export const workspaceKeys = {
+  all: ["workspaces"] as const,
+};
 
 interface WorkspaceContextValue {
   currentWorkspace: Workspace | null;
@@ -23,14 +29,37 @@ interface WorkspaceContextValue {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
+async function fetchWorkspaces(): Promise<Workspace[]> {
+  const response = await apiFetch("/api/workspaces");
+  if (!response.ok) {
+    throw new Error("Failed to fetch workspaces");
+  }
+  return response.json();
+}
+
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const params = useParams();
   const slug = params?.slug as string | undefined;
+  const queryClient = useQueryClient();
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(
     null
   );
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const currentWorkspaceRef = useRef<Workspace | null>(null);
+
+  const {
+    data: workspaces = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: workspaceKeys.all,
+    queryFn: fetchWorkspaces,
+    staleTime: 60_000,
+    retry: 2,
+  });
+
+  useEffect(() => {
+    currentWorkspaceRef.current = currentWorkspace;
+  }, [currentWorkspace]);
 
   // Sync current workspace with URL slug
   useEffect(() => {
@@ -42,27 +71,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [slug, workspaces, currentWorkspace]);
 
-  const refreshWorkspaces = useCallback(async () => {
-    try {
-      const response = await apiFetch("/api/workspaces");
-      if (response.ok) {
-        const data = await response.json();
-
-        setWorkspaces(data);
-        // 如果没有当前空间，选择第一个
-        if (!currentWorkspace) {
-          const matchingWorkspace = slug
-            ? data.find((w: Workspace) => w.slug === slug)
-            : undefined;
-          setCurrentWorkspace(matchingWorkspace || data[0]);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch workspaces:", error);
-    } finally {
-      setIsLoading(false);
+  // Pick default workspace once list is available
+  useEffect(() => {
+    if (workspaces.length === 0 || currentWorkspaceRef.current) {
+      return;
     }
-  }, [currentWorkspace, slug]);
+
+    const matchingWorkspace = slug
+      ? workspaces.find((w) => w.slug === slug)
+      : undefined;
+    setCurrentWorkspace(matchingWorkspace || workspaces[0]);
+  }, [slug, workspaces]);
+
+  const refreshWorkspaces = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   const switchWorkspace = useCallback(async (workspace: Workspace) => {
     try {
@@ -91,7 +114,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         if (response.ok) {
           const workspace = await response.json();
-          setWorkspaces((prev) => [...prev, workspace]);
+          queryClient.setQueryData<Workspace[]>(workspaceKeys.all, (prev) =>
+            prev ? [...prev, workspace] : [workspace]
+          );
           setCurrentWorkspace(workspace);
           return workspace;
         }
@@ -100,19 +125,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       }
       return null;
     },
-    []
+    [queryClient]
   );
 
   useEffect(() => {
-    refreshWorkspaces();
-  }, [refreshWorkspaces]);
-
-  // 监听外部触发的空间列表刷新（如收到空间权限变更通知时）
-  useEffect(() => {
-    const handler = () => refreshWorkspaces();
+    const handler = () => {
+      void refetch();
+    };
     window.addEventListener("refresh-workspaces", handler);
     return () => window.removeEventListener("refresh-workspaces", handler);
-  }, [refreshWorkspaces]);
+  }, [refetch]);
 
   return (
     <WorkspaceContext.Provider

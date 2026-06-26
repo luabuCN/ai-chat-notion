@@ -81,7 +81,7 @@ function PureChatHeader({ chatId, user }: { chatId: string; user?: User }) {
       <Sheet onOpenChange={setHistoryOpen} open={historyOpen}>
         <SheetContent className="w-80 p-0 sm:max-w-80">
           <SheetTitle className="sr-only">History</SheetTitle>
-          <SidebarHistory user={user} />
+          <SidebarHistory enabled={historyOpen} user={user} />
         </SheetContent>
       </Sheet>
     </>

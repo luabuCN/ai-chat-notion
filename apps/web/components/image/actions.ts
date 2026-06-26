@@ -63,10 +63,14 @@ export function useImageGeneration() {
 
 export function useImageHistory(
   workspaceSlug?: string,
-  scope: "workspace" | "user" = "user"
+  scope: "workspace" | "user" = "user",
+  options?: { enabled?: boolean }
 ) {
+  const enabled = options?.enabled ?? true;
+
   return useQuery({
     queryKey: ["image-history", workspaceSlug, scope],
+    enabled,
     queryFn: async () => {
       const params = new URLSearchParams({ scope, limit: "30" });
       if (workspaceSlug) {

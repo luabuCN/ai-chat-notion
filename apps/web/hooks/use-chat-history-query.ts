@@ -30,7 +30,12 @@ export function buildHistoryUrl(params: {
   return `/api/history?${search.toString()}`;
 }
 
-export function useChatHistoryQuery(workspaceSlug?: string) {
+export function useChatHistoryQuery(
+  workspaceSlug?: string,
+  options?: { enabled?: boolean }
+) {
+  const enabled = options?.enabled ?? true;
+
   return useInfiniteQuery({
     queryKey: chatHistoryQueryKey(workspaceSlug),
     initialPageParam: null as string | null,
@@ -44,6 +49,7 @@ export function useChatHistoryQuery(workspaceSlug?: string) {
       }
       return lastPage.chats.at(-1)?.id ?? undefined;
     },
+    enabled,
   });
 }
 

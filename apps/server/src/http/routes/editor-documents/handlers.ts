@@ -266,7 +266,14 @@ export async function getAllDocumentsHandler(c: Context) {
     // === Top-level query: aggregate three data sources ===
 
     // 1. Workspace documents
-    if (wantFlat && workspaceId) {
+  if (wantFlat && workspaceId) {
+      const sourcesOnly = searchParams.get("sources");
+      const limitParam = searchParams.get("limit");
+      const limit =
+        limitParam && Number.isFinite(Number(limitParam))
+          ? Math.max(1, Number.parseInt(limitParam, 10))
+          : 0;
+
       const workspaceDocsFlat = await prisma.editorDocument.findMany({
         where: {
           workspaceId,
@@ -284,7 +291,31 @@ export async function getAllDocumentsHandler(c: Context) {
           coverImagePosition: true,
         },
         orderBy: { updatedAt: "desc" },
+        ...(limit > 0 ? { take: limit } : {}),
       });
+
+      // 最近访问等场景只需工作区文档，跳过共享/回收站查询以减轻 DB 压力
+      if (sourcesOnly === "workspace") {
+        for (const doc of workspaceDocsFlat) {
+          result.push({
+            id: doc.id,
+            title: doc.title,
+            icon: doc.icon,
+            parentDocumentId: doc.parentDocumentId,
+            source: "workspace",
+            permission: "edit",
+            ownerName: null,
+            updatedAt: new Date(doc.updatedAt).toISOString(),
+            deletedAt: null,
+            hasChildren: false,
+            isFavorite: doc.isFavorite,
+            coverImage: doc.coverImage,
+            coverImageType: doc.coverImageType,
+            coverImagePosition: doc.coverImagePosition,
+          });
+        }
+        return c.json(result, 200);
+      }
 
       const flatIds = workspaceDocsFlat.map((d) => d.id);
       const childrenCountsFlat =

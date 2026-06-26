@@ -18,9 +18,14 @@ export const documentKeys = {
   allDocsList: (
     workspaceId?: string,
     parentDocumentId?: string,
-    flat?: boolean
+    flat?: boolean,
+    sources?: string,
+    limit?: number
   ) =>
-    [...documentKeys.allDocs(), { workspaceId, parentDocumentId, flat }] as const,
+    [
+      ...documentKeys.allDocs(),
+      { workspaceId, parentDocumentId, flat, sources, limit },
+    ] as const,
 };
 
 // API Functions
@@ -563,10 +568,19 @@ async function permanentDeleteDocument(documentId: string): Promise<void> {
   }
 }
 
-export function useTrashDocuments(workspaceId?: string) {
+export function useTrashDocuments(
+  workspaceId?: string,
+  options?: { enabled?: boolean }
+) {
+  const enabled =
+    options?.enabled !== undefined
+      ? options.enabled
+      : Boolean(workspaceId);
+
   return useQuery({
     queryKey: documentKeys.trash(workspaceId),
     queryFn: () => fetchTrashDocuments(workspaceId),
+    enabled,
   });
 }
 
@@ -624,7 +638,9 @@ export interface AllDocumentItem {
 async function fetchAllDocuments(
   workspaceId?: string,
   parentDocumentId?: string,
-  flat?: boolean
+  flat?: boolean,
+  sources?: string,
+  limit?: number
 ): Promise<AllDocumentItem[]> {
   const params = new URLSearchParams();
   if (workspaceId) {
@@ -635,6 +651,12 @@ async function fetchAllDocuments(
   }
   if (flat) {
     params.append("flat", "true");
+  }
+  if (sources) {
+    params.append("sources", sources);
+  }
+  if (limit && limit > 0) {
+    params.append("limit", String(limit));
   }
   const response = await apiFetch(`/api/editor-documents/all?${params.toString()}`);
   if (!response.ok) {
@@ -647,14 +669,34 @@ async function fetchAllDocuments(
 export function useAllDocuments(
   workspaceId?: string,
   parentDocumentId?: string,
-  options?: { flat?: boolean; enabled?: boolean }
+  options?: {
+    flat?: boolean;
+    enabled?: boolean;
+    sources?: string;
+    limit?: number;
+  }
 ) {
   const flat = options?.flat ?? false;
+  const sources = options?.sources;
+  const limit = options?.limit;
   const queryEnabled =
     options?.enabled !== undefined ? options.enabled : Boolean(workspaceId);
   return useQuery({
-    queryKey: documentKeys.allDocsList(workspaceId, parentDocumentId, flat),
-    queryFn: () => fetchAllDocuments(workspaceId, parentDocumentId, flat),
+    queryKey: documentKeys.allDocsList(
+      workspaceId,
+      parentDocumentId,
+      flat,
+      sources,
+      limit
+    ),
+    queryFn: () =>
+      fetchAllDocuments(
+        workspaceId,
+        parentDocumentId,
+        flat,
+        sources,
+        limit
+      ),
     enabled: queryEnabled,
   });
 }

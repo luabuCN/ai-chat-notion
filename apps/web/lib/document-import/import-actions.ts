@@ -16,8 +16,8 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { toast } from "sonner";
-import useSWR from "swr";
 import { documentKeys } from "@/hooks/use-document-query";
+import { useWorkspace } from "@/components/workspace-provider";
 import { apiFetch } from "@/lib/api-client";
 import { uploadFileToApi } from "@/lib/file-upload";
 import { htmlToTiptap, markdownToTiptap } from "@repo/editor";
@@ -34,8 +34,6 @@ import {
   isPdfImportFile,
   isSupportedDocumentImport,
 } from "./constants";
-
-type Workspace = { id: string; slug: string; name: string };
 
 type CreatedDoc = { id: string; title: string };
 
@@ -175,15 +173,7 @@ export function useDocumentImportUpload({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-
-  const { data: workspaces } = useSWR<Workspace[]>(
-    "/api/workspaces",
-    async (url: string) => {
-      const res = await apiFetch(url);
-      if (!res.ok) throw new Error("获取工作区失败");
-      return res.json();
-    }
-  );
+  const { workspaces, currentWorkspace } = useWorkspace();
 
   const handleDocumentImportUpload = useCallback(
     async (file: File): Promise<void> => {
@@ -202,9 +192,11 @@ export function useDocumentImportUpload({
         const title = getDocumentTitleFromFileName(file.name);
 
         const workspaceId =
-          workspaceSlug && workspaces
-            ? (workspaces.find((w) => w.slug === workspaceSlug)?.id ?? null)
-            : null;
+          workspaceSlug && workspaces.length > 0
+            ? (workspaces.find((w) => w.slug === workspaceSlug)?.id ??
+              currentWorkspace?.id ??
+              null)
+            : (currentWorkspace?.id ?? null);
 
         const doc = await createDocument(title, workspaceId);
 
@@ -246,7 +238,7 @@ export function useDocumentImportUpload({
         );
       }
     },
-    [workspaceSlug, workspaces, router, queryClient]
+    [workspaceSlug, workspaces, currentWorkspace?.id, router, queryClient]
   );
 
   return { handleDocumentImportUpload };

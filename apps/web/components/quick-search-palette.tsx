@@ -24,13 +24,13 @@ import {
   useAllDocuments,
 } from "@/hooks/use-document-query";
 import { useChatHistoryQuery } from "@/hooks/use-chat-history-query";
+import { useEffectiveWorkspaceSlug } from "@/hooks/use-effective-workspace-slug";
 import type { Chat } from "@repo/database";
 
 export interface QuickSearchPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId: string | undefined;
-  workspaceSlug: string;
 }
 
 type SearchItem =
@@ -41,19 +41,22 @@ export function QuickSearchPalette({
   open,
   onOpenChange,
   workspaceId,
-  workspaceSlug,
 }: QuickSearchPaletteProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { data: chatPages, isLoading: isChatsLoading } =
-    useChatHistoryQuery(workspaceSlug);
+  const workspaceSlug = useEffectiveWorkspaceSlug();
+
+  const { data: chatPages, isLoading: isChatsLoading } = useChatHistoryQuery(
+    workspaceSlug || undefined,
+    { enabled: open && Boolean(workspaceSlug) }
+  );
   const { data: allDocs, isLoading: isDocsLoading } = useAllDocuments(
     workspaceId,
     undefined,
-    { flat: true, enabled: Boolean(workspaceId) && open }
+    { flat: true, enabled: open && Boolean(workspaceId) }
   );
 
   const allChats = useMemo(() => {

@@ -215,7 +215,9 @@ export function Chat({
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
-  const { data: history } = useChatHistoryQuery(workspaceSlug || undefined);
+  const { data: history } = useChatHistoryQuery(workspaceSlug || undefined, {
+    enabled: initialMessages.length > 0 && Boolean(workspaceSlug),
+  });
 
   useEffect(() => {
     if (history?.pages) {
