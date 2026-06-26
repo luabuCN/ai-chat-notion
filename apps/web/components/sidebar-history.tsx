@@ -74,7 +74,13 @@ const groupChatsByDate = (chats: Chat[]): GroupedChats => {
   );
 };
 
-export function SidebarHistory({ user }: { user: User | undefined }) {
+export function SidebarHistory({
+  user,
+  enabled = true,
+}: {
+  user: User | undefined;
+  enabled?: boolean;
+}) {
   const { setOpenMobile } = useSidebar();
   const { id, slug } = useParams();
   const workspaceSlug =
@@ -88,7 +94,9 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useChatHistoryQuery(workspaceSlug || undefined);
+  } = useChatHistoryQuery(workspaceSlug || undefined, {
+    enabled: enabled && Boolean(user) && Boolean(workspaceSlug),
+  });
 
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);

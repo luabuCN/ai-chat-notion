@@ -104,7 +104,8 @@ export function SidebarTrash() {
   }, [touchOpenRowId]);
 
   const { data: trashDocuments, isLoading } = useTrashDocuments(
-    currentWorkspace?.id
+    currentWorkspace?.id,
+    { enabled: isOpen && Boolean(currentWorkspace?.id) }
   );
   const restoreMutation = useRestoreDocument();
   const permanentDeleteMutation = usePermanentDeleteDocument();

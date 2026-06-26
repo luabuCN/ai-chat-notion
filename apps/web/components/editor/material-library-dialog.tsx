@@ -24,7 +24,8 @@ export function MaterialLibraryDialog() {
 
   const { data: history = [], isLoading } = useImageHistory(
     workspaceSlug,
-    workspaceSlug ? "workspace" : "user"
+    workspaceSlug ? "workspace" : "user",
+    { enabled: open }
   );
 
   const handleEvent = useCallback((e: Event) => {

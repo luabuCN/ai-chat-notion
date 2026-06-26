@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ChevronDown, ChevronRight, Users, FileIcon } from "lucide-react";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@repo/ui";
@@ -38,19 +38,19 @@ export function SidebarSharedDocuments() {
     {}
   );
 
-  const isFirstPathFetch = useRef(true);
-
   const fetchSharedDocuments = useCallback(async (silent: boolean) => {
+    if (!currentWorkspace?.id) {
+      return;
+    }
+
     if (!silent) {
       setLoading(true);
     }
     try {
-      const params = new URLSearchParams();
-      if (currentWorkspace?.id) {
-        params.set("workspaceId", currentWorkspace.id);
-      }
-      const url = `/api/editor-documents/shared-with-me${params.toString() ? `?${params}` : ""}`;
-      const response = await apiFetch(url);
+      const params = new URLSearchParams({ workspaceId: currentWorkspace.id });
+      const response = await apiFetch(
+        `/api/editor-documents/shared-with-me?${params.toString()}`
+      );
       if (response.ok) {
         const data = (await response.json()) as SharedDocumentsGroup[];
         setSharedGroups(data);
@@ -74,20 +74,22 @@ export function SidebarSharedDocuments() {
   }, [currentWorkspace?.id]);
 
   useEffect(() => {
-    const silent = !isFirstPathFetch.current;
-    isFirstPathFetch.current = false;
-    void fetchSharedDocuments(silent);
-  }, [pathname, fetchSharedDocuments]);
+    if (!currentWorkspace?.id) {
+      return;
+    }
+
+    void fetchSharedDocuments(false);
+  }, [currentWorkspace?.id, fetchSharedDocuments]);
 
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && currentWorkspace?.id) {
         void fetchSharedDocuments(true);
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [fetchSharedDocuments]);
+  }, [currentWorkspace?.id, fetchSharedDocuments]);
 
   const toggleGroup = (ownerId: string) => {
     setExpandedGroups((prev) => ({
@@ -100,6 +102,10 @@ export function SidebarSharedDocuments() {
     // 他人文档直接跳转到 /editor/[id]，不包含 workspace slug
     router.push(`/editor/${documentId}`);
   };
+
+  if (!currentWorkspace?.id) {
+    return null;
+  }
 
   if (loading) {
     return (

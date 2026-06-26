@@ -180,7 +180,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         open={quickSearchOpen}
         onOpenChange={setQuickSearchOpen}
         workspaceId={currentWorkspace?.id}
-        workspaceSlug={currentWorkspace?.slug ?? workspaces[0]?.slug ?? ""}
       />
     </>
   );

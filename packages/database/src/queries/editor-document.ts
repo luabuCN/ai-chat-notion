@@ -73,6 +73,29 @@ export async function getEditorDocumentById({ id }: { id: string }) {
   }
 }
 
+const editorDocumentListSelect = {
+  id: true,
+  title: true,
+  userId: true,
+  workspaceId: true,
+  parentDocumentId: true,
+  icon: true,
+  coverImage: true,
+  coverImageType: true,
+  coverImagePosition: true,
+  isPublished: true,
+  isPubliclyEditable: true,
+  publicShareToken: true,
+  isFavorite: true,
+  deletedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  lastEditedBy: true,
+  lastEditedByName: true,
+  sourcePdfUrl: true,
+  sourcePageUrl: true,
+} as const;
+
 export async function getEditorDocumentsByUserId({
   userId,
   workspaceId,
@@ -108,6 +131,7 @@ export async function getEditorDocumentsByUserId({
     return await prisma.editorDocument.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      select: editorDocumentListSelect,
     });
   } catch (_error) {
     throw new ChatSDKError(

@@ -175,13 +175,15 @@ export function RecentDocumentsCarousel({
 }: {
   workspaceSlug?: string;
 }) {
-  const { currentWorkspace } = useWorkspace();
+  const { currentWorkspace, isLoading: isWorkspaceLoading } = useWorkspace();
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
   const { data, isLoading } = useAllDocuments(currentWorkspace?.id, undefined, {
     flat: true,
-    enabled: Boolean(currentWorkspace?.id),
+    sources: "workspace",
+    limit: 12,
+    enabled: Boolean(currentWorkspace?.id) && !isWorkspaceLoading,
   });
 
   const updateScrollShadows = useCallback((api: CarouselApi) => {
@@ -231,13 +233,7 @@ export function RecentDocumentsCarousel({
       return [];
     }
 
-    return data
-      .filter((doc) => doc.source === "workspace" && !doc.deletedAt)
-      .toSorted(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      )
-      .slice(0, 12);
+    return data.filter((doc) => doc.source === "workspace" && !doc.deletedAt);
   }, [data]);
 
   if (!isLoading && recentDocuments.length === 0) {
