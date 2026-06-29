@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { app } from "./http/app.js";
 
-export default app;
+if (!(app instanceof Hono)) {
+  throw new Error("Expected a Hono application instance");
+}
 
-// Referenced so the entry module imports `hono` (required by Vercel detection).
-export type HonoEntry = Hono;
+export default app;
