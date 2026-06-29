@@ -1,10 +1,7 @@
+import { resolveServerProxyOrigin } from "./server-proxy-origin";
+
 function getServerOrigin(): string {
-  return (
-    process.env.API_PROXY_URL ||
-    (process.env.NODE_ENV === "production"
-      ? "http://server:4000"
-      : "http://localhost:4000")
-  );
+  return resolveServerProxyOrigin();
 }
 
 function applyStreamingHeaders(headers: Headers): void {

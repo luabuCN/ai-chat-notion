@@ -1,13 +1,11 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { resolveServerProxyOrigin } from "./lib/server-proxy-origin";
+
 const withNextIntl = createNextIntlPlugin();
 
-// Server API 代理目标（rewrites 在构建时求值，Docker/GitHub Actions 构建时通过 ARG API_PROXY_URL 注入）
-const API_PROXY =
-  process.env.API_PROXY_URL ||
-  (process.env.NODE_ENV === "production"
-    ? "http://server:4000"
-    : "http://localhost:4000");
+// rewrites 在 build 时求值：Vercel 分离部署用 API_ORIGIN / API_PROXY_URL；Docker 用 API_PROXY_URL 或 DOCKER_BUILD 内网地址
+const API_PROXY = resolveServerProxyOrigin();
 
 const nextConfig: NextConfig = {
   output: 'standalone',
