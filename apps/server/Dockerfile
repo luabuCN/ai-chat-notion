@@ -111,4 +111,4 @@ ENV TZ=Asia/Shanghai
 EXPOSE 4000
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["node", "apps/server/dist/index.js"]
+CMD ["node", "apps/server/dist/node-server.js"]

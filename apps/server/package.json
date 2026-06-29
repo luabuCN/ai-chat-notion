@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e ../../.env.local -- tsx watch src/index.ts",
+    "dev": "dotenv -e ../../.env.local -- tsx watch src/node-server.ts",
     "build": "pnpm --filter @repo/database build && pnpm --filter @repo/ai build && tsc",
-    "start": "dotenv -e ../../.env.local -- node dist/index.js",
+    "start": "dotenv -e ../../.env.local -- node dist/node-server.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
