@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "dotenv -e ../../.env.local -- tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "pnpm --filter @repo/database build && pnpm --filter @repo/ai build && tsc",
     "start": "dotenv -e ../../.env.local -- node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
