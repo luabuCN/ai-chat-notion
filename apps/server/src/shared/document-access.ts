@@ -1,5 +1,5 @@
 import {
-  getEditorDocumentById,
+  getEditorDocumentMetadataById,
   getWorkspaceMemberPermission,
   prisma,
 } from "@repo/database";
@@ -36,7 +36,7 @@ export async function verifyDocumentAccess(
   options?: { ignoreDeletedAt?: boolean }
 ): Promise<DocumentAccessResult> {
   try {
-    const document = await getEditorDocumentById({ id: documentId });
+    const document = await getEditorDocumentMetadataById({ id: documentId });
 
     // Check if there are collaborators (for determining collab edit availability)
     const collaboratorCount = await prisma.documentCollaborator.count({

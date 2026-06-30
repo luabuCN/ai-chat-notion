@@ -73,8 +73,18 @@ async function createApiMutationError(
   return error;
 }
 
-async function fetchDocument(documentId: string): Promise<EditorDocument> {
-  const response = await apiFetch(`/api/editor-documents/${documentId}`);
+async function fetchDocument(
+  documentId: string,
+  options?: { includeYjsState?: boolean }
+): Promise<EditorDocument> {
+  const params = new URLSearchParams();
+  if (options?.includeYjsState) {
+    params.set("includeYjsState", "1");
+  }
+  const query = params.toString();
+  const response = await apiFetch(
+    `/api/editor-documents/${documentId}${query ? `?${query}` : ""}`
+  );
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const error: FetchDocumentError = {
@@ -250,11 +260,19 @@ export function useSidebarDocuments(
   });
 }
 
-export function useGetDocument(documentId: string | null | undefined) {
+export function useGetDocument(
+  documentId: string | null | undefined,
+  options?: { includeYjsState?: boolean; enabled?: boolean }
+) {
+  const includeYjsState = options?.includeYjsState ?? false;
+  const enabled =
+    options?.enabled !== undefined
+      ? options.enabled
+      : Boolean(documentId);
   return useQuery({
-    queryKey: documentKeys.detail(documentId ?? ""),
-    queryFn: () => fetchDocument(documentId!),
-    enabled: !!documentId, // 只有在有 documentId 时才启用
+    queryKey: [...documentKeys.detail(documentId ?? ""), { includeYjsState }],
+    queryFn: () => fetchDocument(documentId!, { includeYjsState }),
+    enabled: enabled && !!documentId,
   });
 }
 

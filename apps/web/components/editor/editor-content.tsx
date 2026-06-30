@@ -85,7 +85,9 @@ export function EditorContent({
   userAvatarUrl,
   isFullWidth = false,
 }: EditorContentProps) {
-  const { data: document, isLoading, error } = useGetDocument(documentId);
+  const { data: document, isLoading, error } = useGetDocument(documentId, {
+    includeYjsState: false,
+  });
   const updateDocumentMutation = useUpdateDocument();
   const { connectedUsers, setConnectedUsers, setConnectionStatus } = useCollaboration();
   const queryClient = useQueryClient();
@@ -219,6 +221,13 @@ export function EditorContent({
   const useHttpPersistence =
     !shouldConnectCollab || collabPersistenceFallback || isCollabTokenError;
 
+  const { data: documentWithYjs } = useGetDocument(documentId, {
+    includeYjsState: true,
+    enabled: useHttpPersistence && !!document,
+  });
+
+  const effectiveDocument = documentWithYjs ?? document;
+
   const collabServerUrl = useCollabWsUrl();
 
   // 协同配置（null = 本地模式，不连接 WebSocket）
@@ -237,12 +246,13 @@ export function EditorContent({
     if (collabConfig) {
       return null;
     }
-    const raw = (document as { yjsState?: string | null } | undefined)?.yjsState;
+    const raw = (effectiveDocument as { yjsState?: string | null } | undefined)
+      ?.yjsState;
     if (typeof raw === "string" && raw.length > 0) {
       return raw;
     }
     return null;
-  }, [collabConfig, document]);
+  }, [collabConfig, effectiveDocument]);
 
   /** 文档或协同模式切换时需重新等待编辑器就绪（勿把 token 放进 key，避免 token 就绪后整页重挂载） */
   const editorMountKey = useMemo(

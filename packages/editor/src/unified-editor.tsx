@@ -428,10 +428,12 @@ export function UnifiedEditor({
         if (prev) {
           return prev;
         }
+        // 协同尚未完成时不可标记为已同步，否则会误用 HTTP 的 initialContent
+        // 与随后到达的 Yjs 状态合并，造成正文重复并写入数据库。
         setConnectionStatus("disconnected");
         onConnectionStatusChangeRef.current?.("disconnected");
         onDisconnectRef.current?.();
-        return true;
+        return prev;
       });
     }, fallbackMs);
 
@@ -553,35 +555,24 @@ export function UnifiedEditor({
       return;
     }
 
-    if (initialContent) {
-      if (!collabConfig) {
-        const xmlFragment = ydoc.get("default", Y.XmlFragment);
-        if (xmlFragment.length === 0) {
-          // 本地 / HTTP 降级：yjsState 未恢复时再落 content JSON
-          try {
-            const contentJson = JSON.parse(initialContent);
-            editor.commands.setContent(contentJson, { emitUpdate: false });
-          } catch {
-            // 保持空文档并继续展示，避免整页卡住
-          }
-        }
-      } else {
-        const xmlFragment = ydoc.get("default", Y.XmlFragment);
-        const shouldApplyInitialContent =
-          editor.isEmpty || xmlFragment.length === 0;
-
-        if (shouldApplyInitialContent) {
-          try {
-            const contentJson = JSON.parse(initialContent);
-            editor.commands.setContent(contentJson, { emitUpdate: false });
-          } catch {
-            // 保持空文档并继续展示，避免整页卡住
-          }
+    if (collabConfig) {
+      // 协同模式正文只来自 Hocuspocus/Yjs，禁止 setContent 以免与 WS 同步状态合并重复
+      initialContentAppliedRef.current = true;
+    } else if (initialContent) {
+      const xmlFragment = ydoc.get("default", Y.XmlFragment);
+      if (xmlFragment.length === 0) {
+        // 本地 / HTTP 降级：yjsState 未恢复时再落 content JSON
+        try {
+          const contentJson = JSON.parse(initialContent);
+          editor.commands.setContent(contentJson, { emitUpdate: false });
+        } catch {
+          // 保持空文档并继续展示，避免整页卡住
         }
       }
+      initialContentAppliedRef.current = true;
+    } else {
+      initialContentAppliedRef.current = true;
     }
-
-    initialContentAppliedRef.current = true;
     const scheduleReady = () => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {

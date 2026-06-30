@@ -4,6 +4,7 @@ import { gunzipSync } from "node:zlib";
 import {
   createEditorDocument,
   getEditorDocumentById,
+  getEditorDocumentYjsStateById,
   getEditorDocumentsByUserId,
   getWorkspaceBySlug,
   updateEditorDocument,
@@ -780,12 +781,18 @@ export async function getEditorDocumentHandler(c: Context) {
       return new ApiError("forbidden:document").toResponse();
     }
 
-    const { yjsState: yjsStateBuffer, ...documentFields } = document;
+    const { yjsState: _omitYjs, ...documentFields } = document;
+    const includeYjsState = c.req.query("includeYjsState") === "1";
+    let yjsState: string | null = null;
+    if (includeYjsState) {
+      const yjsStateBuffer = await getEditorDocumentYjsStateById({ id });
+      yjsState = serializeYjsStateForApi(yjsStateBuffer);
+    }
 
     return c.json(
       {
         ...documentFields,
-        yjsState: serializeYjsStateForApi(yjsStateBuffer),
+        yjsState,
         accessLevel: access,
         canManage,
         hasCollaborators,

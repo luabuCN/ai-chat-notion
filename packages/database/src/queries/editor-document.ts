@@ -48,6 +48,57 @@ export async function createEditorDocument({
   }
 }
 
+/** 权限校验、路径查询等场景：不加载 yjsState，避免大文档阻塞 DB 与 Node 事件循环 */
+export const editorDocumentMetadataSelect = {
+  id: true,
+  title: true,
+  content: true,
+  userId: true,
+  workspaceId: true,
+  parentDocumentId: true,
+  icon: true,
+  coverImage: true,
+  coverImageType: true,
+  coverImagePosition: true,
+  isPublished: true,
+  isPubliclyEditable: true,
+  publicShareToken: true,
+  isFavorite: true,
+  deletedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  lastEditedBy: true,
+  lastEditedByName: true,
+  sourcePdfUrl: true,
+  sourcePageUrl: true,
+} as const;
+
+export async function getEditorDocumentMetadataById({ id }: { id: string }) {
+  try {
+    const document = await prisma.editorDocument.findUnique({
+      where: { id },
+      select: editorDocumentMetadataSelect,
+    });
+
+    if (!document) {
+      throw new ChatSDKError(
+        "not_found:database",
+        `Editor document with id ${id} not found`
+      );
+    }
+
+    return document as EditorDocument;
+  } catch (error) {
+    if (error instanceof ChatSDKError) {
+      throw error;
+    }
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get editor document metadata by id"
+    );
+  }
+}
+
 export async function getEditorDocumentById({ id }: { id: string }) {
   try {
     const document = await prisma.editorDocument.findUnique({
@@ -69,6 +120,32 @@ export async function getEditorDocumentById({ id }: { id: string }) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get editor document by id"
+    );
+  }
+}
+
+export async function getEditorDocumentYjsStateById({ id }: { id: string }) {
+  try {
+    const row = await prisma.editorDocument.findUnique({
+      where: { id },
+      select: { yjsState: true },
+    });
+
+    if (!row) {
+      throw new ChatSDKError(
+        "not_found:database",
+        `Editor document with id ${id} not found`
+      );
+    }
+
+    return row.yjsState;
+  } catch (error) {
+    if (error instanceof ChatSDKError) {
+      throw error;
+    }
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get editor document yjs state"
     );
   }
 }
