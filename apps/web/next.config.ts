@@ -4,33 +4,27 @@ import { resolveServerProxyOrigin } from "./lib/server-proxy-origin";
 
 const withNextIntl = createNextIntlPlugin();
 
-// rewrites 在 build 时求值：Vercel 分离部署用 API_ORIGIN / API_PROXY_URL；Docker 用 API_PROXY_URL 或 DOCKER_BUILD 内网地址
+const WEB_URL = process.env.WEB_URL?.replace(/\/$/, "") ?? "";
+const API_URL = process.env.API_URL?.replace(/\/$/, "") ?? "";
+
+// rewrites 在 build 时求值，生产环境需设置 API_URL
 const API_PROXY = resolveServerProxyOrigin();
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  env: {
+    NEXT_PUBLIC_WEB_URL: WEB_URL,
+    NEXT_PUBLIC_API_URL: API_URL,
+  },
   reactStrictMode: false,
-  transpilePackages: ["@repo/database","@repo/editor","@repo/ui","@repo/ai"],
-  productionBrowserSourceMaps:false,
-  // 低内存 VPS 构建：限制 webpack 并行度并启用内存优化
+  transpilePackages: ["@repo/database", "@repo/editor", "@repo/ui", "@repo/ai"],
+  productionBrowserSourceMaps: false,
   experimental: {
-    ...(process.env.DOCKER_BUILD === "1" ? { } : {}),
     webpackMemoryOptimizations: true,
-    // 独立 worker 会多占一份 Node 进程内存，低内存机器应关闭
-    webpackBuildWorker: process.env.DOCKER_BUILD === "1" ? false : undefined,
     optimizePackageImports: [
       "lodash",
       "lucide-react",
       "@radix-ui/react-icons",
     ],
-  },
-  webpack: (config, { dev }) => {
-    // Docker 构建禁用 webpack 持久缓存，减少 PackFileCacheStrategy 内存峰值
-    if (process.env.DOCKER_BUILD === "1" && !dev) {
-      config.cache = false;
-      config.parallelism = 1;
-    }
-    return config;
   },
   images: {
     dangerouslyAllowSVG: true,

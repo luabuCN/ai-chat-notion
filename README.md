@@ -232,9 +232,10 @@ pnpm dev:extension
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `NEXT_PUBLIC_HOCUSPOCUS_URL` | 前端 WebSocket 地址 | `ws://localhost:4000/collab` |
 | `SERVER_COLLAB_PATH` | 协同 WebSocket 路径 | `/collab` |
 | `REDIS_URL` | Redis 连接（多实例协同同步） | — |
+
+协同 WebSocket 地址由 `API_URL` 自动推导（如 `https://api.example.com` → `wss://api.example.com/collab`）。
 
 ### 认证
 
@@ -245,13 +246,25 @@ pnpm dev:extension
 | `SMTP_USER` | 邮件发送账号（如 QQ 邮箱） |
 | `SMTP_PASS` | 邮箱 SMTP 授权码（非登录密码） |
 
+### 部署地址
+
+| 变量 | 说明 | 本地默认值 |
+|------|------|------------|
+| `WEB_URL` | 线上 Web 前端地址 | `http://localhost:3000` |
+| `API_URL` | 线上后端 API 地址 | `http://localhost:4000` |
+
+Vercel 分离部署时，web 与 server 两个项目均配置相同的 `WEB_URL` 和 `API_URL`。协同 WebSocket、CORS、API 代理等均由此自动推导，无需额外 URL 变量。
+
 ### 浏览器扩展
 
 在 `apps/extensions/.env` 或根目录配置：
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `WXT_WEB_ORIGIN` | 主站地址，扩展通过此地址代理 API | `http://localhost:3000` |
+| `WXT_WEB_ORIGIN` | 主站地址（本地开发） | `http://localhost:3000` |
+| `WXT_API_ORIGIN` | 后端 API 地址（本地开发） | `http://localhost:4000` |
+
+生产环境扩展构建时，也可使用根目录的 `WEB_URL` / `API_URL`。
 
 ---
 
@@ -279,7 +292,7 @@ pnpm dev:extension
 ### 连接流程
 
 1. 前端调用 `POST /api/collab/token` 获取 JWT Token
-2. 使用 Token 连接 `NEXT_PUBLIC_HOCUSPOCUS_URL` 指定的 WebSocket 地址（默认 `ws://localhost:4000/collab`）
+2. 使用 Token 连接协同 WebSocket（地址由 `API_URL` 推导，默认 `ws://localhost:4000/collab`）
 3. 服务端验证 Token 与文档访问权限后开始协同同步
 
 ### 生产部署注意
@@ -329,7 +342,7 @@ pnpm dev:extension
 ## 浏览器扩展开发
 
 1. 确保主站已启动（`pnpm dev` 或 `pnpm dev:all`）
-2. 在 `apps/extensions/.env` 中设置 `WXT_WEB_ORIGIN=http://localhost:3000`
+2. 在 `apps/extensions/.env` 中设置 `WXT_WEB_ORIGIN=http://localhost:3000`（或使用根目录 `WEB_URL`）
 3. 运行 `pnpm dev:extension`
 4. 在 Chrome 打开 `chrome://extensions`，开启开发者模式，加载 `.output/chrome-mv3`
 
@@ -339,30 +352,28 @@ pnpm dev:extension
 
 ## 部署
 
-### Web 应用
+项目通过 [Vercel](https://vercel.com/) 部署，web 与 server 为两个独立项目。
 
-适用于 [Vercel](https://vercel.com/) 等平台：
+### 环境变量
+
+除数据库、认证等必需变量外，部署只需配置两个 URL：
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `WEB_URL` | 线上 Web 前端地址 | `https://app.example.com` |
+| `API_URL` | 线上后端 API 地址 | `https://api.example.com` |
+
+两个 Vercel 项目（web / server）均设置相同的 `WEB_URL` 和 `API_URL`。
+
+### GitHub Actions
+
+`.github/workflows/build.yml` 在 push / PR 时执行 `pnpm build` 校验构建。可在仓库 Variables 中设置 `WEB_URL` 与 `API_URL` 以匹配生产地址。
+
+### 本地构建
 
 ```bash
 pnpm build
 ```
-
-确保配置所有必需环境变量，并将 `NEXT_PUBLIC_HOCUSPOCUS_URL` 指向生产环境的 WebSocket 地址（如 `wss://your-domain.com/collab`）。
-
-### 后端服务（Docker / Dokploy）
-
-支持 Docker 部署（HTTP API + 协同 WebSocket 同进程）。**server 容器启动时会自动执行 `prisma db push`**，将 `schema.prisma` 全量同步到数据库（与本地 `pnpm db:push` 一致），无需逐表 migration。
-
-```bash
-cd apps/server
-docker build -t ai-chat-notion-server .
-docker run -p 4000:4000 \
-  -e POSTGRES_URL=your-database-url \
-  -e AUTH_SECRET=your-secret \
-  ai-chat-notion-server
-```
-
-若 schema 变更会删除列/表导致数据丢失，需显式设置 `PRISMA_ACCEPT_DATA_LOSS=true` 才会强制推送。
 
 ---
 

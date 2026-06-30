@@ -4,7 +4,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "dist/**", ".output/**"],
-      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
+      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET", "WEB_URL", "API_URL"]
     },
     "dev": {
       "cache": false,
@@ -45,9 +45,8 @@
         "REDIS_URL",
         "API_KEY",
         "MODELSCOPE_API_KEY",
-        "WEB_ORIGIN",
-        "API_ORIGIN",
-        "NEXT_PUBLIC_API_ORIGIN"
+        "WEB_URL",
+        "API_URL"
       ]
     },
     "@repo/server#build": {

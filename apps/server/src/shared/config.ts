@@ -3,14 +3,8 @@ export const serverConfig = {
   collabPath: normalizeCollabPath(
     process.env.SERVER_COLLAB_PATH || "/collab"
   ),
-  webOrigin:
-    process.env.WEB_ORIGIN ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000",
-  apiOrigin:
-    process.env.API_ORIGIN ||
-    process.env.NEXT_PUBLIC_API_ORIGIN ||
-    "http://localhost:4000",
+  webOrigin: process.env.WEB_URL || "http://localhost:3000",
+  apiOrigin: process.env.API_URL || "http://localhost:4000",
   authSecret: process.env.AUTH_SECRET || "",
   apiAuthSecret: process.env.API_AUTH_SECRET || process.env.AUTH_SECRET || "",
   isProduction: process.env.NODE_ENV === "production",

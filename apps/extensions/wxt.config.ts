@@ -8,13 +8,11 @@ import { defineConfig } from "wxt";
 const extensionRoot = path.dirname(fileURLToPath(import.meta.url));
 
 // 主站（登录、extension/api-token、auth-status）；与 apps/web 一致
-const webOrigin = process.env.WXT_WEB_ORIGIN ?? "http://localhost:3000";
-// 业务 API 直连 server（除 extension/* 外）；可与仓库根 API_ORIGIN 对齐
+const webOrigin =
+  process.env.WXT_WEB_ORIGIN ?? process.env.WEB_URL ?? "http://localhost:3000";
+// 业务 API 直连 server（除 extension/* 外）；可与仓库根 API_URL 对齐
 const apiOrigin =
-  process.env.WXT_API_ORIGIN ??
-  process.env.API_ORIGIN ??
-  process.env.NEXT_PUBLIC_API_ORIGIN ??
-  "http://localhost:4000";
+  process.env.WXT_API_ORIGIN ?? process.env.API_URL ?? "http://localhost:4000";
 
 function resolveChromeBinary(): string {
   if (process.env.WXT_CHROME_BINARY) {

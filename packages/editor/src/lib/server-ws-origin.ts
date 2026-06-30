@@ -12,12 +12,7 @@ function getBrowserWsBase(): string {
 }
 
 function getConfiguredWsBase(): string | undefined {
-  const fromWsOrigin = process.env.NEXT_PUBLIC_WS_ORIGIN;
-  if (fromWsOrigin && !isLocalServerOrigin(fromWsOrigin)) {
-    return fromWsOrigin.replace(/\/$/, "");
-  }
-
-  const fromApiOrigin = process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/^http/, "ws");
+  const fromApiOrigin = process.env.NEXT_PUBLIC_API_URL?.replace(/^http/, "ws");
   if (fromApiOrigin && !isLocalServerOrigin(fromApiOrigin)) {
     return fromApiOrigin.replace(/\/$/, "");
   }
@@ -41,9 +36,9 @@ export function resolveServerWsBase(): string {
 
 /** Hocuspocus 协同地址，如 ws://host:4000/collab */
 export function resolveCollabWsUrl(): string {
-  const configuredUrl = process.env.NEXT_PUBLIC_HOCUSPOCUS_URL;
-  if (configuredUrl && !isLocalServerOrigin(configuredUrl)) {
-    return configuredUrl;
+  const wsBase = getConfiguredWsBase();
+  if (wsBase) {
+    return `${wsBase}/collab`;
   }
 
   if (typeof globalThis.location !== "undefined") {
@@ -52,7 +47,7 @@ export function resolveCollabWsUrl(): string {
 
   try {
     const appUrl = new URL(
-      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:8080"
+      process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000"
     );
     appUrl.protocol = appUrl.protocol.replace("http", "ws");
     appUrl.port = String(SERVER_WS_PORT);

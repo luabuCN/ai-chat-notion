@@ -24,13 +24,15 @@ export const serverCors = cors({
       return origin;
     }
 
+    // 本地前端 + 远程后端：允许 localhost 跨域（WebSocket 等直连场景）
+    if (
+      origin.startsWith("http://localhost:") ||
+      origin.startsWith("http://127.0.0.1:")
+    ) {
+      return origin;
+    }
+
     if (!serverConfig.isProduction) {
-      if (origin.startsWith("http://localhost:")) {
-        return origin;
-      }
-      if (origin.startsWith("http://127.0.0.1:")) {
-        return origin;
-      }
       if (origin.startsWith("chrome-extension://")) {
         return origin;
       }

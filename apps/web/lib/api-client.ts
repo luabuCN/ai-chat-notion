@@ -23,7 +23,7 @@ const SERVER_API_PREFIXES = [
   "/api/notifications",
 ] as const;
 
-/** 流式接口必须走同源 Route Handler 代理，不能重定向到 API_ORIGIN（会绕过防缓冲代理） */
+/** 流式接口必须走同源 Route Handler 代理，不能重定向到后端地址（会绕过防缓冲代理） */
 const STREAMING_API_PREFIXES = [
   "/api/chat",
   "/api/ai/openai",
@@ -33,7 +33,63 @@ const STREAMING_API_PREFIXES = [
 ] as const;
 
 export const API_ORIGIN =
-  process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/$/, "") || "";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+/**
+ * 本地 dev + 远程 API：Next rewrites 由 Node 发起，常因网络无法访问 Vercel 而 ETIMEDOUT。
+ * 浏览器直连远程 API，并通过同源 /api/extension/api-token 换取 Bearer 鉴权。
+ */
+export function isRemoteBackendDevMode(): boolean {
+  if (typeof globalThis.location === "undefined" || !API_ORIGIN) {
+    return false;
+  }
+
+  if (!isLocalHostname(globalThis.location.hostname)) {
+    return false;
+  }
+
+  try {
+    return !isLocalHostname(new URL(API_ORIGIN).hostname);
+  } catch {
+    return false;
+  }
+}
+
+let cachedBearerToken: { token: string; expiresAt: number } | null = null;
+
+async function getApiBearerToken(): Promise<string | null> {
+  const now = Date.now();
+  if (cachedBearerToken && cachedBearerToken.expiresAt > now + 30_000) {
+    return cachedBearerToken.token;
+  }
+
+  const response = await fetch("/api/extension/api-token", {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!response.ok) {
+    cachedBearerToken = null;
+    return null;
+  }
+
+  const data = (await response.json()) as {
+    token?: string;
+    expiresIn?: number;
+  };
+  if (!data.token) {
+    return null;
+  }
+
+  cachedBearerToken = {
+    token: data.token,
+    expiresAt: now + (data.expiresIn ?? 900) * 1000,
+  };
+  return data.token;
+}
 
 function resolvePathname(input: string | URL): string {
   const value = typeof input === "string" ? input : input.href;
@@ -45,6 +101,14 @@ function resolvePathname(input: string | URL): string {
   } catch {
     return value.split("?")[0]?.split("#")[0] ?? value;
   }
+}
+
+function resolveServerApiPath(input: string | URL): string {
+  const value = typeof input === "string" ? input : input.href;
+  if (value.startsWith("/")) {
+    return value;
+  }
+  return resolvePathname(value);
 }
 
 export function isServerApiPath(input: string | URL): boolean {
@@ -65,25 +129,34 @@ export function isStreamingApiPath(input: string | URL): boolean {
 
 export function apiUrl(path: string | URL): string {
   const value = typeof path === "string" ? path : path.href;
+  const pathname = resolveServerApiPath(path);
 
-  // 流式接口保持同源，由 app/api/*/route.ts 透传 upstream.body
   if (isStreamingApiPath(value)) {
-    if (value.startsWith("/")) {
-      return value;
+    if (isRemoteBackendDevMode()) {
+      return `${API_ORIGIN}${pathname}`;
     }
-    return resolvePathname(value);
+    return pathname;
   }
 
-  if (!API_ORIGIN || !isServerApiPath(value)) {
+  if (!isServerApiPath(value)) {
     return value;
   }
 
-  if (value.startsWith("/")) {
-    return `${API_ORIGIN}${value}`;
+  if (isRemoteBackendDevMode()) {
+    return `${API_ORIGIN}${pathname}`;
   }
 
-  const url = new URL(value);
-  return `${API_ORIGIN}${url.pathname}${url.search}${url.hash}`;
+  // 浏览器端走同源，经 Next rewrites 代理并携带 session cookie
+  if (typeof globalThis.location !== "undefined") {
+    return pathname;
+  }
+
+  // SSR / Route Handler：直连后端
+  if (!API_ORIGIN) {
+    return pathname;
+  }
+
+  return `${API_ORIGIN}${pathname}`;
 }
 
 const INTERNAL_API_CAUSE_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -110,9 +183,21 @@ export async function apiFetch(
   init?: RequestInit
 ): Promise<Response> {
   const target = apiUrl(input);
-  const shouldIncludeCredentials = isServerApiPath(input);
+  const headers = new Headers(init?.headers);
+  const remoteDev = isRemoteBackendDevMode() && isServerApiPath(input);
+
+  if (remoteDev) {
+    const token = await getApiBearerToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  const shouldIncludeCredentials = isServerApiPath(input) && !remoteDev;
+
   return fetch(target, {
     ...init,
+    headers,
     credentials: shouldIncludeCredentials ? "include" : init?.credentials,
   });
 }
