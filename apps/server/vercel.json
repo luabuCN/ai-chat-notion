@@ -4,7 +4,7 @@
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
   "functions": {
-    "src/index.ts": {
+    "dist/index.js": {
       "maxDuration": 300
     }
   }
