@@ -2,6 +2,10 @@ import type { IncomingMessage } from "node:http";
 import type { WebSocket } from "ws";
 import jwt from "jsonwebtoken";
 import type { ApiTokenPayload } from "../shared/auth.js";
+import {
+  isNotificationRedisEnabled,
+  publishNotificationBroadcast,
+} from "./notification-redis.js";
 
 // Global singleton connection pool: userId -> Set<WebSocket>
 const pool = new Map<string, Set<WebSocket>>();
@@ -28,7 +32,7 @@ export function getConnections(userId: string): Set<WebSocket> {
   return pool.get(userId) ?? new Set();
 }
 
-export function broadcast(userId: string, data: object): void {
+export function deliverToLocalConnections(userId: string, data: object): void {
   const conns = getConnections(userId);
   const message = JSON.stringify(data);
   for (const ws of conns) {
@@ -36,6 +40,15 @@ export function broadcast(userId: string, data: object): void {
       ws.send(message);
     }
   }
+}
+
+export function broadcast(userId: string, data: object): void {
+  if (isNotificationRedisEnabled()) {
+    publishNotificationBroadcast(userId, data);
+    return;
+  }
+
+  deliverToLocalConnections(userId, data);
 }
 
 /**
