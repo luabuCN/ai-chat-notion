@@ -18,11 +18,12 @@ function normalizeCollabPath(path: string) {
   return withLeadingSlash;
 }
 
+/** Must stay aligned with apps/web/lib/constants.ts `isLocalHttpEnvironment`. */
 export function isLocalHttpEnvironment() {
-  return (
-    process.env.AUTH_TRUST_HOST === "true" ||
-    serverConfig.webOrigin.startsWith("http://") ||
-    serverConfig.webOrigin.startsWith("http://localhost") ||
-    serverConfig.webOrigin.startsWith("http://127.0.0.1")
-  );
+  return process.env.AUTH_TRUST_HOST === "true";
+}
+
+/** Must stay aligned with apps/web/middleware.ts getToken secureCookie flag. */
+export function usesSecureSessionCookie() {
+  return serverConfig.isProduction && !isLocalHttpEnvironment();
 }

@@ -1,6 +1,6 @@
 import { getToken } from "next-auth/jwt";
 import jwt from "jsonwebtoken";
-import { serverConfig, isLocalHttpEnvironment } from "./config.js";
+import { serverConfig, usesSecureSessionCookie } from "./config.js";
 
 export interface AuthUser {
   id: string;
@@ -74,7 +74,7 @@ export async function getSessionFromRequest(
   const token = await getToken({
     req: request as any,
     secret: serverConfig.authSecret,
-    secureCookie: serverConfig.isProduction && !isLocalHttpEnvironment(),
+    secureCookie: usesSecureSessionCookie(),
   });
 
   if (!token) {
