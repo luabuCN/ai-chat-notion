@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { User } from "next-auth";
 
 import { ImageIcon } from "@/components/icons";
@@ -31,6 +32,38 @@ import {
   useSidebar,
 } from "@repo/ui";
 
+function SidebarNavLink({
+  href,
+  isActive,
+  onNavigate,
+  children,
+}: {
+  href: string | null;
+  isActive: boolean;
+  onNavigate: () => void;
+  children: ReactNode;
+}) {
+  if (!href) {
+    return (
+      <SidebarMenuButton isActive={isActive} disabled>
+        {children}
+      </SidebarMenuButton>
+    );
+  }
+
+  return (
+    <SidebarMenuButton asChild isActive={isActive}>
+      <Link
+        href={href}
+        onClick={onNavigate}
+        className="no-underline text-sidebar-foreground [&_svg]:text-sidebar-foreground hover:text-sidebar-accent-foreground hover:[&_svg]:text-sidebar-accent-foreground"
+      >
+        {children}
+      </Link>
+    </SidebarMenuButton>
+  );
+}
+
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -42,37 +75,23 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   const isImageActive = /\/[^\/]+\/image(\/|$)/.test(pathname ?? "");
   const isDocumentsActive = /\/[^\/]+\/documents(\/|$)/.test(pathname ?? "");
 
-  const activeSlug = currentWorkspace?.slug ?? workspaces[0]?.slug;
+  const activeSlug = currentWorkspace?.slug ?? workspaces[0]?.slug ?? null;
 
-  const prefetchPaths = useMemo(
-    () =>
-      activeSlug
-        ? [
-            `/${activeSlug}/chat`,
-            `/${activeSlug}/image`,
-            `/${activeSlug}/documents`,
-          ]
-        : [],
-    [activeSlug],
-  );
-
-  useEffect(() => {
-    for (const path of prefetchPaths) {
-      router.prefetch(path);
-    }
-  }, [router, prefetchPaths]);
+  const closeMobileSidebar = () => {
+    setOpenMobile(false);
+  };
 
   const handleWorkspaceSwitch = (workspace: Workspace) => {
     router.push(`/${workspace.slug}/chat`);
     router.refresh();
   };
+
   return (
     <>
       <Sidebar className="group-data-[side=left]:border-r-0">
         <SidebarHeader>
           <SidebarMenu>
             <div className="flex flex-row items-center justify-between">
-              {/* 空间切换器 - 登录用户始终显示 */}
               {user && (
                 <WorkspaceSwitcher
                   currentWorkspace={currentWorkspace}
@@ -97,7 +116,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   <SidebarMenuButton
                     isActive={false}
                     onClick={() => {
-                      setOpenMobile(false);
+                      closeMobileSidebar();
                       setQuickSearchOpen(true);
                     }}
                   >
@@ -106,65 +125,34 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton
+                  <SidebarNavLink
+                    href={activeSlug ? `/${activeSlug}/chat` : null}
                     isActive={isChatActive}
-                    onMouseEnter={() => {
-                      if (activeSlug) router.prefetch(`/${activeSlug}/chat`);
-                    }}
-                    onClick={() => {
-                      setOpenMobile(false);
-                      if (currentWorkspace) {
-                        router.push(`/${currentWorkspace.slug}/chat`);
-                      } else if (workspaces.length > 0) {
-                        router.push(`/${workspaces[0].slug}/chat`);
-                      }
-                      router.refresh();
-                    }}
+                    onNavigate={closeMobileSidebar}
                   >
                     <Sparkles />
                     <span>AI 灵感助手</span>
-                  </SidebarMenuButton>
+                  </SidebarNavLink>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton
+                  <SidebarNavLink
+                    href={activeSlug ? `/${activeSlug}/image` : null}
                     isActive={isImageActive}
-                    onMouseEnter={() => {
-                      if (activeSlug) router.prefetch(`/${activeSlug}/image`);
-                    }}
-                    onClick={() => {
-                      setOpenMobile(false);
-                      if (currentWorkspace) {
-                        router.push(`/${currentWorkspace.slug}/image`);
-                      } else if (workspaces.length > 0) {
-                        router.push(`/${workspaces[0].slug}/image`);
-                      }
-                      router.refresh();
-                    }}
+                    onNavigate={closeMobileSidebar}
                   >
                     <ImageIcon />
                     <span>AI 创作工坊</span>
-                  </SidebarMenuButton>
+                  </SidebarNavLink>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton
+                  <SidebarNavLink
+                    href={activeSlug ? `/${activeSlug}/documents` : null}
                     isActive={isDocumentsActive}
-                    onMouseEnter={() => {
-                      if (activeSlug)
-                        router.prefetch(`/${activeSlug}/documents`);
-                    }}
-                    onClick={() => {
-                      setOpenMobile(false);
-                      if (currentWorkspace) {
-                        router.push(`/${currentWorkspace.slug}/documents`);
-                      } else if (workspaces.length > 0) {
-                        router.push(`/${workspaces[0].slug}/documents`);
-                      }
-                      router.refresh();
-                    }}
+                    onNavigate={closeMobileSidebar}
                   >
                     <FileText className="size-4" />
                     <span>所有文档</span>
-                  </SidebarMenuButton>
+                  </SidebarNavLink>
                 </SidebarMenuItem>
                 <NotificationCenter />
               </SidebarMenu>

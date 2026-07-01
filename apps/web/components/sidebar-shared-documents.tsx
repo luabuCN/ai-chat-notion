@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ChevronDown, ChevronRight, Users, FileIcon } from "lucide-react";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@repo/ui";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -28,7 +28,6 @@ interface SharedDocumentsGroup {
 }
 
 export function SidebarSharedDocuments() {
-  const router = useRouter();
   const pathname = usePathname();
   const { currentWorkspace } = useWorkspace();
 
@@ -98,11 +97,6 @@ export function SidebarSharedDocuments() {
     }));
   };
 
-  const onRedirect = (documentId: string) => {
-    // 他人文档直接跳转到 /editor/[id]，不包含 workspace slug
-    router.push(`/editor/${documentId}`);
-  };
-
   if (!currentWorkspace?.id) {
     return null;
   }
@@ -166,7 +160,7 @@ export function SidebarSharedDocuments() {
                       <div key={document.id} className="py-0.5">
                         <Item
                           id={document.id}
-                          onClick={() => onRedirect(document.id)}
+                          href={`/editor/${document.id}`}
                           label={document.title}
                           icon={FileIcon}
                           active={

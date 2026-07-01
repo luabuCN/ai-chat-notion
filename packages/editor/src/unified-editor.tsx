@@ -228,6 +228,8 @@ export function UnifiedEditor({
   const connectedUsersSigRef = useRef("");
   /** 递增后使旧 provider 的 onSynced 等异步回调失效，避免 Strict Mode 下丢同步事件 */
   const providerGenerationRef = useRef(0);
+  const wasEverConnectedRef = useRef(false);
+  const httpYjsStateAppliedRef = useRef(false);
   const [isCommentUiEnabled, setIsCommentUiEnabled] = useState(false);
 
   // 连接状态
@@ -288,6 +290,8 @@ export function UnifiedEditor({
 
   useEffect(() => {
     connectedUsersSigRef.current = "";
+    wasEverConnectedRef.current = false;
+    httpYjsStateAppliedRef.current = false;
     setIsWebSocketSynced(!collabConfig);
     setHttpYjsStateApplied(false);
     setIsCommentUiEnabled(false);
@@ -301,6 +305,7 @@ export function UnifiedEditor({
    */
   useEffect(() => {
     if (!collabConfig || !initialYjsStateB64) {
+      httpYjsStateAppliedRef.current = false;
       setHttpYjsStateApplied(false);
       return;
     }
@@ -309,6 +314,7 @@ export function UnifiedEditor({
     } catch {
       // 解码失败时继续等待 WS 同步
     }
+    httpYjsStateAppliedRef.current = true;
     setHttpYjsStateApplied(true);
   }, [collabConfig, initialYjsStateB64, ydoc]);
 
@@ -333,7 +339,14 @@ export function UnifiedEditor({
           const newStatus = s as ConnectionStatus;
           setConnectionStatus(newStatus);
           onConnectionStatusChangeRef.current?.(newStatus);
+          if (s === "connected") {
+            wasEverConnectedRef.current = true;
+          }
           if (s === "disconnected") {
+            // 初始连接受阻时会短暂上报 disconnected，不应立刻触发 HTTP 兜底重挂载。
+            if (!wasEverConnectedRef.current) {
+              return;
+            }
             // 不在此处设置 isWebSocketSynced=true：
             // 协同尚未完成同步就标记为已同步会导致 onEditorReady 提前触发，
             // 骨架层被移除但 ydoc 仍为空，用户看到可编辑的空白文档。
@@ -448,13 +461,17 @@ export function UnifiedEditor({
       setIsWebSocketSynced(true);
     }
 
-    const fallbackMs = 2_000;
+    const fallbackMs = 5_000;
     const fallbackTimer = window.setTimeout(() => {
       if (!isMountedRef.current) {
         return;
       }
       setIsWebSocketSynced((prev) => {
         if (prev) {
+          return prev;
+        }
+        // HTTP yjsState 已预灌且正文可见时，WS 可在后台继续同步，不必强制 HTTP 兜底重挂载。
+        if (httpYjsStateAppliedRef.current) {
           return prev;
         }
         // 协同尚未完成时不可标记为已同步，否则会误用 HTTP 的 initialContent

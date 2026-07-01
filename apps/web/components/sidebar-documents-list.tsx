@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, usePathname, useParams } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { useSidebarDocumentsContext } from "./sidebar-documents-context";
 import Item from "./sidebar-document-item";
 import { FileIcon } from "lucide-react";
@@ -20,7 +20,6 @@ const DocumentsList = ({
   level = 0,
   data,
 }: DocumentsListProps) => {
-  const router = useRouter();
   const pathname = usePathname();
   const params = useParams();
   const workspaceSlug =
@@ -45,12 +44,10 @@ const DocumentsList = ({
   // 当 workspace 还在加载，或者文档还在加载时，都显示加载状态
   const isLoading = isWorkspaceLoading || isDocumentsLoading;
 
-  const onRedirect = (documentId: string) => {
-    const path = effectiveWorkspaceSlug
+  const getDocumentHref = (documentId: string) =>
+    effectiveWorkspaceSlug
       ? `/${effectiveWorkspaceSlug}/editor/${documentId}`
       : `/editor/${documentId}`;
-    router.push(path);
-  };
 
   // 使用传入的 data 或从 hook 获取的数据
   const displayDocuments = data ?? documents;
@@ -109,9 +106,7 @@ const DocumentsList = ({
       {displayDocuments.map((document) => {
         // 解码 pathname 以正确匹配含中文的 URL
         const decodedPathname = decodeURIComponent(pathname);
-        const expectedPath = effectiveWorkspaceSlug
-          ? `/${effectiveWorkspaceSlug}/editor/${document.id}`
-          : `/editor/${document.id}`;
+        const expectedPath = getDocumentHref(document.id);
         const isActive =
           decodedPathname === expectedPath ||
           pathname === `/editor/${document.id}`;
@@ -120,7 +115,7 @@ const DocumentsList = ({
           <div key={document.id}>
             <Item
               id={document.id}
-              onClick={() => onRedirect(document.id)}
+              href={getDocumentHref(document.id)}
               label={document.title}
               icon={FileIcon}
               active={isActive}

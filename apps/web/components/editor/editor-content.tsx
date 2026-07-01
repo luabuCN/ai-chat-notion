@@ -256,13 +256,14 @@ export function EditorContent({
     return null;
   }, [effectiveDocument]);
 
-  /** 文档或协同模式切换时需重新等待编辑器就绪（勿把 token 放进 key，避免 token 就绪后整页重挂载） */
+  /**
+   * 文档切换 / 权限变更 / PDF 转换完成时需重挂载编辑器。
+   * 勿把 token 或协同↔本地兜底切换放进 key：后者会误重置骨架层，造成「已渲染→再加载→再渲染」闪烁。
+   */
   const editorMountKey = useMemo(
     () =>
-      `${documentId}:${shouldConnectCollab ? "collab" : "plain"}:${
-        permissionRevoked ? "revoked" : "active"
-      }:e${editorContentEpoch}`,
-    [documentId, editorContentEpoch, permissionRevoked, shouldConnectCollab]
+      `${documentId}:${permissionRevoked ? "revoked" : "active"}:e${editorContentEpoch}`,
+    [documentId, editorContentEpoch, permissionRevoked]
   );
 
   /** 供异步回调读取：关闭协同后仍可能收到「已断开」，此时不应再更新顶栏状态 */
@@ -284,12 +285,13 @@ export function EditorContent({
     if (!shouldConnectCollabRef.current) {
       return;
     }
-    // 仅标记兜底模式，不直接移除骨架层：
-    // collabPersistenceFallback=true 会让 shouldConnectCollab 变为 false →
-    // collabConfig 变为 null → editorMountKey 变化 → 编辑器重挂载为本地模式 →
-    // 使用 initialContent / initialYjsStateB64 恢复正文 → onEditorReady 正常触发 →
-    // 骨架层在内容就绪后才移除。
+    const contentAlreadyVisible = isEditorBodyReadyRef.current;
+    // 切换为 HTTP 兜底：collabConfig 变 null，UnifiedEditor 内部走本地持久化。
+    // 若正文已展示，保持 isEditorBodyReady，避免骨架层二次出现。
     setCollabPersistenceFallback(true);
+    if (contentAlreadyVisible) {
+      setIsEditorBodyReady(true);
+    }
     if (
       !collabFallbackToastShownRef.current &&
       connectedUsersCountRef.current >= 2

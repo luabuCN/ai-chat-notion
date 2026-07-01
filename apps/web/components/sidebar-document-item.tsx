@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Button,
   DropdownMenu,
@@ -8,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Skeleton,
+  useSidebar,
 } from "@repo/ui";
 import {
   cn,
@@ -49,7 +51,7 @@ interface ItemProps {
   level?: number;
   onExpand?: () => void;
   label: string;
-  onClick?: () => void;
+  href?: string;
   icon: LucideIcon;
   canEdit?: boolean;
   isFavorite?: boolean;
@@ -59,7 +61,7 @@ interface ItemProps {
 const Item = ({
   id,
   label,
-  onClick,
+  href,
   icon: Icon,
   active,
   documentIcon,
@@ -89,6 +91,7 @@ const Item = ({
   const duplicateMutation = useDuplicateDocument();
   const moveMutation = useMoveDocument();
   const { setExpanded: forceExpand } = useSidebarDocumentsContext();
+  const { setOpenMobile } = useSidebar();
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -238,73 +241,89 @@ const Item = ({
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
   const isActive = active || isViewingThisDocument;
 
-  return (
+  const rowPadding = {
+    paddingLeft: level ? `${level * 12 + 12}px` : "12px",
+  };
+
+  const rowClassName = cn(
+    "group/item relative flex min-h-[27px] w-full min-w-0 items-center overflow-hidden py-1 text-sm font-medium text-muted-foreground hover:bg-primary/5",
+    isActive && "bg-primary/10 text-primary"
+  );
+
+  const labelClassName = cn(
+    "min-w-0 flex-1 truncate",
+    !!id && canEdit && "group-hover/item:pr-14 group-focus-within/item:pr-14",
+    isDropdownOpen && "pr-14"
+  );
+
+  const iconNode = (
     <div
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
+      role={id ? "button" : undefined}
+      tabIndex={id ? 0 : -1}
+      className={cn(
+        "relative mr-2 h-[18px] w-[18px] shrink-0 text-muted-foreground",
+        id && "cursor-pointer"
+      )}
+      onClick={(event) => {
+        if (!id) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        handleExpand(event);
+      }}
+      onKeyDown={(event) => {
+        if (id && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleExpand(
+            event as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>
+          );
         }
       }}
-      style={{
-        paddingLeft: level ? `${level * 12 + 12}px` : "12px",
-      }}
-      className={cn(
-        "group/item relative flex min-h-[27px] w-full min-w-0 cursor-pointer items-center overflow-hidden py-1 text-sm font-medium text-muted-foreground hover:bg-primary/5",
-        isActive && "bg-primary/10 text-primary"
-      )}
     >
-      <div
-        role={!!id ? "button" : undefined}
-        tabIndex={!!id ? 0 : -1}
-        className={cn(
-          "shrink-0 h-[18px] w-[18px] mr-2 text-muted-foreground relative",
-          !!id && "cursor-pointer"
-        )}
-        onClick={(e) => !!id && handleExpand(e)}
-        onKeyDown={(e) => {
-          if (!!id && (e.key === "Enter" || e.key === " ")) {
-            e.preventDefault();
-            handleExpand(
-              e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>
-            );
-          }
-        }}
-      >
-        {!!id && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity z-10 hover:bg-neutral-300 dark:hover:bg-neutral-600 rounded-sm">
-            <ChevronIcon className="h-4 w-4 text-muted-foreground" />
-          </div>
-        )}
-        <div
-          className={cn(
-            "h-full w-full flex items-center justify-center transition-opacity",
-            !!id && "group-hover/item:opacity-0"
-          )}
-        >
-          {documentIcon ? (
-            <div className="shrink-0">{documentIcon}</div>
-          ) : (
-            <Icon className="shrink-0 h-[18px] w-[18px]" />
-          )}
+      {id ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-neutral-300 group-hover/item:opacity-100 dark:hover:bg-neutral-600">
+          <ChevronIcon className="h-4 w-4 text-muted-foreground" />
         </div>
-      </div>
-
-      <span
+      ) : null}
+      <div
         className={cn(
-          "min-w-0 flex-1 truncate",
-          !!id &&
-            canEdit &&
-            "group-hover/item:pr-14 group-focus-within/item:pr-14",
-          isDropdownOpen && "pr-14"
+          "flex h-full w-full items-center justify-center transition-opacity",
+          id && "group-hover/item:opacity-0"
         )}
-        title={label}
       >
+        {documentIcon ? (
+          <div className="shrink-0">{documentIcon}</div>
+        ) : (
+          <Icon className="h-[18px] w-[18px] shrink-0" />
+        )}
+      </div>
+    </div>
+  );
+
+  const mainContent = (
+    <>
+      {iconNode}
+      <span className={labelClassName} title={label}>
         {label}
       </span>
+    </>
+  );
+
+  return (
+    <div style={rowPadding} className={rowClassName}>
+      {href ? (
+        <Link
+          href={href}
+          className="flex min-w-0 flex-1 cursor-pointer items-center text-sidebar-foreground no-underline [&_svg]:text-sidebar-foreground hover:text-sidebar-accent-foreground hover:[&_svg]:text-sidebar-accent-foreground"
+          onClick={() => setOpenMobile(false)}
+        >
+          {mainContent}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center">{mainContent}</div>
+      )}
       {isSearch && (
         <kbd className="ml-2 pointer-events-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
           <span className=" text-sx">⌘</span>
