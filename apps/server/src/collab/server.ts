@@ -5,7 +5,12 @@ import { WebSocketServer } from "ws";
 import { Logger } from "@hocuspocus/extension-logger";
 import { databaseExtension } from "./extensions/database.js";
 import { getSafeRedisExtension } from "./extensions/redis.js";
-import { verifyToken, verifyDocumentAccess } from "./auth.js";
+import {
+  verifyToken,
+  verifyDocumentAccess,
+  getCachedAccess,
+  setCachedAccess,
+} from "./auth.js";
 
 export type CollabServer = {
   hocuspocus: Hocuspocus;
@@ -58,6 +63,9 @@ export async function createCollabServer(): Promise<CollabServer> {
         payload.userId,
         payload.email
       );
+
+      // 写入权限缓存，供 onChange/store 复用
+      setCachedAccess(documentName, payload.userId, payload.email, access);
 
       if (access === "none") {
         throw new Error("You don't have access to this document");
@@ -112,12 +120,37 @@ export async function createCollabServer(): Promise<CollabServer> {
         return;
       }
 
+      // 先查缓存，命中则跳过 DB 查询
+      const cached = getCachedAccess(documentName, user.id, user.email);
+      if (cached !== null) {
+        if (cached !== "owner" && cached !== "edit") {
+          try {
+            if (
+              transactionOrigin &&
+              typeof transactionOrigin === "object" &&
+              transactionOrigin.webSocket &&
+              typeof transactionOrigin.webSocket.close === "function"
+            ) {
+              transactionOrigin.webSocket.close(4003, "permission_changed");
+            }
+          } catch (closeError) {
+            console.error(
+              `[Auth] Error closing connection for ${documentName}:`,
+              closeError
+            );
+          }
+        }
+        return;
+      }
+
+      // 缓存未命中，查询 DB
       try {
         const { access } = await verifyDocumentAccess(
           documentName,
           user.id,
           user.email
         );
+        setCachedAccess(documentName, user.id, user.email, access);
 
         if (access !== "owner" && access !== "edit") {
           console.warn(

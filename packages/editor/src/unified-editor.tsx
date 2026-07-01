@@ -242,7 +242,12 @@ export function UnifiedEditor({
     [documentId, collabConfig]
   );
 
-  // 创建 Yjs 文档；非协同模式可从 initialYjsStateB64 预灌正文
+  // 创建 Yjs 文档
+  // - 非协同模式：从 initialYjsStateB64 预灌正文（yjsState 变化时重建）
+  // - 协同模式：ydoc 为空壳，yjsState 由下方 useEffect 应用（避免 yjsState 到达时重建 ydoc 导致 WS 重连）
+  const yjsStateSignature = collabConfig
+    ? "collab"
+    : initialYjsStateB64 ?? "empty";
   const ydoc = useMemo(() => {
     const doc = new Y.Doc();
     if (!collabConfig && initialYjsStateB64) {
@@ -253,9 +258,12 @@ export function UnifiedEditor({
       }
     }
     return doc;
-  }, [collabConfig, documentId, initialYjsStateB64]);
+  }, [collabConfig, documentId, yjsStateSignature]);
 
   const [isWebSocketSynced, setIsWebSocketSynced] = useState(!collabConfig);
+
+  /** 协同模式下 HTTP yjsState 是否已应用到 ydoc（用于在 WS 同步前即展示内容） */
+  const [httpYjsStateApplied, setHttpYjsStateApplied] = useState(false);
 
   // 延迟渲染状态
   const [isClientReady, setIsClientReady] = useState(false);
@@ -281,8 +289,28 @@ export function UnifiedEditor({
   useEffect(() => {
     connectedUsersSigRef.current = "";
     setIsWebSocketSynced(!collabConfig);
+    setHttpYjsStateApplied(false);
     setIsCommentUiEnabled(false);
   }, [editorKey, collabConfig]);
+
+  /**
+   * 协同模式下用 HTTP yjsState 预灌 ydoc：
+   * - 在 Provider 创建前执行，使 ydoc 已有内容；
+   * - WS 同步到达后 Yjs CRDT 自动合并（幂等，不重复）；
+   * - 使 onEditorReady 可在 WS 同步前触发，大幅缩短骨架层持续时间。
+   */
+  useEffect(() => {
+    if (!collabConfig || !initialYjsStateB64) {
+      setHttpYjsStateApplied(false);
+      return;
+    }
+    try {
+      Y.applyUpdate(ydoc, decodeBase64ToUint8Array(initialYjsStateB64));
+    } catch {
+      // 解码失败时继续等待 WS 同步
+    }
+    setHttpYjsStateApplied(true);
+  }, [collabConfig, initialYjsStateB64, ydoc]);
 
   /** Provider 必须在 effect 中创建：在 useMemo/render 里建连会触发「未挂载就 setState」警告 */
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
@@ -306,9 +334,10 @@ export function UnifiedEditor({
           setConnectionStatus(newStatus);
           onConnectionStatusChangeRef.current?.(newStatus);
           if (s === "disconnected") {
-            if (collabConfig) {
-              setIsWebSocketSynced(true);
-            }
+            // 不在此处设置 isWebSocketSynced=true：
+            // 协同尚未完成同步就标记为已同步会导致 onEditorReady 提前触发，
+            // 骨架层被移除但 ydoc 仍为空，用户看到可编辑的空白文档。
+            // 由 2 秒兜底定时器触发 onDisconnect → HTTP 兜底流程处理。
             onDisconnectRef.current?.();
           }
         }, 0);
@@ -538,6 +567,9 @@ export function UnifiedEditor({
   const { handleSlashCommand, onDragHandleNodeChange } =
     useSlashCommandTrigger(editor);
 
+  // 内容是否已加载完成（协同同步完成或本地内容已应用）
+  const [isContentLoaded, setIsContentLoaded] = useState(false);
+
   // 应用初始内容
   const initialContentAppliedRef = useRef(false);
   useEffect(() => {
@@ -545,7 +577,10 @@ export function UnifiedEditor({
   }, [editorKey]);
 
   useEffect(() => {
-    const hasFinishedInitialSync = collabConfig ? isWebSocketSynced : true;
+    // 协同模式：WS 同步完成或 HTTP yjsState 已预灌 ydoc 均可展示内容
+    const hasFinishedInitialSync = collabConfig
+      ? isWebSocketSynced || httpYjsStateApplied
+      : true;
 
     if (
       !editor ||
@@ -558,6 +593,7 @@ export function UnifiedEditor({
     if (collabConfig) {
       // 协同模式正文只来自 Hocuspocus/Yjs，禁止 setContent 以免与 WS 同步状态合并重复
       initialContentAppliedRef.current = true;
+      setIsContentLoaded(true);
     } else if (initialContent) {
       const xmlFragment = ydoc.get("default", Y.XmlFragment);
       if (xmlFragment.length === 0) {
@@ -570,8 +606,10 @@ export function UnifiedEditor({
         }
       }
       initialContentAppliedRef.current = true;
+      setIsContentLoaded(true);
     } else {
       initialContentAppliedRef.current = true;
+      setIsContentLoaded(true);
     }
     const scheduleReady = () => {
       requestAnimationFrame(() => {
@@ -590,6 +628,7 @@ export function UnifiedEditor({
     editor,
     initialContent,
     isWebSocketSynced,
+    httpYjsStateApplied,
     ydoc,
     editorKey,
   ]);
@@ -634,12 +673,16 @@ export function UnifiedEditor({
     };
   }, [collabConfig, enableHttpPersistence, ydoc]);
 
-  // 更新编辑器的可编辑状态
+  useEffect(() => {
+    setIsContentLoaded(false);
+  }, [editorKey]);
+
+  // 更新编辑器的可编辑状态：内容未就绪时禁止编辑，避免空白文档可输入
   useEffect(() => {
     if (editor) {
-      editor.setEditable(!readonly);
+      editor.setEditable(!readonly && isContentLoaded);
     }
-  }, [editor, readonly]);
+  }, [editor, readonly, isContentLoaded]);
 
   if (!isClientReady) {
     return null;

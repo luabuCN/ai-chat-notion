@@ -1,9 +1,13 @@
 import { Database } from "@hocuspocus/extension-database";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@repo/database";
 import * as Y from "yjs";
 import { TiptapTransformer } from "@hocuspocus/transformer";
 import { StarterKit } from "@tiptap/starter-kit";
-import { verifyDocumentAccess } from "../auth.js";
+import {
+  verifyDocumentAccess,
+  getCachedAccess,
+  setCachedAccess,
+} from "../auth.js";
 import { Heading } from "@tiptap/extension-heading";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
@@ -15,11 +19,17 @@ import { TaskItem } from "@tiptap/extension-task-item";
 import { UniqueID } from "@tiptap/extension-unique-id";
 import { gzipSync, gunzipSync } from "zlib";
 
-// 直接创建 Prisma 客户端
-const prisma = new PrismaClient();
-
 // 压缩阈值：超过 50KB 的文档启用压缩
 const COMPRESSION_THRESHOLD = 50 * 1024;
+
+// 日志条件化：生产环境关闭详细日志
+const isDev = process.env.NODE_ENV === "development";
+const nativeLog = console.log;
+const debugLog = isDev ? nativeLog : () => {};
+
+// JSON content 更新降频：每 N 次 store 才更新一次 content 字段（yjsState 每次都更新）
+const JSON_UPDATE_INTERVAL = 5;
+const documentStoreCounts = new Map<string, number>();
 
 /**
  * 检测 Buffer 是否为 gzip 压缩格式（检查 magic bytes）
@@ -124,7 +134,7 @@ export const databaseExtension = new Database({
    * 从数据库获取文档
    */
   fetch: async ({ documentName }) => {
-    console.log(`[Database] Fetching document: ${documentName}`);
+    debugLog(`[Database] Fetching document: ${documentName}`);
 
     try {
       const doc = await prisma.editorDocument.findUnique({
@@ -136,7 +146,7 @@ export const databaseExtension = new Database({
       });
 
       if (!doc) {
-        console.log(`[Database] Document ${documentName} not found`);
+        debugLog(`[Database] Document ${documentName} not found`);
         return null;
       }
 
@@ -145,15 +155,15 @@ export const databaseExtension = new Database({
         // 检测并解压缩
         let stateBuffer = Buffer.from(doc.yjsState);
         if (isGzipCompressed(stateBuffer)) {
-          console.log(
+          debugLog(
             `[Database] Decompressing Yjs state for ${documentName}, compressed size: ${stateBuffer.length} bytes`
           );
           stateBuffer = gunzipSync(stateBuffer);
-          console.log(
+          debugLog(
             `[Database] Decompressed size: ${stateBuffer.length} bytes`
           );
         } else {
-          console.log(
+          debugLog(
             `[Database] Found existing Yjs state for ${documentName}, size: ${doc.yjsState.length} bytes`
           );
         }
@@ -189,7 +199,7 @@ export const databaseExtension = new Database({
 
       // 2. 如果没有 Yjs 状态但有 JSON 内容，使用 Transformer 转换
       if (doc.content) {
-        console.log(
+        debugLog(
           `[Database] Converting JSON content to Yjs for ${documentName}`
         );
         try {
@@ -207,7 +217,7 @@ export const databaseExtension = new Database({
           );
 
           const state = Y.encodeStateAsUpdate(ydoc);
-          console.log(
+          debugLog(
             `[Database] Converted Yjs state size: ${state.length} bytes`
           );
           ydoc.destroy();
@@ -220,7 +230,7 @@ export const databaseExtension = new Database({
         }
       }
 
-      console.log(`[Database] No content found for ${documentName}`);
+      debugLog(`[Database] No content found for ${documentName}`);
       return null;
     } catch (error) {
       console.error(
@@ -237,54 +247,71 @@ export const databaseExtension = new Database({
    * 持久化前兜底校验：只有 owner/edit 权限的用户才能触发写入
    */
   store: async ({ documentName, state, context }) => {
-    console.log(`[Database] Storing document: ${documentName}`);
+    debugLog(`[Database] Storing document: ${documentName}`);
 
     // 兜底校验：确认当前用户仍有写权限
     const user = context?.user;
     if (user?.id) {
-      try {
-        const { access } = await verifyDocumentAccess(
-          documentName,
-          user.id,
-          user.email
-        );
-
-        if (access !== "owner" && access !== "edit") {
+      // 先查缓存，命中则跳过 DB 查询
+      const cached = getCachedAccess(documentName, user.id, user.email);
+      if (cached !== null) {
+        if (cached !== "owner" && cached !== "edit") {
           console.warn(
-            `[Database] Skipping persist for ${documentName}: user ${user.id} no longer has write permission (now: ${access})`
+            `[Database] Skipping persist for ${documentName}: user ${user.id} no longer has write permission (now: ${cached})`
           );
           return;
         }
-      } catch (error) {
-        console.error(
-          `[Database] Permission check failed for ${documentName}, skipping persist:`,
-          error
-        );
-        return;
+      } else {
+        // 缓存未命中，查询 DB 并回填缓存
+        try {
+          const { access } = await verifyDocumentAccess(
+            documentName,
+            user.id,
+            user.email
+          );
+          setCachedAccess(documentName, user.id, user.email, access);
+
+          if (access !== "owner" && access !== "edit") {
+            console.warn(
+              `[Database] Skipping persist for ${documentName}: user ${user.id} no longer has write permission (now: ${access})`
+            );
+            return;
+          }
+        } catch (error) {
+          console.error(
+            `[Database] Permission check failed for ${documentName}, skipping persist:`,
+            error
+          );
+          return;
+        }
       }
     }
 
     try {
-      // 1. 恢复 YDoc
-      const ydoc = new Y.Doc();
-      Y.applyUpdate(ydoc, state);
+      // JSON content 更新降频：每 N 次 store 才转换一次 JSON（yjsState 每次都更新）
+      const storeCount = (documentStoreCounts.get(documentName) ?? 0) + 1;
+      documentStoreCounts.set(documentName, storeCount);
+      const shouldUpdateJson = storeCount % JSON_UPDATE_INTERVAL === 0;
 
-      // 2. 转换为 Tiptap JSON (用于 content 字段，保持非协同模式兼容)
+      // 1. 转换为 Tiptap JSON（仅在降频命中时执行，减少 CPU 开销）
       let jsonContent: string | undefined;
-      try {
-        const json = TiptapTransformer.fromYdoc(ydoc, "default");
-        jsonContent = JSON.stringify(json);
-      } catch (e) {
-        console.warn(`[Database] Could not convert Yjs to JSON:`, e);
+      if (shouldUpdateJson) {
+        const ydoc = new Y.Doc();
+        Y.applyUpdate(ydoc, state);
+        try {
+          const json = TiptapTransformer.fromYdoc(ydoc, "default");
+          jsonContent = JSON.stringify(json);
+        } catch (e) {
+          console.warn(`[Database] Could not convert Yjs to JSON:`, e);
+        }
+        ydoc.destroy();
       }
 
-      ydoc.destroy();
-
-      // 3. 更新数据库（大文档启用压缩）
+      // 2. 更新数据库（大文档启用压缩）
       let stateBuffer = Buffer.from(state);
       if (state.length > COMPRESSION_THRESHOLD) {
         const compressedBuffer = gzipSync(stateBuffer);
-        console.log(
+        debugLog(
           `[Database] Compressing large document ${documentName}: ${
             state.length
           } -> ${compressedBuffer.length} bytes (${Math.round(
@@ -307,7 +334,7 @@ export const databaseExtension = new Database({
         },
       });
 
-      console.log(`[Database] Document ${documentName} stored successfully`);
+      debugLog(`[Database] Document ${documentName} stored successfully`);
     } catch (error) {
       console.error(
         `[Database] Error storing document ${documentName}:`,

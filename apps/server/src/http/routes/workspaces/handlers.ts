@@ -28,6 +28,13 @@ import {
   isPermissionChangedError,
   permissionChangedResponse,
 } from "../../../shared/permission-assert.js";
+import {
+  cacheGet,
+  cacheSet,
+  cacheDel,
+  CACHE_KEYS,
+  CACHE_TTL,
+} from "../../../shared/redis-cache.js";
 
 function roleToChinese(role: string | null | undefined): string {
   switch (role) {
@@ -54,6 +61,13 @@ export async function listWorkspacesHandler(c: Context) {
   }
 
   try {
+    // 尝试从缓存读取
+    const cacheKey = CACHE_KEYS.wsList(session.user.id);
+    const cached = await cacheGet<unknown[]>(cacheKey);
+    if (cached) {
+      return c.json(cached);
+    }
+
     let workspaces = await getWorkspacesByUserId({ userId: session.user.id });
 
     // Auto-create default workspace if user has none
@@ -72,6 +86,9 @@ export async function listWorkspacesHandler(c: Context) {
 
       workspaces = [workspace as any];
     }
+
+    // 写入缓存
+    await cacheSet(cacheKey, workspaces, CACHE_TTL.wsList);
 
     return c.json(workspaces);
   } catch (error) {
@@ -116,6 +133,9 @@ export async function createWorkspaceHandler(c: Context) {
       ownerId: session.user.id,
     });
 
+    // 失效工作空间列表缓存
+    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+
     await updateUserCurrentWorkspace({
       userId: session.user.id,
       workspaceId: workspace.id,
@@ -153,6 +173,9 @@ export async function updateWorkspaceHandler(c: Context) {
       icon,
     });
 
+    // 失效工作空间列表缓存
+    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+
     return c.json(workspace);
   } catch (error) {
     console.error("Failed to update workspace:", error);
@@ -181,6 +204,10 @@ export async function deleteWorkspaceHandler(c: Context) {
     }
 
     await deleteWorkspace({ id });
+
+    // 失效工作空间列表缓存
+    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+
     return c.json({ success: true });
   } catch (error) {
     console.error("Failed to delete workspace:", error);
@@ -209,6 +236,9 @@ export async function updateWorkspaceByIdHandler(c: Context) {
       icon,
     });
 
+    // 失效工作空间列表缓存
+    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+
     return c.json(workspace);
   } catch (error) {
     console.error("Failed to update workspace:", error);
@@ -228,6 +258,10 @@ export async function deleteWorkspaceByIdHandler(c: Context) {
   try {
     const id = c.req.param("id")!;
     await deleteWorkspace({ id });
+
+    // 失效工作空间列表缓存
+    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+
     return c.json({ success: true });
   } catch (error) {
     console.error("Failed to delete workspace:", error);
@@ -426,6 +460,9 @@ export async function updateMemberHandler(c: Context) {
       notification,
     });
 
+    // 失效接收者的未读通知计数缓存
+    await cacheDel(CACHE_KEYS.notifUnread(userId));
+
     return c.json(member);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -513,6 +550,9 @@ export async function removeMemberHandler(c: Context) {
       type: "new_notification",
       notification,
     });
+
+    // 失效接收者的未读通知计数缓存
+    await cacheDel(CACHE_KEYS.notifUnread(userId));
 
     return c.json({ success: true });
   } catch (error) {
@@ -603,6 +643,9 @@ export async function createInviteHandler(c: Context) {
       type: "new_notification",
       notification,
     });
+
+    // 失效接收者的未读通知计数缓存
+    await cacheDel(CACHE_KEYS.notifUnread(invitedUser.id));
   }
 
   return c.json({

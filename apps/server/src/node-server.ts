@@ -1,6 +1,7 @@
 import { createListeningHttpServer } from "./bootstrap-http-server.js";
 import { serverConfig } from "./shared/config.js";
 import { closeNotificationBroadcastRedis } from "./ws/notification-redis.js";
+import { closeCacheRedis } from "./shared/redis-cache.js";
 
 console.log("[Server] Starting HTTP API and Collab services...");
 
@@ -23,6 +24,7 @@ async function shutdown() {
   httpServer.close();
   await collabServer.destroy();
   await closeNotificationBroadcastRedis();
+  await closeCacheRedis();
   process.exit(0);
 }
 

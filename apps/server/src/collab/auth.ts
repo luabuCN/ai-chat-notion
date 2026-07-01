@@ -1,12 +1,9 @@
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@repo/database";
 import {
   checkDocumentPermission,
   type DocumentPermissionResult,
 } from "../shared/permissions.js";
-
-// 直接创建 Prisma 客户端，避免导入 @repo/database 的 server-only 依赖
-const prisma = new PrismaClient();
 
 export interface TokenPayload {
   userId: string;
@@ -28,6 +25,50 @@ export interface DocumentAccessResult {
     isPublished: boolean;
     isPubliclyEditable: boolean;
   };
+}
+
+// ─── 权限缓存（onChange/store 高频调用时避免重复 DB 查询） ─────────────────
+const PERMISSION_CACHE_TTL = 30_000; // 30 秒
+const permissionCache = new Map<string, { access: AccessLevel; ts: number }>();
+
+function permissionCacheKey(docId: string, userId?: string, email?: string): string {
+  return `${docId}:${userId ?? ""}:${email ?? ""}`;
+}
+
+/** 查询缓存的权限（命中返回 access，未命中返回 null） */
+export function getCachedAccess(
+  docId: string,
+  userId?: string,
+  email?: string
+): AccessLevel | null {
+  const key = permissionCacheKey(docId, userId, email);
+  const entry = permissionCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > PERMISSION_CACHE_TTL) {
+    permissionCache.delete(key);
+    return null;
+  }
+  return entry.access;
+}
+
+/** 写入权限缓存 */
+export function setCachedAccess(
+  docId: string,
+  userId: string | undefined,
+  email: string | undefined,
+  access: AccessLevel
+): void {
+  const key = permissionCacheKey(docId, userId, email);
+  permissionCache.set(key, { access, ts: Date.now() });
+  // 惰性清理：超过 500 条时移除过期项
+  if (permissionCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of permissionCache) {
+      if (now - v.ts > PERMISSION_CACHE_TTL * 2) {
+        permissionCache.delete(k);
+      }
+    }
+  }
 }
 
 /**
@@ -88,60 +129,59 @@ export async function verifyDocumentAccess(
     throw new Error(`Document ${documentId} not found`);
   }
 
-  // 获取工作空间信息
+  // 并行查询：工作空间（owner + member）与文档协作者互相独立，可同时执行
+  const workspacePromise =
+    document.workspaceId && userId
+      ? Promise.all([
+          prisma.workspace.findUnique({
+            where: { id: document.workspaceId },
+            select: { ownerId: true },
+          }),
+          prisma.workspaceMember.findUnique({
+            where: {
+              workspaceId_userId: {
+                workspaceId: document.workspaceId,
+                userId,
+              },
+            },
+            select: { role: true, permission: true },
+          }),
+        ])
+      : null;
+
+  const collaboratorPromise = userEmail
+    ? prisma.documentCollaborator.findUnique({
+        where: {
+          documentId_email: { documentId, email: userEmail },
+        },
+        select: { permission: true, status: true },
+      })
+    : null;
+
+  const [workspaceData, collaboratorData] = await Promise.all([
+    workspacePromise,
+    collaboratorPromise,
+  ]);
+
   let workspaceOwnerId: string | undefined;
   let workspaceMemberRole: string | undefined;
   let workspaceMemberPermission: string | undefined;
 
-  if (document.workspaceId && userId) {
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: document.workspaceId },
-      select: { ownerId: true },
-    });
+  if (workspaceData) {
+    const [workspace, member] = workspaceData;
     workspaceOwnerId = workspace?.ownerId;
-
-    // 检查空间成员权限
-    const member = await prisma.workspaceMember.findUnique({
-      where: {
-        workspaceId_userId: {
-          workspaceId: document.workspaceId,
-          userId,
-        },
-      },
-      select: {
-        role: true,
-        permission: true,
-      },
-    });
-
     if (member) {
       workspaceMemberRole = member.role;
       workspaceMemberPermission = member.permission;
     }
   }
 
-  // 获取文档协作者信息
   let documentCollaboratorPermission: string | undefined;
   let documentCollaboratorStatus: string | undefined;
 
-  if (userEmail) {
-    const collaborator = await prisma.documentCollaborator.findUnique({
-      where: {
-        documentId_email: {
-          documentId,
-          email: userEmail,
-        },
-      },
-      select: {
-        permission: true,
-        status: true,
-      },
-    });
-
-    if (collaborator) {
-      documentCollaboratorPermission = collaborator.permission;
-      documentCollaboratorStatus = collaborator.status;
-    }
+  if (collaboratorData) {
+    documentCollaboratorPermission = collaboratorData.permission;
+    documentCollaboratorStatus = collaboratorData.status;
   }
 
   // 使用统一的权限检查逻辑

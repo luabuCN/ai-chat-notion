@@ -198,6 +198,8 @@ export function EditorContent({
     if (document.id !== documentId) return false;
     /** 回收站文档只走 HTTP CRUD，不连协同 WS */
     if (document.deletedAt) return false;
+    /** 协同 WS 不可用时走 HTTP 兜底，切换为本地模式以使用 initialYjsStateB64 / initialContent 恢复正文 */
+    if (collabPersistenceFallback) return false;
 
     const accessLevel = (document as any)?.accessLevel;
     if (!accessLevel) return false;
@@ -209,6 +211,7 @@ export function EditorContent({
     documentId,
     forcePlainLocalPersistence,
     permissionRevoked,
+    collabPersistenceFallback,
   ]);
 
   // 协同编辑 token（仅在需要连接协同时获取）
@@ -221,9 +224,11 @@ export function EditorContent({
   const useHttpPersistence =
     !shouldConnectCollab || collabPersistenceFallback || isCollabTokenError;
 
+  // 始终并行拉取 yjsState：协同模式下用于预灌 ydoc 使编辑器即时展示内容，
+  // 非协同模式下用于从 yjsState 恢复正文。与 token 请求并行执行。
   const { data: documentWithYjs } = useGetDocument(documentId, {
     includeYjsState: true,
-    enabled: useHttpPersistence && !!document,
+    enabled: !!document,
   });
 
   const effectiveDocument = documentWithYjs ?? document;
@@ -241,18 +246,15 @@ export function EditorContent({
     };
   }, [shouldConnectCollab, collabData?.token, collabServerUrl]);
 
-  /** 非协同模式时从 API 返回的 yjsState（base64）恢复正文 */
+  /** 从 API 返回的 yjsState（base64），协同与非协同模式均提供 */
   const initialYjsStateB64 = useMemo(() => {
-    if (collabConfig) {
-      return null;
-    }
     const raw = (effectiveDocument as { yjsState?: string | null } | undefined)
       ?.yjsState;
     if (typeof raw === "string" && raw.length > 0) {
       return raw;
     }
     return null;
-  }, [collabConfig, effectiveDocument]);
+  }, [effectiveDocument]);
 
   /** 文档或协同模式切换时需重新等待编辑器就绪（勿把 token 放进 key，避免 token 就绪后整页重挂载） */
   const editorMountKey = useMemo(
@@ -282,8 +284,12 @@ export function EditorContent({
     if (!shouldConnectCollabRef.current) {
       return;
     }
+    // 仅标记兜底模式，不直接移除骨架层：
+    // collabPersistenceFallback=true 会让 shouldConnectCollab 变为 false →
+    // collabConfig 变为 null → editorMountKey 变化 → 编辑器重挂载为本地模式 →
+    // 使用 initialContent / initialYjsStateB64 恢复正文 → onEditorReady 正常触发 →
+    // 骨架层在内容就绪后才移除。
     setCollabPersistenceFallback(true);
-    setIsEditorBodyReady(true);
     if (
       !collabFallbackToastShownRef.current &&
       connectedUsersCountRef.current >= 2
@@ -303,9 +309,8 @@ export function EditorContent({
       if (status === "disconnected") {
         activateCollabHttpFallback();
       }
-      if (status === "connected") {
-        setCollabPersistenceFallback(false);
-      }
+      // 不在 "connected" 时重置 collabPersistenceFallback：
+      // 兜底已激活后应保持本地模式，避免编辑器在 collab/local 之间频繁重挂载闪烁。
     },
     [activateCollabHttpFallback, setConnectionStatus]
   );
@@ -439,8 +444,10 @@ export function EditorContent({
     if (!isCollabTokenError || !shouldConnectCollab) {
       return;
     }
+    // 仅标记兜底模式，不直接移除骨架层：
+    // collabPersistenceFallback=true 会让编辑器切换为本地模式，
+    // 通过正常的 onEditorReady 流程在内容就绪后移除骨架层。
     setCollabPersistenceFallback(true);
-    setIsEditorBodyReady(true);
     if (!collabFallbackToastShownRef.current) {
       collabFallbackToastShownRef.current = true;
       toast.warning("协同服务不可用", {

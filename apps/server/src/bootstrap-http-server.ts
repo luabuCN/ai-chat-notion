@@ -9,6 +9,7 @@ import {
 import { serverConfig } from "./shared/config.js";
 import { deliverToLocalConnections } from "./ws/connection-pool.js";
 import { initNotificationBroadcastRedis } from "./ws/notification-redis.js";
+import { initCacheRedis } from "./shared/redis-cache.js";
 import { attachNotificationWs } from "./ws/notification-ws.js";
 
 export type BootstrappedHttpServer = {
@@ -18,6 +19,7 @@ export type BootstrappedHttpServer = {
 
 async function prepareNotificationBroadcast(): Promise<void> {
   await initNotificationBroadcastRedis(deliverToLocalConnections);
+  await initCacheRedis();
 }
 
 function attachWebSocketRoutes(

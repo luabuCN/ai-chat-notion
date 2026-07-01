@@ -4,7 +4,6 @@ import { gunzipSync } from "node:zlib";
 import {
   createEditorDocument,
   getEditorDocumentById,
-  getEditorDocumentYjsStateById,
   getEditorDocumentsByUserId,
   getWorkspaceBySlug,
   updateEditorDocument,
@@ -33,6 +32,15 @@ import {
   isPermissionChangedError,
   permissionChangedResponse,
 } from "../../../shared/permission-assert.js";
+import {
+  cacheGet,
+  cacheSet,
+  cacheDel,
+  cacheDelPattern,
+  CACHE_KEYS,
+  CACHE_TTL,
+  hashParams,
+} from "../../../shared/redis-cache.js";
 
 function isGzipCompressed(buffer: Buffer): boolean {
   return buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
@@ -84,6 +92,19 @@ export async function listEditorDocumentsHandler(c: Context) {
   }
 
   try {
+    // 尝试从缓存读取
+    const paramsHash = hashParams({
+      w: workspaceId ?? undefined,
+      p: parentDocumentId ?? undefined,
+      d: includeDeleted ? "1" : undefined,
+      dd: onlyDeleted ? "1" : undefined,
+    });
+    const cacheKey = CACHE_KEYS.docsList(session.user.id, paramsHash);
+    const cached = await cacheGet<unknown[]>(cacheKey);
+    if (cached) {
+      return c.json(cached, 200);
+    }
+
     const documents = await getEditorDocumentsByUserId({
       userId: session.user.id,
       workspaceId: workspaceId ?? undefined,
@@ -91,6 +112,9 @@ export async function listEditorDocumentsHandler(c: Context) {
       includeDeleted,
       onlyDeleted,
     });
+
+    // 写入缓存
+    await cacheSet(cacheKey, documents, CACHE_TTL.docsList);
 
     return c.json(documents, 200);
   } catch (error) {
@@ -182,6 +206,10 @@ export async function createEditorDocumentHandler(c: Context) {
       coverImageType: coverImageType ?? "url",
       sourcePageUrl,
     });
+
+    // 失效文档列表缓存
+    await cacheDelPattern(CACHE_KEYS.docsListPrefix(session.user.id));
+    await cacheDel(CACHE_KEYS.docsAll(session.user.id));
 
     return c.json(document, 201);
   } catch (error) {
@@ -750,6 +778,7 @@ export async function getEditorDocumentHandler(c: Context) {
   const session = await getSessionFromRequest(c.req.raw);
 
   try {
+    const includeYjsState = c.req.query("includeYjsState") === "1";
     const {
       access,
       document,
@@ -761,7 +790,7 @@ export async function getEditorDocumentHandler(c: Context) {
       id,
       session?.user.id,
       session?.user.email,
-      { ignoreDeletedAt: true }
+      { ignoreDeletedAt: true, includeYjsState }
     );
 
     if (document?.deletedAt) {
@@ -781,11 +810,10 @@ export async function getEditorDocumentHandler(c: Context) {
       return new ApiError("forbidden:document").toResponse();
     }
 
-    const { yjsState: _omitYjs, ...documentFields } = document;
-    const includeYjsState = c.req.query("includeYjsState") === "1";
+    // yjsState 已在 verifyDocumentAccess 中一并查询，无需二次 DB 调用
+    const { yjsState: yjsStateBuffer, ...documentFields } = document as any;
     let yjsState: string | null = null;
-    if (includeYjsState) {
-      const yjsStateBuffer = await getEditorDocumentYjsStateById({ id });
+    if (includeYjsState && yjsStateBuffer) {
       yjsState = serializeYjsStateForApi(yjsStateBuffer);
     }
 
@@ -885,6 +913,9 @@ export async function updateEditorDocumentHandler(c: Context) {
       lastEditedByName: session.user.name || "Unknown",
     });
 
+    // 标题变更会影响面包屑路径缓存
+    await cacheDel(CACHE_KEYS.docsPath(id));
+
     return c.json(updatedDocument, 200);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -922,6 +953,11 @@ export async function deleteEditorDocumentHandler(c: Context) {
     } else {
       await softDeleteEditorDocument({ id });
     }
+
+    // 失效文档列表、全部列表和路径缓存
+    await cacheDelPattern(CACHE_KEYS.docsListPrefix(session.user.id));
+    await cacheDel(CACHE_KEYS.docsAll(session.user.id));
+    await cacheDel(CACHE_KEYS.docsPath(id));
 
     return c.json({ success: true }, 200);
   } catch (error) {
@@ -1069,6 +1105,9 @@ export async function addCollaboratorHandler(c: Context) {
         type: "new_notification",
         notification,
       });
+
+      // 失效接收者的未读通知计数缓存
+      await cacheDel(CACHE_KEYS.notifUnread(invitedUser.id));
     }
 
     return c.json(collaborator, 201);
@@ -1153,6 +1192,9 @@ export async function updateCollaboratorHandler(c: Context) {
         type: "new_notification",
         notification,
       });
+
+      // 失效接收者的未读通知计数缓存
+      await cacheDel(CACHE_KEYS.notifUnread(collaborator.userId));
     }
 
     return c.json(collaborator, 200);
@@ -1231,6 +1273,9 @@ export async function removeCollaboratorHandler(c: Context) {
         type: "new_notification",
         notification,
       });
+
+      // 失效接收者的未读通知计数缓存
+      await cacheDel(CACHE_KEYS.notifUnread(collaboratorToRemove.userId));
     }
 
     return c.json({ success: true }, 200);
@@ -1268,6 +1313,10 @@ export async function duplicateEditorDocumentHandler(c: Context) {
       id,
       userId: session.user.id,
     });
+
+    // 失效文档列表缓存
+    await cacheDelPattern(CACHE_KEYS.docsListPrefix(session.user.id));
+    await cacheDel(CACHE_KEYS.docsAll(session.user.id));
 
     return c.json(duplicatedDocument, 201);
   } catch (error) {
@@ -1315,6 +1364,11 @@ export async function moveEditorDocumentHandler(c: Context) {
       parentDocumentId,
     });
 
+    // 失效文档列表、全部列表和路径缓存
+    await cacheDelPattern(CACHE_KEYS.docsListPrefix(session.user.id));
+    await cacheDel(CACHE_KEYS.docsAll(session.user.id));
+    await cacheDel(CACHE_KEYS.docsPath(id));
+
     return c.json(movedDocument, 200);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -1359,7 +1413,15 @@ export async function getEditorDocumentPathHandler(c: Context) {
       return new ApiError("forbidden:document").toResponse();
     }
 
+    // 尝试从缓存读取
+    const pathCacheKey = CACHE_KEYS.docsPath(id);
+    const cachedPath = await cacheGet<unknown[]>(pathCacheKey);
+    if (cachedPath) {
+      return c.json(cachedPath);
+    }
+
     const path = await getEditorDocumentPath(id);
+    await cacheSet(pathCacheKey, path, CACHE_TTL.docsPath);
     return c.json(path);
   } catch (error) {
     if (error instanceof ApiError) {
@@ -1514,6 +1576,11 @@ export async function restoreEditorDocumentHandler(c: Context) {
     );
 
     const restoredDocument = await restoreEditorDocument({ id });
+
+    // 失效文档列表缓存
+    await cacheDelPattern(CACHE_KEYS.docsListPrefix(session.user.id));
+    await cacheDel(CACHE_KEYS.docsAll(session.user.id));
+
     return c.json(restoredDocument, 200);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -1883,6 +1950,9 @@ export async function createCommentNotificationHandler(c: Context) {
           type: "new_notification",
           notification,
         });
+
+        // 失效接收者的未读通知计数缓存
+        await cacheDel(CACHE_KEYS.notifUnread(mention.id));
 
         notifiedUserIds.push(mention.id);
       }

@@ -33,10 +33,13 @@ export async function verifyDocumentAccess(
   documentId: string,
   userId?: string,
   userEmail?: string,
-  options?: { ignoreDeletedAt?: boolean }
+  options?: { ignoreDeletedAt?: boolean; includeYjsState?: boolean }
 ): Promise<DocumentAccessResult> {
   try {
-    const document = await getEditorDocumentMetadataById({ id: documentId });
+    const document = await getEditorDocumentMetadataById({
+      id: documentId,
+      includeYjsState: options?.includeYjsState,
+    });
 
     // Check if there are collaborators (for determining collab edit availability)
     const collaboratorCount = await prisma.documentCollaborator.count({
@@ -56,22 +59,19 @@ export async function verifyDocumentAccess(
     let hasWorkspaceCollaborators = false;
 
     if (document.workspaceId && userId) {
-      const [workspace, workspaceMembers] = await Promise.all([
+      const [workspace, memberCount] = await Promise.all([
         prisma.workspace.findUnique({
           where: { id: document.workspaceId },
           select: { ownerId: true },
         }),
-        prisma.workspaceMember.findMany({
+        prisma.workspaceMember.count({
           where: { workspaceId: document.workspaceId },
-          select: { userId: true },
         }),
       ]);
       workspaceOwnerId = workspace?.ownerId;
-      const workspaceMemberIds = workspaceMembers.map((member) => member.userId);
-      const workspaceUserIds = new Set(
-        [workspaceOwnerId, ...workspaceMemberIds].filter(Boolean)
-      );
-      hasWorkspaceCollaborators = workspaceUserIds.size > 1;
+      // owner + members >= 2 means there are collaborators
+      hasWorkspaceCollaborators = memberCount >= 1 ||
+        (workspaceOwnerId !== undefined && workspaceOwnerId !== userId);
 
       const memberInfo = await getWorkspaceMemberPermission({
         workspaceId: document.workspaceId,

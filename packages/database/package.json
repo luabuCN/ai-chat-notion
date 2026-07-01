@@ -20,7 +20,8 @@
     }
   },
   "scripts": {
-    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json",
+    "generate": "prisma generate",
     "db:generate": "dotenv -e ../../.env.local -- prisma generate",
     "db:migrate": "dotenv -e ../../.env.local -- prisma migrate dev",
     "db:push": "dotenv -e ../../.env.local -- prisma db push --accept-data-loss",

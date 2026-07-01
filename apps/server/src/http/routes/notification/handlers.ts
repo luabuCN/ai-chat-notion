@@ -10,6 +10,13 @@ import {
 } from "@repo/database";
 import { getSessionFromRequest } from "../../../shared/auth.js";
 import { ApiError } from "../../../shared/errors.js";
+import {
+  cacheGet,
+  cacheSet,
+  cacheDel,
+  CACHE_KEYS,
+  CACHE_TTL,
+} from "../../../shared/redis-cache.js";
 
 export async function listNotificationsHandler(c: Context) {
   const session = await getSessionFromRequest(c.req.raw);
@@ -54,7 +61,18 @@ export async function unreadCountHandler(c: Context) {
   }
 
   try {
+    // 尝试从缓存读取
+    const cacheKey = CACHE_KEYS.notifUnread(session.user.id);
+    const cached = await cacheGet<{ count: number }>(cacheKey);
+    if (cached !== null) {
+      return c.json(cached);
+    }
+
     const count = await getUnreadCount({ userId: session.user.id });
+
+    // 写入缓存（短 TTL，新通知最多延迟 10 秒可见）
+    await cacheSet(cacheKey, { count }, CACHE_TTL.notifUnread);
+
     return c.json({ count });
   } catch (error) {
     console.error("Failed to get unread count:", error);
@@ -74,6 +92,10 @@ export async function markAsReadHandler(c: Context) {
   try {
     const id = c.req.param("id")!;
     await markAsRead({ notificationId: id, userId: session.user.id });
+
+    // 失效未读计数缓存
+    await cacheDel(CACHE_KEYS.notifUnread(session.user.id));
+
     return c.json({ success: true });
   } catch (error) {
     console.error("Failed to mark notification as read:", error);
@@ -92,6 +114,10 @@ export async function markAllAsReadHandler(c: Context) {
 
   try {
     await markAllAsRead({ userId: session.user.id });
+
+    // 失效未读计数缓存
+    await cacheDel(CACHE_KEYS.notifUnread(session.user.id));
+
     return c.json({ success: true });
   } catch (error) {
     console.error("Failed to mark all as read:", error);
@@ -135,6 +161,10 @@ export async function deleteNotificationHandler(c: Context) {
   try {
     const id = c.req.param("id")!;
     await deleteNotification({ notificationId: id, userId: session.user.id });
+
+    // 失效未读计数缓存
+    await cacheDel(CACHE_KEYS.notifUnread(session.user.id));
+
     return c.json({ success: true });
   } catch (error) {
     console.error("Failed to delete notification:", error);

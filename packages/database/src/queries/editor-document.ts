@@ -73,11 +73,19 @@ export const editorDocumentMetadataSelect = {
   sourcePageUrl: true,
 } as const;
 
-export async function getEditorDocumentMetadataById({ id }: { id: string }) {
+export async function getEditorDocumentMetadataById({
+  id,
+  includeYjsState,
+}: {
+  id: string;
+  includeYjsState?: boolean;
+}) {
   try {
     const document = await prisma.editorDocument.findUnique({
       where: { id },
-      select: editorDocumentMetadataSelect,
+      select: includeYjsState
+        ? { ...editorDocumentMetadataSelect, yjsState: true }
+        : editorDocumentMetadataSelect,
     });
 
     if (!document) {
