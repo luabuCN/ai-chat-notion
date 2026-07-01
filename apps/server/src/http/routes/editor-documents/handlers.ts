@@ -916,6 +916,11 @@ export async function updateEditorDocumentHandler(c: Context) {
     // 标题变更会影响面包屑路径缓存
     await cacheDel(CACHE_KEYS.docsPath(id));
 
+    // yjsState 变更需要失效 Redis 缓存，下次 fetch 从 DB 重建
+    if (yjsState !== undefined) {
+      await cacheDel(CACHE_KEYS.yjsState(id));
+    }
+
     return c.json(updatedDocument, 200);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -958,6 +963,8 @@ export async function deleteEditorDocumentHandler(c: Context) {
     await cacheDelPattern(CACHE_KEYS.docsListPrefix(session.user.id));
     await cacheDel(CACHE_KEYS.docsAll(session.user.id));
     await cacheDel(CACHE_KEYS.docsPath(id));
+    // 失效 Yjs 状态缓存
+    await cacheDel(CACHE_KEYS.yjsState(id));
 
     return c.json({ success: true }, 200);
   } catch (error) {

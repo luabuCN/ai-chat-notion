@@ -15,6 +15,7 @@ function createRedisClient(redisUrl: string): IORedis {
   return new IORedis(redisUrl, {
     maxRetriesPerRequest: null,
     lazyConnect: true,
+    connectTimeout: 3000, // 3 秒连接超时，避免冷启动挂起
   });
 }
 

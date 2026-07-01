@@ -18,6 +18,8 @@ export const CACHE_KEYS = {
   wsList: (userId: string) => `${PREFIX}:ws:list:${userId}`,
   /** 未读通知计数: cache:notif:unread:{userId} */
   notifUnread: (userId: string) => `${PREFIX}:notif:unread:${userId}`,
+  /** Yjs 文档协同状态（二进制）: cache:yjs:state:{documentId} */
+  yjsState: (documentId: string) => `${PREFIX}:yjs:state:${documentId}`,
 } as const;
 
 // ─── TTL 常量（秒） ──────────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ export const CACHE_TTL = {
   docsPath: 120, // 2 分钟
   wsList: 300, // 5 分钟
   notifUnread: 10, // 10 秒
+  yjsState: 300, // 5 分钟——覆盖 Hocuspocus 30s 内存超时，文档卸载后仍可从 Redis 恢复
 } as const;
 
 // ─── Redis 客户端管理 ────────────────────────────────────────────────────────
@@ -107,6 +110,36 @@ export async function cacheSet(
   if (!enabled || !cacheClient) return;
   try {
     await cacheClient.set(key, JSON.stringify(value), "EX", ttlSeconds);
+  } catch {
+    // 缓存写入失败不影响业务逻辑
+  }
+}
+
+/**
+ * 从缓存读取二进制 Buffer（用于 Yjs state 等）。
+ * 缓存未命中或出错时返回 null（fail-open，不阻塞请求）。
+ */
+export async function cacheGetBuffer(key: string): Promise<Buffer | null> {
+  if (!enabled || !cacheClient) return null;
+  try {
+    const result = await cacheClient.getBuffer(key);
+    return result ? Buffer.from(result) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 写入二进制 Buffer 缓存（带 TTL，单位秒）。出错时静默忽略。
+ */
+export async function cacheSetBuffer(
+  key: string,
+  value: Buffer,
+  ttlSeconds: number
+): Promise<void> {
+  if (!enabled || !cacheClient) return;
+  try {
+    await cacheClient.set(key, value, "EX", ttlSeconds);
   } catch {
     // 缓存写入失败不影响业务逻辑
   }

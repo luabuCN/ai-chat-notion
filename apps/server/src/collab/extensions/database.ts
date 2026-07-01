@@ -18,6 +18,12 @@ import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { UniqueID } from "@tiptap/extension-unique-id";
 import { gzipSync, gunzipSync } from "zlib";
+import {
+  CACHE_KEYS,
+  CACHE_TTL,
+  cacheGetBuffer,
+  cacheSetBuffer,
+} from "../../shared/redis-cache.js";
 
 // 压缩阈值：超过 50KB 的文档启用压缩
 const COMPRESSION_THRESHOLD = 50 * 1024;
@@ -136,6 +142,17 @@ export const databaseExtension = new Database({
   fetch: async ({ documentName }) => {
     debugLog(`[Database] Fetching document: ${documentName}`);
 
+    // 1. 优先查 Redis 缓存（命中则跳过 DB 查询与解压）
+    const cacheKey = CACHE_KEYS.yjsState(documentName);
+    const cached = await cacheGetBuffer(cacheKey);
+    if (cached && cached.length > 0) {
+      debugLog(
+        `[Database] Redis cache HIT for ${documentName}, size: ${cached.length} bytes`
+      );
+      return cached;
+    }
+    debugLog(`[Database] Redis cache MISS for ${documentName}`);
+
     try {
       const doc = await prisma.editorDocument.findUnique({
         where: { id: documentName },
@@ -150,7 +167,7 @@ export const databaseExtension = new Database({
         return null;
       }
 
-      // 1. 如果有 Yjs 状态，尝试使用它
+      // 2. 如果有 Yjs 状态，尝试使用它
       if (doc.yjsState && doc.yjsState.length > 0) {
         // 检测并解压缩
         let stateBuffer = Buffer.from(doc.yjsState);
@@ -167,6 +184,8 @@ export const databaseExtension = new Database({
             `[Database] Found existing Yjs state for ${documentName}, size: ${doc.yjsState.length} bytes`
           );
         }
+        // 回填 Redis 缓存（存解压后的原始 state，下次命中可直接用）
+        await cacheSetBuffer(cacheKey, stateBuffer, CACHE_TTL.yjsState);
         return stateBuffer;
       }
 
@@ -221,7 +240,10 @@ export const databaseExtension = new Database({
             `[Database] Converted Yjs state size: ${state.length} bytes`
           );
           ydoc.destroy();
-          return Buffer.from(state);
+          const stateBuf = Buffer.from(state);
+          // 回填 Redis 缓存
+          await cacheSetBuffer(cacheKey, stateBuf, CACHE_TTL.yjsState);
+          return stateBuf;
         } catch (error) {
           console.error(
             `[Database] Failed to convert content for ${documentName}:`,
@@ -335,6 +357,14 @@ export const databaseExtension = new Database({
       });
 
       debugLog(`[Database] Document ${documentName} stored successfully`);
+
+      // 4. 更新 Redis 缓存（存原始未压缩 state，与 fetch 回填一致）
+      await cacheSetBuffer(
+        CACHE_KEYS.yjsState(documentName),
+        Buffer.from(state),
+        CACHE_TTL.yjsState
+      );
+      debugLog(`[Database] Redis cache updated for ${documentName}`);
     } catch (error) {
       console.error(
         `[Database] Error storing document ${documentName}:`,

@@ -39,7 +39,11 @@ function attachWebSocketRoutes(
  * @see https://vercel.com/docs/functions/websockets
  */
 export async function createVercelHttpServer(): Promise<BootstrappedHttpServer> {
-  await prepareNotificationBroadcast();
+  // 非阻塞后台初始化 Redis（pub/sub + cache），不阻塞冷启动
+  prepareNotificationBroadcast().catch((err) =>
+    console.error("[Server] Background Redis init failed:", err)
+  );
+
   const collabServer = await createCollabServer();
   const httpServer = createAdaptorServer({
     fetch: app.fetch,
@@ -54,7 +58,11 @@ export async function createVercelHttpServer(): Promise<BootstrappedHttpServer> 
 export async function createListeningHttpServer(
   port: number = serverConfig.httpPort
 ): Promise<BootstrappedHttpServer> {
-  await prepareNotificationBroadcast();
+  // 非阻塞后台初始化 Redis，不阻塞冷启动
+  prepareNotificationBroadcast().catch((err) =>
+    console.error("[Server] Background Redis init failed:", err)
+  );
+
   const collabServer = await createCollabServer();
 
   const httpServer = serve(
