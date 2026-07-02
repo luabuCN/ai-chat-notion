@@ -70,9 +70,15 @@ const sourceConfig: Record<
   },
 };
 
-// 文档名称列：大屏占 50%，随视口变窄逐步缩小占比
+// 文档名称列：大屏占 50%，随视口变窄逐步缩小占比；其余列固定最小宽度且不换行
 const documentNameColClass =
-  "min-w-0 overflow-hidden w-[38%] sm:w-[42%] md:w-[46%] lg:w-[50%]";
+  "min-w-[140px] overflow-hidden w-[38%] sm:w-[42%] md:w-[46%] lg:w-[50%]";
+const sourceColClass = "hidden md:table-cell w-[108px] whitespace-nowrap";
+const permissionColClass = "hidden lg:table-cell w-[88px] whitespace-nowrap";
+const ownerColClass =
+  "hidden lg:table-cell w-[140px] whitespace-nowrap overflow-hidden";
+const updatedAtColClass = "hidden sm:table-cell w-[104px] whitespace-nowrap";
+const actionsColClass = "w-16 shrink-0 whitespace-nowrap text-right";
 
 // 权限 badge
 function PermissionBadge({ permission }: { permission: string | null }) {
@@ -100,7 +106,7 @@ function PermissionBadge({ permission }: { permission: string | null }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+        "inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium",
         c.color,
         c.bgColor
       )}
@@ -117,7 +123,7 @@ function SourceBadge({ source }: { source: AllDocumentItem["source"] }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+        "inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium",
         config.color,
         config.bgColor
       )}
@@ -245,31 +251,31 @@ function DocumentRow({
         </TableCell>
 
         {/* 来源 */}
-        <TableCell className="hidden md:table-cell">
+        <TableCell className={sourceColClass}>
           <SourceBadge source={doc.source} />
         </TableCell>
 
         {/* 权限 */}
-        <TableCell className="hidden lg:table-cell">
+        <TableCell className={permissionColClass}>
           <PermissionBadge permission={doc.permission} />
         </TableCell>
 
         {/* 所有者/空间 */}
-        <TableCell className="hidden max-w-0 lg:table-cell">
+        <TableCell className={ownerColClass}>
           <span className="block truncate text-sm text-muted-foreground">
             {doc.ownerName || "-"}
           </span>
         </TableCell>
 
         {/* 更新时间 */}
-        <TableCell className="hidden sm:table-cell">
-          <span className="text-sm text-muted-foreground whitespace-nowrap tabular-nums">
+        <TableCell className={updatedAtColClass}>
+          <span className="text-sm text-muted-foreground tabular-nums">
             {formatTime(doc.updatedAt)}
           </span>
         </TableCell>
 
         {/* 操作 */}
-        <TableCell className="w-16 text-right">
+        <TableCell className={actionsColClass}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -341,19 +347,19 @@ function TableSkeleton() {
               />
             </div>
           </TableCell>
-          <TableCell className="hidden md:table-cell">
+          <TableCell className={sourceColClass}>
             <Skeleton className="h-5 w-16 rounded-full" />
           </TableCell>
-          <TableCell className="hidden lg:table-cell">
+          <TableCell className={permissionColClass}>
             <Skeleton className="h-5 w-12 rounded-full" />
           </TableCell>
-          <TableCell className="hidden lg:table-cell">
+          <TableCell className={ownerColClass}>
             <Skeleton className="h-4 w-20 rounded" />
           </TableCell>
-          <TableCell className="hidden sm:table-cell">
+          <TableCell className={updatedAtColClass}>
             <Skeleton className="h-4 w-16 rounded" />
           </TableCell>
-          <TableCell className="text-right">
+          <TableCell className={actionsColClass}>
             <Skeleton className="h-7 w-7 rounded ml-auto" />
           </TableCell>
         </TableRow>
@@ -575,25 +581,25 @@ export function AllDocumentsPage() {
           </div>
 
           {/* 表格 */}
-          <div className="rounded-xl border border-border bg-card text-card-foreground shadow-notion-card overflow-hidden">
-            <Table className="table-fixed">
+          <div className="rounded-xl border border-border bg-card text-card-foreground shadow-notion-card">
+            <Table className="table-fixed min-w-[640px]">
               <TableHeader className="bg-muted/40 [&_tr]:hover:bg-transparent">
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead scope="col" className={documentNameColClass}>
                     文档名称
                   </TableHead>
-                  <TableHead scope="col" className="hidden md:table-cell">
+                  <TableHead scope="col" className={sourceColClass}>
                     来源
                   </TableHead>
-                  <TableHead scope="col" className="hidden lg:table-cell">
+                  <TableHead scope="col" className={permissionColClass}>
                     权限
                   </TableHead>
-                  <TableHead scope="col" className="hidden lg:table-cell">
+                  <TableHead scope="col" className={ownerColClass}>
                     所有者 / 空间
                   </TableHead>
                   <TableHead
                     scope="col"
-                    className="hidden sm:table-cell"
+                    className={updatedAtColClass}
                     aria-sort={
                       updatedAtOrder === "desc"
                         ? "descending"
@@ -606,7 +612,7 @@ export function AllDocumentsPage() {
                       type="button"
                       onClick={toggleUpdatedAtSort}
                       className={cn(
-                        "-ml-1 inline-flex items-center gap-1 rounded-md px-1 py-1 text-left text-inherit transition-colors",
+                        "-ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1 py-1 text-left text-inherit transition-colors",
                         "hover:bg-muted/80 hover:text-foreground",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
                         updatedAtOrder !== null && "text-foreground"
@@ -630,10 +636,7 @@ export function AllDocumentsPage() {
                       </span>
                     </button>
                   </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="w-16 text-right"
-                  >
+                  <TableHead scope="col" className={actionsColClass}>
                     操作
                   </TableHead>
                 </TableRow>
