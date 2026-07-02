@@ -29,7 +29,9 @@ export default async function Page() {
   // 获取用户的空间列表
   const workspaces = await getWorkspacesByUserId({ userId: session.user.id });
 
-  const defaultWorkspace = workspaces[0];
+  const defaultWorkspace =
+    workspaces.find((workspace) => workspace.ownerId === session.user.id) ??
+    workspaces[0];
 
   // 已登录显示欢迎页面
   return (

@@ -7,6 +7,9 @@ import {
   AvatarFallback,
   AvatarImage,
   Button,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
   Separator,
   Tooltip,
   TooltipContent,
@@ -14,7 +17,7 @@ import {
 } from "@repo/ui";
 import { useWindowSize } from "usehooks-ts";
 import { useUpdateDocument } from "@/hooks/use-document-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect, type CSSProperties } from "react";
 import {
   Share,
   Clock,
@@ -25,8 +28,6 @@ import {
   CheckCircle2,
   FileText,
   Globe,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { LanguageSwitcher } from "../language-switcher";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,167 @@ import { DocumentSharePopover } from "./document-share-popover";
 import { useCollaboration } from "./collaboration-context";
 import { generateUserColor } from "@repo/editor";
 import type { CollaborativeUser } from "@repo/editor";
+import { resolveUserAvatarUrl } from "@repo/database/dicebear-avatar";
+
+function mergeCollaborativeUserFields(
+  prev: CollaborativeUser,
+  next: CollaborativeUser
+): CollaborativeUser {
+  return {
+    ...prev,
+    ...(next.avatar && !prev.avatar ? { avatar: next.avatar } : {}),
+    ...(next.email && !prev.email ? { email: next.email } : {}),
+  };
+}
+
+function CollabPresenceAvatar({
+  user,
+  userKey,
+  isOpen,
+  onOpen,
+  onScheduleClose,
+  onCancelClose,
+  style,
+}: {
+  user: CollaborativeUser;
+  userKey: string;
+  isOpen: boolean;
+  onOpen: (key: string) => void;
+  onScheduleClose: (delay?: number) => void;
+  onCancelClose: () => void;
+  style?: CSSProperties;
+}) {
+  const avatarSrc = resolveUserAvatarUrl({
+    avatarUrl: user.avatar,
+    name: user.name,
+    email: user.email,
+  });
+
+  return (
+    <HoverCard open={isOpen}>
+      <HoverCardTrigger asChild>
+        <button
+          className="relative inline-flex size-8 shrink-0 touch-manipulation select-none items-center justify-center rounded-full border-0 bg-transparent p-0 shadow-none outline-none"
+          style={style}
+          tabIndex={-1}
+          type="button"
+          aria-label={`${user.name}${user.email ? `，${user.email}` : ""} 在线`}
+          onPointerEnter={() => onOpen(userKey)}
+          onPointerLeave={() => onScheduleClose(120)}
+          onTouchStart={() => onOpen(userKey)}
+          onTouchEnd={() => onScheduleClose(600)}
+          onClick={(event) => event.preventDefault()}
+        >
+          <Avatar className="pointer-events-none size-8 border-2 border-white shadow-sm">
+            <AvatarImage alt={user.name} src={avatarSrc} />
+            <AvatarFallback
+              className="text-[11px] font-medium text-white"
+              style={{ backgroundColor: user.color }}
+            >
+              {user.name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute bottom-0 right-0 size-1.5 rounded-full bg-green-500 ring-[1.5px] ring-white"
+          />
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent
+        align="center"
+        className="w-auto px-3 py-2 data-[state=closed]:animate-none data-[state=open]:animate-none"
+        side="bottom"
+        sideOffset={8}
+        onPointerEnter={onCancelClose}
+        onPointerLeave={() => onScheduleClose(120)}
+      >
+        <p className="text-sm font-medium leading-none">{user.name}</p>
+        {user.email ? (
+          <p className="mt-1 text-xs text-muted-foreground">{user.email}</p>
+        ) : null}
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function CollabPresenceAvatars({ users }: { users: CollaborativeUser[] }) {
+  const [openUserKey, setOpenUserKey] = useState<string | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const openUser = useCallback(
+    (key: string) => {
+      cancelClose();
+      setOpenUserKey(key);
+    },
+    [cancelClose]
+  );
+
+  const scheduleClose = useCallback(
+    (delay = 150) => {
+      cancelClose();
+      closeTimerRef.current = setTimeout(() => {
+        setOpenUserKey(null);
+        closeTimerRef.current = null;
+      }, delay);
+    },
+    [cancelClose]
+  );
+
+  useEffect(() => {
+    return () => cancelClose();
+  }, [cancelClose]);
+
+  useEffect(() => {
+    if (!openUserKey) {
+      return;
+    }
+    const handleOutsideTouch = (event: TouchEvent) => {
+      if (!groupRef.current?.contains(event.target as Node)) {
+        scheduleClose(0);
+      }
+    };
+    document.addEventListener("touchstart", handleOutsideTouch, {
+      passive: true,
+    });
+    return () => {
+      document.removeEventListener("touchstart", handleOutsideTouch);
+    };
+  }, [openUserKey, scheduleClose]);
+
+  return (
+    <div ref={groupRef} className="mr-2 flex items-center">
+      <div className="flex items-center gap-1.5">
+        {users.slice(0, 5).map((user) => {
+          const userKey = `${user.name}|${user.color}`;
+          return (
+            <CollabPresenceAvatar
+              key={userKey}
+              isOpen={openUserKey === userKey}
+              onCancelClose={cancelClose}
+              onOpen={openUser}
+              onScheduleClose={scheduleClose}
+              user={user}
+              userKey={userKey}
+            />
+          );
+        })}
+        {users.length > 5 && (
+          <div className="relative flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-white bg-muted text-[10px] font-medium text-muted-foreground shadow-sm">
+            +{users.length - 5}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface EditorHeaderProps {
   locale: string;
@@ -116,7 +278,13 @@ export function EditorHeader({
     return {
       name,
       color: generateUserColor(currentUserId),
-      ...(currentUserAvatarUrl ? { avatar: currentUserAvatarUrl } : {}),
+      avatar: resolveUserAvatarUrl({
+        avatarUrl: currentUserAvatarUrl,
+        name: currentUserName,
+        email: currentUserEmail,
+        id: currentUserId,
+      }),
+      ...(currentUserEmail ? { email: currentUserEmail } : {}),
     };
   }, [currentUserId, currentUserName, currentUserEmail, currentUserAvatarUrl]);
 
@@ -135,29 +303,23 @@ export function EditorHeader({
         merged.set(k, u);
         continue;
       }
-      if (!prev.avatar && typeof u.avatar === "string" && u.avatar) {
-        merged.set(k, u);
-      }
+      merged.set(k, mergeCollaborativeUserFields(prev, u));
     }
     if (viewerAsCollaborator) {
       const k = userKey(viewerAsCollaborator);
       const prev = merged.get(k);
       if (!prev) {
         merged.set(k, viewerAsCollaborator);
-      } else if (
-        !prev.avatar &&
-        typeof viewerAsCollaborator.avatar === "string" &&
-        viewerAsCollaborator.avatar
-      ) {
-        merged.set(k, viewerAsCollaborator);
+      } else {
+        merged.set(k, mergeCollaborativeUserFields(prev, viewerAsCollaborator));
       }
     }
     return Array.from(merged.values());
   }, [connectedUsers, viewerAsCollaborator]);
 
-  /** 仅两人及以上协同时展示头像与在线状态（awareness 变更时实时更新） */
+  /** 协同已连接且 ≥2 人在线时展示头像；断开或连接中均隐藏 */
   const showCollabPresence =
-    connectionStatus !== "idle" && headerOnlineUsers.length >= 2;
+    connectionStatus === "connected" && headerOnlineUsers.length >= 2;
 
   const toggleFavorite = () => {
     if (conversionLocked || isUpdatingFavorite) return;
@@ -236,59 +398,8 @@ export function EditorHeader({
           conversionLocked && "pointer-events-none select-none opacity-60"
         )}
       >
-        {/* 在线用户头像和连接状态（≥2 人协同时展示） */}
-        {showCollabPresence && (
-          <div className="flex items-center gap-2 mr-2">
-            <div className="flex items-center -space-x-2">
-              {headerOnlineUsers.slice(0, 5).map((user, index) => (
-                <Avatar
-                  key={`${user.name}-${user.color}-${index}`}
-                  className="h-7 w-7 border-2 border-background"
-                >
-                  <AvatarImage alt={user.name} src={user.avatar} />
-                  <AvatarFallback
-                    className="text-[10px] font-medium text-white"
-                    style={{ backgroundColor: user.color }}
-                  >
-                    {user.name.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {headerOnlineUsers.length > 5 && (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground">
-                  +{headerOnlineUsers.length - 5}
-                </div>
-              )}
-            </div>
-            <div
-              className={cn(
-                "flex items-center gap-1.5 text-xs",
-                connectionStatus === "connecting" && "text-yellow-500",
-                connectionStatus === "connected" && "text-green-500",
-                connectionStatus === "disconnected" && "text-red-500"
-              )}
-            >
-              {connectionStatus === "connecting" && (
-                <>
-                  <Wifi className="h-3.5 w-3.5 animate-pulse" />
-                  <span>连接中...</span>
-                </>
-              )}
-              {connectionStatus === "connected" && (
-                <>
-                  <Wifi className="h-3.5 w-3.5" />
-                  <span>{headerOnlineUsers.length} 人在线</span>
-                </>
-              )}
-              {connectionStatus === "disconnected" && (
-                <>
-                  <WifiOff className="h-3.5 w-3.5" />
-                  <span>已断开</span>
-                </>
-              )}
-            </div>
-          </div>
-        )}
+        {/* 在线用户头像（≥2 人且已连接时展示） */}
+        {showCollabPresence && <CollabPresenceAvatars users={headerOnlineUsers} />}
 
         {showCollabPresence && (
           <Separator orientation="vertical" className="mx-2 h-6" />

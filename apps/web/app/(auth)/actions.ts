@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { createUser, getUser } from "@repo/database";
+import { generateDicebearAvatarUrl } from "@repo/database/dicebear-avatar";
 
 import { signIn } from "./auth";
 
@@ -100,9 +101,14 @@ export const completeOnboarding = async (
     }
 
     const { prisma: db } = await import("@repo/database");
+    const avatarUrl = generateDicebearAvatarUrl(validatedData.name);
+
     await db.user.update({
       where: { id: session.user.id },
-      data: { name: validatedData.name },
+      data: {
+        name: validatedData.name,
+        avatarUrl,
+      },
     });
     return { status: "success" };
   } catch (error) {

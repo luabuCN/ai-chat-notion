@@ -19,7 +19,7 @@ export default async function Layout({
 
   return (
     <>
-      <WorkspaceProvider>
+      <WorkspaceProvider userId={session?.user?.id}>
         <PageMetadataManager />
         <DataStreamProvider>
           <SidebarProvider defaultOpen={!isCollapsed}>

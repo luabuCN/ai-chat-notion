@@ -35,6 +35,12 @@ import {
   CACHE_KEYS,
   CACHE_TTL,
 } from "../../../shared/redis-cache.js";
+import {
+  collectWorkspaceUserIds,
+  invalidateUserMembershipCaches,
+  invalidateWsListForUser,
+  invalidateWsListForWorkspace,
+} from "../../../shared/workspace-cache.js";
 
 function roleToChinese(role: string | null | undefined): string {
   switch (role) {
@@ -50,6 +56,36 @@ function permissionToChinese(perm: string | null | undefined): string {
     case "view": return "查看";
     default: return perm ?? "查看";
   }
+}
+
+async function afterWorkspaceMemberRemoved({
+  userId,
+  workspaceId,
+}: {
+  userId: string;
+  workspaceId: string;
+}) {
+  await invalidateUserMembershipCaches(userId);
+  await invalidateWsListForWorkspace(workspaceId);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { currentWorkspaceId: true },
+  });
+
+  if (user?.currentWorkspaceId !== workspaceId) {
+    return;
+  }
+
+  const remainingWorkspaces = await getWorkspacesByUserId({ userId });
+  const defaultWorkspace =
+    remainingWorkspaces.find((workspace) => workspace.ownerId === userId) ??
+    remainingWorkspaces[0];
+
+  await updateUserCurrentWorkspace({
+    userId,
+    workspaceId: defaultWorkspace?.id ?? null,
+  });
 }
 
 // ─── Root routes ─────────────────────────────────────────────────────────────
@@ -134,7 +170,7 @@ export async function createWorkspaceHandler(c: Context) {
     });
 
     // 失效工作空间列表缓存
-    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+    await invalidateWsListForUser(session.user.id);
 
     await updateUserCurrentWorkspace({
       userId: session.user.id,
@@ -173,8 +209,7 @@ export async function updateWorkspaceHandler(c: Context) {
       icon,
     });
 
-    // 失效工作空间列表缓存
-    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+    await invalidateWsListForWorkspace(id);
 
     return c.json(workspace);
   } catch (error) {
@@ -203,10 +238,11 @@ export async function deleteWorkspaceHandler(c: Context) {
       ).toResponse();
     }
 
+    const affectedUserIds = await collectWorkspaceUserIds(id);
     await deleteWorkspace({ id });
-
-    // 失效工作空间列表缓存
-    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+    await Promise.all(
+      affectedUserIds.map((userId) => invalidateUserMembershipCaches(userId))
+    );
 
     return c.json({ success: true });
   } catch (error) {
@@ -236,8 +272,7 @@ export async function updateWorkspaceByIdHandler(c: Context) {
       icon,
     });
 
-    // 失效工作空间列表缓存
-    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+    await invalidateWsListForWorkspace(id);
 
     return c.json(workspace);
   } catch (error) {
@@ -257,10 +292,11 @@ export async function deleteWorkspaceByIdHandler(c: Context) {
 
   try {
     const id = c.req.param("id")!;
+    const affectedUserIds = await collectWorkspaceUserIds(id);
     await deleteWorkspace({ id });
-
-    // 失效工作空间列表缓存
-    await cacheDel(CACHE_KEYS.wsList(session.user.id));
+    await Promise.all(
+      affectedUserIds.map((userId) => invalidateUserMembershipCaches(userId))
+    );
 
     return c.json({ success: true });
   } catch (error) {
@@ -346,6 +382,8 @@ export async function addMemberHandler(c: Context) {
       role,
       permission: role === "admin" ? "edit" : permission,
     });
+    await invalidateUserMembershipCaches(userId);
+    await invalidateWsListForWorkspace(workspaceId);
     return c.json(member, 201);
   } catch (error) {
     if (isPermissionChangedError(error)) {
@@ -460,8 +498,9 @@ export async function updateMemberHandler(c: Context) {
       notification,
     });
 
-    // 失效接收者的未读通知计数缓存
     await cacheDel(CACHE_KEYS.notifUnread(userId));
+    await invalidateUserMembershipCaches(userId);
+    await invalidateWsListForWorkspace(workspaceId);
 
     return c.json(member);
   } catch (error) {
@@ -513,6 +552,7 @@ export async function removeMemberHandler(c: Context) {
     // Self-leave doesn't need management permission
     if (userId === session.user.id) {
       await removeWorkspaceMember({ workspaceId, userId });
+      await afterWorkspaceMemberRemoved({ userId, workspaceId });
       return c.json({ success: true });
     }
 
@@ -527,6 +567,7 @@ export async function removeMemberHandler(c: Context) {
     }
 
     await removeWorkspaceMember({ workspaceId, userId });
+    await afterWorkspaceMemberRemoved({ userId, workspaceId });
 
     const workspaceInfo = await prisma.workspace.findUnique({
       where: { id: workspaceId },

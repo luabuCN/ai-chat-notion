@@ -7,11 +7,13 @@ export async function createWorkspace({
   name,
   slug,
   icon,
+  iconUrl,
   ownerId,
 }: {
   name: string;
   slug: string;
   icon?: string;
+  iconUrl?: string;
   ownerId: string;
 }) {
   try {
@@ -20,6 +22,7 @@ export async function createWorkspace({
         name,
         slug,
         icon,
+        iconUrl,
         ownerId,
         members: {
           create: {
@@ -70,7 +73,7 @@ export async function getWorkspaceBySlug({ slug }: { slug: string }) {
 
 export async function getWorkspacesByUserId({ userId }: { userId: string }) {
   try {
-    return await prisma.workspace.findMany({
+    const workspaces = await prisma.workspace.findMany({
       where: {
         OR: [{ ownerId: userId }, { members: { some: { userId } } }],
       },
@@ -83,6 +86,11 @@ export async function getWorkspacesByUserId({ userId }: { userId: string }) {
       },
       orderBy: { createdAt: "asc" },
     });
+
+    // 自有空间优先，避免「加入的空间」因创建更早而排在 workspaces[0]
+    const owned = workspaces.filter((workspace) => workspace.ownerId === userId);
+    const joined = workspaces.filter((workspace) => workspace.ownerId !== userId);
+    return [...owned, ...joined];
   } catch (_error) {
     throw new ChatSDKError("bad_request:database", "Failed to get workspaces");
   }

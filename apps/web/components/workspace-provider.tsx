@@ -9,7 +9,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Workspace } from "./workspace-switcher";
 import { apiFetch } from "@/lib/api-client";
@@ -25,6 +25,10 @@ interface WorkspaceContextValue {
   switchWorkspace: (workspace: Workspace) => Promise<void>;
   refreshWorkspaces: () => Promise<void>;
   createWorkspace: (name: string, icon?: string) => Promise<Workspace | null>;
+  applyWorkspaceUpdate: (
+    workspaceId: string,
+    updates: Pick<Workspace, "name" | "icon" | "slug">
+  ) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -37,19 +41,46 @@ async function fetchWorkspaces(): Promise<Workspace[]> {
   return response.json();
 }
 
-export function WorkspaceProvider({ children }: { children: ReactNode }) {
+function getDefaultWorkspace(
+  workspaces: Workspace[],
+  userId?: string
+): Workspace | null {
+  if (workspaces.length === 0) {
+    return null;
+  }
+
+  if (userId) {
+    const ownedWorkspace = workspaces.find(
+      (workspace) => workspace.ownerId === userId
+    );
+    if (ownedWorkspace) {
+      return ownedWorkspace;
+    }
+  }
+
+  return workspaces[0];
+}
+
+export function WorkspaceProvider({
+  children,
+  userId,
+}: {
+  children: ReactNode;
+  userId?: string;
+}) {
   const params = useParams();
+  const router = useRouter();
   const slug = params?.slug as string | undefined;
   const queryClient = useQueryClient();
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(
     null
   );
   const currentWorkspaceRef = useRef<Workspace | null>(null);
+  const redirectingFromRemovedWorkspaceRef = useRef(false);
 
   const {
     data: workspaces = [],
     isLoading,
-    refetch,
   } = useQuery({
     queryKey: workspaceKeys.all,
     queryFn: fetchWorkspaces,
@@ -80,12 +111,54 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const matchingWorkspace = slug
       ? workspaces.find((w) => w.slug === slug)
       : undefined;
-    setCurrentWorkspace(matchingWorkspace || workspaces[0]);
-  }, [slug, workspaces]);
+    setCurrentWorkspace(matchingWorkspace || getDefaultWorkspace(workspaces, userId));
+  }, [slug, workspaces, userId]);
+
+  // 当前 URL 对应的空间已被移除时，自动跳转到默认空间（优先自有空间）
+  useEffect(() => {
+    if (isLoading || workspaces.length === 0 || !slug) {
+      return;
+    }
+
+    const hasAccess = workspaces.some((workspace) => workspace.slug === slug);
+    if (hasAccess) {
+      redirectingFromRemovedWorkspaceRef.current = false;
+      return;
+    }
+
+    if (redirectingFromRemovedWorkspaceRef.current) {
+      return;
+    }
+
+    const defaultWorkspace = getDefaultWorkspace(workspaces, userId);
+    if (!defaultWorkspace) {
+      return;
+    }
+
+    redirectingFromRemovedWorkspaceRef.current = true;
+    setCurrentWorkspace(defaultWorkspace);
+
+    void (async () => {
+      try {
+        const response = await apiFetch("/api/workspaces/switch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspaceId: defaultWorkspace.id }),
+        });
+        if (!response.ok) {
+          redirectingFromRemovedWorkspaceRef.current = false;
+          return;
+        }
+        router.replace(`/${defaultWorkspace.slug}/chat`);
+      } catch {
+        redirectingFromRemovedWorkspaceRef.current = false;
+      }
+    })();
+  }, [slug, workspaces, isLoading, router, userId]);
 
   const refreshWorkspaces = useCallback(async () => {
-    await refetch();
-  }, [refetch]);
+    await queryClient.invalidateQueries({ queryKey: workspaceKeys.all });
+  }, [queryClient]);
 
   const switchWorkspace = useCallback(async (workspace: Workspace) => {
     try {
@@ -102,6 +175,23 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       console.error("Failed to switch workspace:", error);
     }
   }, []);
+
+  const applyWorkspaceUpdate = useCallback(
+    (
+      workspaceId: string,
+      updates: Pick<Workspace, "name" | "icon" | "slug">
+    ) => {
+      queryClient.setQueryData<Workspace[]>(workspaceKeys.all, (prev) =>
+        prev?.map((w) =>
+          w.id === workspaceId ? { ...w, ...updates } : w
+        )
+      );
+      setCurrentWorkspace((prev) =>
+        prev?.id === workspaceId ? { ...prev, ...updates } : prev
+      );
+    },
+    [queryClient]
+  );
 
   const createWorkspace = useCallback(
     async (name: string, icon?: string): Promise<Workspace | null> => {
@@ -130,11 +220,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handler = () => {
-      void refetch();
+      void queryClient.invalidateQueries({ queryKey: workspaceKeys.all });
     };
     window.addEventListener("refresh-workspaces", handler);
     return () => window.removeEventListener("refresh-workspaces", handler);
-  }, [refetch]);
+  }, [queryClient]);
 
   return (
     <WorkspaceContext.Provider
@@ -145,6 +235,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         switchWorkspace,
         refreshWorkspaces,
         createWorkspace,
+        applyWorkspaceUpdate,
       }}
     >
       {children}

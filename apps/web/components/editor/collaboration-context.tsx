@@ -6,6 +6,7 @@ interface CollaborativeUser {
   name: string;
   color: string;
   avatar?: string;
+  email?: string;
 }
 
 export type ConnectionStatus =

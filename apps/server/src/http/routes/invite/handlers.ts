@@ -2,6 +2,26 @@ import type { Context } from "hono";
 import { prisma } from "@repo/database";
 import { getSessionFromRequest } from "../../../shared/auth.js";
 import { ApiError } from "../../../shared/errors.js";
+import {
+  invalidateUserMembershipCaches,
+  invalidateWsListForWorkspace,
+} from "../../../shared/workspace-cache.js";
+
+async function getJoinedWorkspaceForUser(
+  workspaceId: string,
+  userId: string
+) {
+  return prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    include: {
+      _count: { select: { members: true } },
+      members: {
+        where: { userId },
+        select: { role: true, permission: true },
+      },
+    },
+  });
+}
 
 export async function getInviteHandler(c: Context) {
   const code = c.req.param("code")!;
@@ -133,11 +153,20 @@ export async function joinWorkspaceHandler(c: Context) {
       },
     });
 
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-    });
+    const workspace = await getJoinedWorkspaceForUser(
+      workspaceId,
+      session.user.id
+    );
+
+    if (!workspace) {
+      return new ApiError(
+        "not_found:chat",
+        "Workspace not found"
+      ).toResponse();
+    }
 
     if (existingMember) {
+      await invalidateUserMembershipCaches(session.user.id);
       return c.json(workspace);
     }
 
@@ -159,7 +188,15 @@ export async function joinWorkspaceHandler(c: Context) {
       });
     }
 
-    return c.json(workspace);
+    await invalidateUserMembershipCaches(session.user.id);
+    await invalidateWsListForWorkspace(workspaceId);
+
+    const joinedWorkspace = await getJoinedWorkspaceForUser(
+      workspaceId,
+      session.user.id
+    );
+
+    return c.json(joinedWorkspace);
   } catch (error) {
     console.error("Failed to join workspace:", error);
     return new ApiError(

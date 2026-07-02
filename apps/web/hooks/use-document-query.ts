@@ -330,9 +330,9 @@ export function useUpdateDocument() {
       const previousLists = queryClient.getQueriesData<EditorDocument[]>({
         queryKey: documentKeys.lists(),
       });
-      const previousDetail = queryClient.getQueryData(
-        documentKeys.detail(variables.documentId)
-      );
+      const previousDetails = queryClient.getQueriesData({
+        queryKey: documentKeys.detail(variables.documentId),
+      });
 
       // 立即更新所有列表缓存中的文档
       if (
@@ -364,10 +364,10 @@ export function useUpdateDocument() {
         );
       }
 
-      // 更新单个文档的缓存
-      queryClient.setQueryData(
-        documentKeys.detail(variables.documentId),
-        (oldData: any) => {
+      // 更新单个文档的缓存（含 includeYjsState 等后缀变体）
+      queryClient.setQueriesData<EditorDocument>(
+        { queryKey: documentKeys.detail(variables.documentId) },
+        (oldData) => {
           if (!oldData) return oldData;
           return {
             ...oldData,
@@ -377,15 +377,15 @@ export function useUpdateDocument() {
       );
 
       // 返回上下文用于回滚
-      return { previousLists, previousDetail };
+      return { previousLists, previousDetails };
     },
 
     // 成功时: 用服务端返回的数据更新缓存
     onSuccess: async (updatedDoc, variables) => {
-      // 更新单个文档的缓存，保留协同编辑相关字段
-      queryClient.setQueryData(
-        documentKeys.detail(variables.documentId),
-        (oldData: any) => {
+      // 更新单个文档的缓存，保留协同编辑相关字段（含 includeYjsState 等后缀变体）
+      queryClient.setQueriesData<EditorDocument>(
+        { queryKey: documentKeys.detail(variables.documentId) },
+        (oldData) => {
           if (!oldData) return updatedDoc;
           return {
             ...updatedDoc,
@@ -407,11 +407,10 @@ export function useUpdateDocument() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          documentKeys.detail(variables.documentId),
-          context.previousDetail
-        );
+      if (context?.previousDetails) {
+        for (const [queryKey, data] of context.previousDetails) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
     },
   });

@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { notificationKeys } from "./use-notifications";
+import { workspaceKeys } from "@/components/workspace-provider";
+import type { Workspace } from "@/components/workspace-switcher";
 import { useServerWsBase } from "./use-server-ws-origin";
 
 const MAX_RECONNECT_DELAY = 30_000;
@@ -81,13 +83,31 @@ export function useNotificationWs(token: string | null) {
             }
           }
 
-          // 空间移除：在该空间 → 跳转到首页（初始空间）
-          if (nType === "SPACE_REMOVED" && payload?.workspaceSlug) {
-            const wsSlug = payload.workspaceSlug as string;
-            if (currentPath?.startsWith(`/${wsSlug}/`)) {
-              router.push("/");
-              router.refresh();
-            }
+          // 空间移除：立即从本地列表移除并刷新，WorkspaceProvider 负责跳转默认空间
+          if (nType === "SPACE_REMOVED") {
+            const removedWorkspaceId = payload?.workspaceId as string | undefined;
+            const removedWorkspaceSlug = payload?.workspaceSlug as
+              | string
+              | undefined;
+
+            queryClient.setQueryData<Workspace[]>(workspaceKeys.all, (prev) => {
+              if (!prev) {
+                return prev;
+              }
+
+              return prev.filter((workspace) => {
+                if (removedWorkspaceId) {
+                  return workspace.id !== removedWorkspaceId;
+                }
+                if (removedWorkspaceSlug) {
+                  return workspace.slug !== removedWorkspaceSlug;
+                }
+                return true;
+              });
+            });
+
+            void queryClient.invalidateQueries({ queryKey: workspaceKeys.all });
+            window.dispatchEvent(new CustomEvent("refresh-workspaces"));
           }
         }
       } catch {

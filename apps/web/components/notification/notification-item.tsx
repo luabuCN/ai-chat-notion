@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@repo/ui";
 import {
   useMarkAsRead,
@@ -11,8 +12,9 @@ import {
 } from "@/hooks/use-notifications";
 import type { Notification } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
-import { apiFetch } from "@/lib/api-client";
-import { useWorkspace } from "@/components/workspace-provider";
+import { apiFetch, getApiErrorMessage } from "@/lib/api-client";
+import { useWorkspace, workspaceKeys } from "@/components/workspace-provider";
+import type { Workspace } from "@/components/workspace-switcher";
 import { toast } from "sonner";
 import { Check, Trash2, X } from "lucide-react";
 
@@ -57,7 +59,9 @@ export function NotificationItem({
 }: NotificationItemProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace();
+  const queryClient = useQueryClient();
+  const { currentWorkspace, workspaces, switchWorkspace, refreshWorkspaces } =
+    useWorkspace();
   const markAsRead = useMarkAsRead();
   const deleteNotification = useDeleteNotification();
   const markActionTaken = useMarkActionTaken();
@@ -220,19 +224,32 @@ export function NotificationItem({
         body: JSON.stringify({ code: payload.inviteToken }),
       });
       if (res.ok) {
-        const workspace = await res.json();
+        const workspace = (await res.json()) as Workspace;
+        queryClient.setQueryData<Workspace[]>(workspaceKeys.all, (prev) => {
+          if (!prev) {
+            return [workspace];
+          }
+          if (prev.some((item) => item.id === workspace.id)) {
+            return prev.map((item) =>
+              item.id === workspace.id ? { ...item, ...workspace } : item
+            );
+          }
+          return [...prev, workspace];
+        });
         markAsRead.mutate(notification.id);
         markActionTaken.mutate({
           notificationId: notification.id,
           status: "accepted",
           extraPayload: { workspaceSlug: workspace.slug },
         });
-        onClose();
-        router.push(`/${workspace.slug}/chat`);
-        router.refresh();
+        await refreshWorkspaces();
+        toast.success(`已加入空间「${workspace.name}」`);
+      } else {
+        const error = await res.json().catch(() => null);
+        toast.error(getApiErrorMessage(error, "接受邀请失败"));
       }
     } catch {
-      // ignore
+      toast.error("接受邀请失败，请重试");
     } finally {
       setAccepting(false);
     }

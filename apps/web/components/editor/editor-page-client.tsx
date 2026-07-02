@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
 import { CollaborationProvider } from "./collaboration-context";
 import { EditorHeaderWrapper } from "./editor-header-wrapper";
 import { EditorContent } from "./editor-content";
 import { EditorLoadingSkeleton } from "./editor-loading-skeleton";
 import { DocumentSearchPalette } from "./document-search-palette";
-import { useGetDocument } from "@/hooks/use-document-query";
-import { useWorkspace } from "@/components/workspace-provider";
+import { useEditorDocumentAccess } from "@/hooks/use-editor-document-access";
 import { useSidebar } from "@repo/ui";
 import { useLocalStorage } from "usehooks-ts";
 import {
@@ -38,11 +36,17 @@ export function EditorPageClient({
   userEmail,
   userAvatarUrl,
 }: EditorPageClientProps) {
-  const { data: document, isPending: isDocumentPending, error } =
-    useGetDocument(documentId);
-  const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace();
-  const router = useRouter();
-  const params = useParams();
+  const {
+    document,
+    isPending: isDocumentPending,
+    accessLevel,
+    pageStatus,
+    error: docError,
+    workspaceMismatch,
+    workspaceSlug,
+    listWorkspaceId,
+    goToDocumentWorkspace,
+  } = useEditorDocumentAccess(documentId);
   const { state, isMobile } = useSidebar();
   const [mounted, setMounted] = useState(false);
   const [isFullWidth, setIsFullWidth] = useLocalStorage("editor-full-width", false);
@@ -50,24 +54,12 @@ export function EditorPageClient({
   const conversionLocked = isConvertTaskPipelineBusy(convertTask);
   const [documentSearchOpen, setDocumentSearchOpen] = useState(false);
 
-  const accessLevel = (document as { accessLevel?: string } | undefined)?.accessLevel;
   const isDocumentEditable =
     Boolean(document) &&
-    !isDocumentPending &&
-    error == null &&
+    pageStatus === "ready" &&
     document?.deletedAt == null &&
     accessLevel !== "view" &&
     !conversionLocked;
-
-  const slugParam = params.slug;
-  let workspaceSlugFromParams = "";
-  if (typeof slugParam === "string") {
-    workspaceSlugFromParams = slugParam;
-  } else if (Array.isArray(slugParam) && slugParam[0]) {
-    workspaceSlugFromParams = slugParam[0];
-  }
-  const workspaceSlug = workspaceSlugFromParams || currentWorkspace?.slug || "";
-  const listWorkspaceId = document?.workspaceId ?? currentWorkspace?.id;
 
   const toggleDocumentSearch = useCallback(() => {
     setDocumentSearchOpen((prev) => !prev);
@@ -86,7 +78,7 @@ export function EditorPageClient({
   }, []);
 
   useEditorPageShortcuts({
-    enabled: !isDocumentPending && error == null,
+    enabled: pageStatus === "ready",
     documentSearch: documentSearchShortcut,
   });
 
@@ -100,91 +92,55 @@ export function EditorPageClient({
     ? "0"
     : "var(--sidebar-width)";
 
-  // 文档已被移到回收站（非所有者），自动跳转到空编辑器
-  useEffect(() => {
-    const docError = error as any;
-    if (
-      docError &&
-      !isDocumentPending &&
-      docError.statusCode === 403 &&
-      docError.cause === "document_deleted"
-    ) {
-      router.replace("/editor");
-    }
-  }, [error, isDocumentPending, router]);
+  if (pageStatus === "workspace_mismatch") {
+    const { targetWorkspace, targetWorkspaceName } = workspaceMismatch;
 
-  const handleGoToDocumentWorkspace = useCallback(async () => {
-    if (!document?.workspaceId) {
-      return;
-    }
-    const targetWorkspace = workspaces.find((w) => w.id === document.workspaceId);
-    if (!targetWorkspace) {
-      return;
-    }
-    await switchWorkspace(targetWorkspace);
-    router.replace(`/${targetWorkspace.slug}/editor/${documentId}`);
-  }, [document?.workspaceId, documentId, router, switchWorkspace, workspaces]);
-
-  // 文档加载出错（无权限 / 不存在）
-  const docError = error as any;
-
-  // 文档属于其他空间（URL 空间与文档实际空间不一致）
-  if (!isDocumentPending && document && !docError) {
-    const docWorkspaceId = document.workspaceId;
-    const isWorkspaceMismatch =
-      docWorkspaceId != null &&
-      currentWorkspace?.id != null &&
-      docWorkspaceId !== currentWorkspace.id;
-    const targetWorkspace = isWorkspaceMismatch
-      ? workspaces.find((w) => w.id === docWorkspaceId)
-      : undefined;
-    const targetWorkspaceName =
-      targetWorkspace?.name ?? targetWorkspace?.slug ?? "其他空间";
-
-    if (isWorkspaceMismatch) {
-      return (
-        <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
-          <div className="flex flex-1 items-center justify-center p-8">
-            <div className="flex flex-col items-center gap-4 text-center max-w-md">
-              <ArrowLeftRight className="size-16 text-muted-foreground/60" />
-              <h2 className="text-xl font-semibold text-foreground">
-                文档不在当前空间
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                此文档属于「{targetWorkspaceName}」空间，请切换到正确空间后再查看
-              </p>
-              <div className="flex gap-3 mt-2">
-                {targetWorkspace ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void handleGoToDocumentWorkspace();
-                    }}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                  >
-                    <ArrowLeftRight className="size-4" />
-                    前往正确空间
-                  </button>
-                ) : null}
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+    return (
+      <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-4 text-center max-w-md">
+            <ArrowLeftRight className="size-16 text-muted-foreground/60" />
+            <h2 className="text-xl font-semibold text-foreground">
+              文档不在当前空间
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              此文档属于「{targetWorkspaceName}」空间，请切换到正确空间后再查看
+            </p>
+            <div className="flex gap-3 mt-2">
+              {targetWorkspace ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void goToDocumentWorkspace();
+                  }}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  返回首页
-                </Link>
-              </div>
+                  <ArrowLeftRight className="size-4" />
+                  前往正确空间
+                </button>
+              ) : null}
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+              >
+                返回首页
+              </Link>
             </div>
           </div>
         </div>
-      );
-    }
+      </div>
+    );
   }
 
-  if (docError && !isDocumentPending) {
-    const statusCode = docError.statusCode ?? 0;
-    const isUnauthorized = statusCode === 401;
-    const isForbidden = statusCode === 403;
-    const isNotFound = statusCode === 404;
+  if (
+    pageStatus === "unauthorized" ||
+    pageStatus === "forbidden" ||
+    pageStatus === "not_found" ||
+    pageStatus === "error"
+  ) {
+    const isUnauthorized = pageStatus === "unauthorized";
+    const isForbidden = pageStatus === "forbidden";
+    const isNotFound = pageStatus === "not_found";
 
     return (
       <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
@@ -211,7 +167,7 @@ export function EditorPageClient({
                 ? "你没有权限查看此文档，请联系文档所有者获取访问权限"
                 : isNotFound
                 ? "此文档不存在或已被删除"
-                : docError.message || "加载文档时发生错误，请稍后重试"}
+                : docError?.message || "加载文档时发生错误，请稍后重试"}
             </p>
             <div className="flex gap-3 mt-2">
               {isUnauthorized ? (

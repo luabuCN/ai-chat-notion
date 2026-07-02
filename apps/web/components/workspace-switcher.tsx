@@ -37,6 +37,7 @@ import {
   Check,
 } from "lucide-react";
 import { WorkspaceSettingsDialog } from "./workspace-settings-dialog";
+import { EmojiPicker } from "./editor/emoji-picker";
 import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 import { apiFetch, getApiErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
@@ -77,6 +78,7 @@ export function WorkspaceSwitcher({
 
   // 创建空间状态
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
+  const [newWorkspaceIcon, setNewWorkspaceIcon] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   // 邀请状态
@@ -161,23 +163,56 @@ export function WorkspaceSwitcher({
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const resetCreateForm = () => {
+    setNewWorkspaceName("");
+    setNewWorkspaceIcon(null);
+  };
+
+  const handleCreateDialogChange = (open: boolean) => {
+    setCreateDialogOpen(open);
+    if (!open) {
+      resetCreateForm();
+    }
+  };
+
+  const newWorkspaceDisplayIcon =
+    newWorkspaceIcon || newWorkspaceName.charAt(0) || "W";
+
   const handleCreateWorkspace = async () => {
     if (!newWorkspaceName.trim()) return;
 
     setIsCreating(true);
     try {
       const response = await apiFetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newWorkspaceName.trim(),
+          icon: newWorkspaceIcon,
+        }),
       });
 
       if (response.ok) {
-        const workspace = await response.json();
+        const workspace = (await response.json()) as Workspace;
+        if (!workspace.slug) {
+          toast.error("创建空间失败：无效的空间信息");
+          return;
+        }
+
         setCreateDialogOpen(false);
-        setNewWorkspaceName("");
+        resetCreateForm();
+        await onRefresh?.();
+        onSwitch?.(workspace);
         router.push(`/${workspace.slug}/chat`);
         router.refresh();
+        return;
       }
+
+      const error = await response.json().catch(() => null);
+      toast.error(getApiErrorMessage(error, "创建空间失败"));
     } catch (error) {
       console.error("Failed to create workspace:", error);
+      toast.error("创建空间失败");
     } finally {
       setIsCreating(false);
     }
@@ -236,15 +271,18 @@ export function WorkspaceSwitcher({
       if (response.ok) {
         setDeleteDialogOpen(false);
         setWorkspaceToDelete(null);
-        // 如果删除的是当前空间，跳转到第一个其他空间
+        // 如果删除的是当前空间，跳转到默认空间
         if (currentWorkspace?.id === workspaceToDelete.id) {
-          const otherWorkspace = workspaces.find(
+          const remainingWorkspaces = workspaces.filter(
             (w) => w.id !== workspaceToDelete.id
           );
-          if (otherWorkspace) {
-            router.push(`/${otherWorkspace.slug}/chat`);
+          const defaultWorkspace =
+            remainingWorkspaces.find((workspace) => workspace.ownerId === userId) ??
+            remainingWorkspaces[0];
+          if (defaultWorkspace) {
+            router.replace(`/${defaultWorkspace.slug}/chat`);
           } else {
-            router.push("/");
+            router.replace("/");
           }
         }
         await onRefresh?.();
@@ -281,13 +319,15 @@ export function WorkspaceSwitcher({
   const memberCount = currentWorkspace?._count?.members || 1;
   const displayIcon =
     currentWorkspace?.icon || currentWorkspace?.name?.charAt(0) || "W";
+  const workspaceIconClass =
+    "flex items-center justify-center rounded-sm bg-highlight text-primary font-semibold";
 
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted transition-colors">
-            <div className="flex size-6 items-center justify-center rounded-sm bg-primary text-primary-foreground text-xs font-semibold">
+            <div className={`size-6 text-sm ${workspaceIconClass}`}>
               {displayIcon}
             </div>
             <div className="flex-1 truncate">
@@ -302,7 +342,7 @@ export function WorkspaceSwitcher({
             <>
               <div className="px-2 py-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex size-8 items-center justify-center rounded-sm bg-primary text-primary-foreground font-semibold">
+                  <div className={`size-8 text-lg ${workspaceIconClass}`}>
                     {displayIcon}
                   </div>
                   <div>
@@ -483,23 +523,34 @@ export function WorkspaceSwitcher({
       </DropdownMenu>
 
       {/* 创建空间对话框 */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={createDialogOpen} onOpenChange={handleCreateDialogChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>创建空间</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="workspace-name">空间名称</Label>
-              <Input
-                id="workspace-name"
-                placeholder="输入空间名称"
-                value={newWorkspaceName}
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateWorkspace();
-                }}
-              />
+            <div className="flex items-end gap-3">
+              <EmojiPicker onEmojiSelect={setNewWorkspaceIcon}>
+                <button
+                  type="button"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-highlight text-xl transition-colors hover:bg-highlight/80"
+                  title="选择图标"
+                >
+                  {newWorkspaceDisplayIcon}
+                </button>
+              </EmojiPicker>
+              <div className="grid min-w-0 flex-1 gap-2">
+                <Label htmlFor="workspace-name">空间名称</Label>
+                <Input
+                  id="workspace-name"
+                  placeholder="输入空间名称"
+                  value={newWorkspaceName}
+                  onChange={(e) => setNewWorkspaceName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateWorkspace();
+                  }}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

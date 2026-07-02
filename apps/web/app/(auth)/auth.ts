@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma, createWorkspace, generateWorkspaceSlug } from "@repo/database";
+import { generateDicebearAvatarUrl } from "@repo/database/dicebear-avatar";
 import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 import { DUMMY_PASSWORD } from "@/lib/constants";
 import { getUser } from "@repo/database";
@@ -96,10 +97,12 @@ export const {
 
         if (users.length === 0) {
           // 用户不存在，自动创建
+          const avatarUrl = generateDicebearAvatarUrl(email);
           const newUser = await prisma.user.create({
             data: {
               email,
               name: null, // 触发 onboarding 流程
+              avatarUrl,
             },
           });
 

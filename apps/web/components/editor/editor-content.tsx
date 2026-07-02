@@ -19,6 +19,7 @@ import {
   type CommentMentionNotifyParams,
   type ConnectionStatus as EditorConnectionStatus,
 } from "@repo/editor";
+import { resolveUserAvatarUrl } from "@repo/database/dicebear-avatar";
 import {
   useCollaboration,
   type ConnectionStatus,
@@ -274,6 +275,21 @@ export function EditorContent({
   const connectedUsersCountRef = useRef(connectedUsers.length);
   connectedUsersCountRef.current = connectedUsers.length;
 
+  /** 断线后等待 Hocuspocus 自动重连的宽限期，避免短暂断线即切 HTTP 本地模式 */
+  const DISCONNECT_GRACE_MS = 15_000;
+  const disconnectGraceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const collabPersistenceFallbackRef = useRef(collabPersistenceFallback);
+  collabPersistenceFallbackRef.current = collabPersistenceFallback;
+  const permissionRevokedRef = useRef(permissionRevoked);
+  permissionRevokedRef.current = permissionRevoked;
+
+  const clearDisconnectGraceTimer = useCallback(() => {
+    if (disconnectGraceTimerRef.current !== null) {
+      clearTimeout(disconnectGraceTimerRef.current);
+      disconnectGraceTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!shouldConnectCollab) {
       setConnectionStatus("idle");
@@ -281,7 +297,14 @@ export function EditorContent({
     }
   }, [shouldConnectCollab, setConnectionStatus, setConnectedUsers]);
 
+  useEffect(() => {
+    return () => {
+      clearDisconnectGraceTimer();
+    };
+  }, [clearDisconnectGraceTimer]);
+
   const activateCollabHttpFallback = useCallback(() => {
+    clearDisconnectGraceTimer();
     if (!shouldConnectCollabRef.current) {
       return;
     }
@@ -299,7 +322,51 @@ export function EditorContent({
       collabFallbackToastShownRef.current = true;
       toast.warning("协同已断开");
     }
-  }, []);
+  }, [clearDisconnectGraceTimer]);
+
+  const scheduleCollabHttpFallback = useCallback(() => {
+    clearDisconnectGraceTimer();
+    disconnectGraceTimerRef.current = setTimeout(() => {
+      disconnectGraceTimerRef.current = null;
+      activateCollabHttpFallback();
+    }, DISCONNECT_GRACE_MS);
+  }, [activateCollabHttpFallback, clearDisconnectGraceTimer]);
+
+  const retryCollabConnection = useCallback(() => {
+    if (
+      !collabPersistenceFallbackRef.current ||
+      !shouldConnectCollabRef.current ||
+      permissionRevokedRef.current
+    ) {
+      return;
+    }
+    clearDisconnectGraceTimer();
+    collabFallbackToastShownRef.current = false;
+    setCollabPersistenceFallback(false);
+  }, [clearDisconnectGraceTimer]);
+
+  // 标签页重新可见或网络恢复时，尝试从 HTTP 兜底恢复协同连接
+  useEffect(() => {
+    const domDocument = globalThis.document;
+    if (!domDocument) {
+      return;
+    }
+    const handleRetry = () => {
+      if (domDocument.visibilityState !== "visible") {
+        return;
+      }
+      retryCollabConnection();
+    };
+    const handleOnline = () => {
+      retryCollabConnection();
+    };
+    domDocument.addEventListener("visibilitychange", handleRetry);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      domDocument.removeEventListener("visibilitychange", handleRetry);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [retryCollabConnection]);
 
   // 处理连接状态变更
   const handleConnectionStatusChange = useCallback(
@@ -308,13 +375,17 @@ export function EditorContent({
         return;
       }
       setConnectionStatus(status as ConnectionStatus);
-      if (status === "disconnected") {
-        activateCollabHttpFallback();
+      if (status === "connected" || status === "connecting") {
+        clearDisconnectGraceTimer();
+      } else if (status === "disconnected") {
+        scheduleCollabHttpFallback();
       }
-      // 不在 "connected" 时重置 collabPersistenceFallback：
-      // 兜底已激活后应保持本地模式，避免编辑器在 collab/local 之间频繁重挂载闪烁。
     },
-    [activateCollabHttpFallback, setConnectionStatus]
+    [
+      clearDisconnectGraceTimer,
+      scheduleCollabHttpFallback,
+      setConnectionStatus,
+    ]
   );
 
   const handleCollabDisconnect = useCallback(() => {
@@ -337,10 +408,17 @@ export function EditorContent({
   // 用户信息
   const user = useMemo(() => {
     if (!userId) return undefined;
+    const name = userName || userEmail?.split("@")[0] || "Anonymous";
     return {
-      name: userName || userEmail?.split("@")[0] || "Anonymous",
+      name,
       color: generateUserColor(userId),
-      ...(userAvatarUrl ? { avatar: userAvatarUrl } : {}),
+      avatar: resolveUserAvatarUrl({
+        avatarUrl: userAvatarUrl,
+        name: userName,
+        email: userEmail,
+        id: userId,
+      }),
+      ...(userEmail ? { email: userEmail } : {}),
     };
   }, [userId, userName, userEmail, userAvatarUrl]);
 

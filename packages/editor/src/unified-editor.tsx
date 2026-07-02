@@ -69,6 +69,7 @@ export interface CollaborativeUser {
   name: string;
   color: string;
   avatar?: string;
+  email?: string;
 }
 
 export type ConnectionStatus =
@@ -214,6 +215,7 @@ export function UnifiedEditor({
       name: user.name,
       color: user.color,
       ...(user.avatar ? { avatar: user.avatar } : {}),
+      ...(user.email ? { email: user.email } : {}),
     };
   }, [user]);
 
@@ -347,11 +349,8 @@ export function UnifiedEditor({
             if (!wasEverConnectedRef.current) {
               return;
             }
-            // 不在此处设置 isWebSocketSynced=true：
-            // 协同尚未完成同步就标记为已同步会导致 onEditorReady 提前触发，
-            // 骨架层被移除但 ydoc 仍为空，用户看到可编辑的空白文档。
-            // 由 2 秒兜底定时器触发 onDisconnect → HTTP 兜底流程处理。
-            onDisconnectRef.current?.();
+            // 不在此处调用 onDisconnect：Hocuspocus 会自动重连，短暂断线不应
+            // 立刻销毁 Provider。上层通过 connectionStatus + grace period 再降级。
           }
         }, 0);
       },
@@ -387,8 +386,15 @@ export function UnifiedEditor({
               byKey.set(key, u);
               continue;
             }
-            if (!prev.avatar && typeof u.avatar === "string" && u.avatar) {
-              byKey.set(key, u);
+            if (
+              (!prev.avatar && typeof u.avatar === "string" && u.avatar) ||
+              (!prev.email && typeof u.email === "string" && u.email)
+            ) {
+              byKey.set(key, {
+                ...prev,
+                ...(u.avatar && !prev.avatar ? { avatar: u.avatar } : {}),
+                ...(u.email && !prev.email ? { email: u.email } : {}),
+              });
             }
           }
           const users = Array.from(byKey.values());
@@ -398,7 +404,7 @@ export function UnifiedEditor({
               (u) =>
                 `${u.name}|${u.color}|${
                   typeof u.avatar === "string" ? u.avatar : ""
-                }`
+                }|${typeof u.email === "string" ? u.email : ""}`
             )
             .sort()
             .join(",");

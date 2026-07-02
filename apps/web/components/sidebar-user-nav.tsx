@@ -19,6 +19,7 @@ import {
 } from "@repo/ui";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@repo/ui";
 import { guestRegex } from "@/lib/constants";
+import { resolveUserAvatarUrl } from "@repo/database/dicebear-avatar";
 import { setUserLocale } from "@/i18n/service";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
@@ -62,12 +63,12 @@ export function SidebarUserNav({ user }: { user: User }) {
                   alt={user.name ?? user.email ?? "User Avatar"}
                   className="rounded-full"
                   height={24}
-                  src={
-                    (user as any).avatarUrl ||
-                    `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(
-                      user.name ?? user.email ?? "default"
-                    )}`
-                  }
+                  src={resolveUserAvatarUrl({
+                    avatarUrl: (user as { avatarUrl?: string | null }).avatarUrl,
+                    name: user.name,
+                    email: user.email,
+                    id: user.id,
+                  })}
                   width={24}
                   unoptimized
                 />

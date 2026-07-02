@@ -1,3 +1,4 @@
+import { generateDicebearAvatarUrl } from "../dicebear-avatar.js";
 import { ChatSDKError } from "../errors.js";
 import { prisma } from "../client.js";
 import { generateHashedPassword } from "../password.js";
@@ -27,9 +28,7 @@ export async function createUser(
   name: string
 ) {
   const hashedPassword = generateHashedPassword(password);
-  const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(
-    name
-  )}`;
+  const avatarUrl = generateDicebearAvatarUrl(name);
 
   try {
     const user = await prisma.user.create({

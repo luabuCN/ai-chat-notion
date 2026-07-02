@@ -17,6 +17,10 @@
     "./workspace-name": {
       "types": "./dist/workspace-name.d.ts",
       "default": "./dist/workspace-name.js"
+    },
+    "./dicebear-avatar": {
+      "types": "./dist/dicebear-avatar.d.ts",
+      "default": "./dist/dicebear-avatar.js"
     }
   },
   "scripts": {
