@@ -7,13 +7,11 @@ export async function createWorkspace({
   name,
   slug,
   icon,
-  iconUrl,
   ownerId,
 }: {
   name: string;
   slug: string;
   icon?: string;
-  iconUrl?: string;
   ownerId: string;
 }) {
   try {
@@ -22,7 +20,6 @@ export async function createWorkspace({
         name,
         slug,
         icon,
-        iconUrl,
         ownerId,
         members: {
           create: {

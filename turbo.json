@@ -4,7 +4,21 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "dist/**", ".output/**"],
-      "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET", "WEB_URL", "API_URL"]
+      "env": [
+        "NODE_ENV",
+        "POSTGRES_URL",
+        "AUTH_SECRET",
+        "WEB_URL",
+        "API_URL",
+        "UPLOADTHING_TOKEN",
+        "API_KEY",
+        "MODELSCOPE_API_KEY",
+        "AUTH_GITHUB_ID",
+        "AUTH_GITHUB_SECRET",
+        "SMTP_USER",
+        "SMTP_PASS",
+        "FIRECRAWL_API_KEY"
+      ]
     },
     "dev": {
       "cache": false,
