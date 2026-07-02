@@ -2,6 +2,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { EditorDocument } from "@repo/database";
 import { apiFetch } from "@/lib/api-client";
 
+export type EditorDocumentWithAccess = EditorDocument & {
+  accessLevel?: "owner" | "edit" | "view";
+  canManage?: boolean;
+  hasCollaborators?: boolean;
+  hasWorkspaceCollaborators?: boolean;
+  isCurrentUserCollaborator?: boolean;
+  yjsState?: string | null;
+};
+
 // Query Keys
 export const documentKeys = {
   all: ["editor-documents"] as const,
@@ -76,7 +85,7 @@ async function createApiMutationError(
 async function fetchDocument(
   documentId: string,
   options?: { includeYjsState?: boolean }
-): Promise<EditorDocument> {
+): Promise<EditorDocumentWithAccess> {
   const params = new URLSearchParams();
   if (options?.includeYjsState) {
     params.set("includeYjsState", "1");
@@ -365,7 +374,7 @@ export function useUpdateDocument() {
       }
 
       // 更新单个文档的缓存（含 includeYjsState 等后缀变体）
-      queryClient.setQueriesData<EditorDocument>(
+      queryClient.setQueriesData<EditorDocumentWithAccess>(
         { queryKey: documentKeys.detail(variables.documentId) },
         (oldData) => {
           if (!oldData) return oldData;
@@ -383,7 +392,7 @@ export function useUpdateDocument() {
     // 成功时: 用服务端返回的数据更新缓存
     onSuccess: async (updatedDoc, variables) => {
       // 更新单个文档的缓存，保留协同编辑相关字段（含 includeYjsState 等后缀变体）
-      queryClient.setQueriesData<EditorDocument>(
+      queryClient.setQueriesData<EditorDocumentWithAccess>(
         { queryKey: documentKeys.detail(variables.documentId) },
         (oldData) => {
           if (!oldData) return updatedDoc;
