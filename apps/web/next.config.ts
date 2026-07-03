@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { resolveServerProxyOrigin } from "./lib/server-proxy-origin";
 
-const withNextIntl = createNextIntlPlugin();
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const WEB_URL = process.env.WEB_URL?.replace(/\/$/, "") ?? "";
 const API_URL = process.env.API_URL?.replace(/\/$/, "") ?? "";
@@ -11,21 +11,20 @@ const API_URL = process.env.API_URL?.replace(/\/$/, "") ?? "";
 const API_PROXY = resolveServerProxyOrigin();
 
 const nextConfig: NextConfig = {
+  turbopack: {},
+  experimental: {
+    // Next.js 16.2+ 默认已开启
+    turbopackFileSystemCacheForDev: true,
+    turbopackFileSystemCacheForBuild: true,
+  },
   env: {
     NEXT_PUBLIC_WEB_URL: WEB_URL,
     NEXT_PUBLIC_API_URL: API_URL,
   },
   reactStrictMode: false,
+  reactCompiler: true,
   transpilePackages: ["@repo/database", "@repo/editor", "@repo/ui", "@repo/ai"],
   productionBrowserSourceMaps: false,
-  experimental: {
-    webpackMemoryOptimizations: true,
-    optimizePackageImports: [
-      "lodash",
-      "lucide-react",
-      "@radix-ui/react-icons",
-    ],
-  },
   images: {
     dangerouslyAllowSVG: true,
     remotePatterns: [
