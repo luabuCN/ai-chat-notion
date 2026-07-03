@@ -48,7 +48,7 @@ export async function requireWorkspaceAccess(
 }
 
 /**
- * 从请求头中获取工作空间 slug（由 middleware 注入）
+ * 从请求头中获取工作空间 slug（由 proxy 注入）
  */
 export async function getWorkspaceSlugFromHeader(): Promise<string | null> {
   const headersList = await headers();
