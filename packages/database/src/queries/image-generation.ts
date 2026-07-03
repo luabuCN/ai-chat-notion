@@ -122,6 +122,39 @@ export async function updateImageGenerationByProviderTaskId({
   }
 }
 
+export async function claimImageGenerationUpload({
+  providerTaskId,
+}: {
+  providerTaskId: string;
+}) {
+  try {
+    const staleUploadBefore = new Date(Date.now() - 5 * 60 * 1000);
+    const result = await prisma.imageGeneration.updateMany({
+      where: {
+        providerTaskId,
+        outputImageUrl: null,
+        status: { not: "SUCCEED" },
+        OR: [
+          { status: { not: "UPLOADING" } },
+          { updatedAt: { lt: staleUploadBefore } },
+        ],
+      },
+      data: {
+        status: "UPLOADING",
+        providerStatus: "SUCCEED",
+        errorMessage: null,
+      },
+    });
+
+    return result.count > 0;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to claim image generation upload"
+    );
+  }
+}
+
 export async function getImageGenerationsForUser({
   userId,
   workspaceId,
@@ -185,6 +218,26 @@ export async function getImageGenerationsForWorkspace({
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get image generations for workspace"
+    );
+  }
+}
+
+export async function deleteImageGenerationById({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}) {
+  try {
+    const result = await prisma.imageGeneration.deleteMany({
+      where: { id, userId },
+    });
+    return result.count > 0;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete image generation"
     );
   }
 }

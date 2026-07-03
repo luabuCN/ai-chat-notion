@@ -24,10 +24,17 @@
       "cache": false,
       "persistent": true
     },
+    "@repo/web#build": {
+      "dependsOn": ["@repo/database#build", "@repo/ai#build"],
+      "outputs": [".next/**"]
+    },
     "@repo/web#dev": {
       "dependsOn": ["@repo/database#build", "@repo/ai#build"],
       "cache": false,
       "persistent": true
+    },
+    "@repo/database#build": {
+      "cache": false
     },
     "lint": {
       "dependsOn": ["^build"]

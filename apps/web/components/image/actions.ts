@@ -1,6 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { HistoryItem, PromptOptions } from "./types";
 import { apiFetch } from "@/lib/api-client";
+import {
+  addImageGenerationTask,
+  setActiveImageGenerationTask,
+} from "@/lib/image-generation/generation-store";
+import { startBackgroundImagePoll } from "@/lib/image-generation/generation-runner";
 
 interface GenerateImagePayload {
   model: string;
@@ -11,52 +16,58 @@ interface GenerateImagePayload {
   promptOptions: PromptOptions;
 }
 
-export function useImageGeneration() {
+type CreateImageResponse = {
+  task_id: string;
+  historyId?: string;
+  backgroundJobId?: string | null;
+};
+
+export async function createImageGenerationTask(
+  payload: GenerateImagePayload
+): Promise<{ taskId: string; historyId?: string }> {
+  const response = await apiFetch("/api/image/generations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error((await response.text()) || "创建任务失败");
+  }
+
+  const data = (await response.json()) as CreateImageResponse;
+
+  addImageGenerationTask({
+    taskId: data.task_id,
+    historyId: data.historyId,
+    prompt: payload.prompt,
+    status: "pending",
+    progress: "已提交，等待生成...",
+    createdAt: Date.now(),
+  });
+  setActiveImageGenerationTask(data.task_id);
+
+  startBackgroundImagePoll(data.task_id);
+
+  return { taskId: data.task_id, historyId: data.historyId };
+}
+
+export function useCreateImageGenerationTask() {
   return useMutation({
-    mutationFn: async (payload: GenerateImagePayload) => {
-      const response = await apiFetch("/api/image/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+    mutationFn: createImageGenerationTask,
+  });
+}
+
+export function useDeleteImageHistory() {
+  return useMutation({
+    mutationFn: async (historyId: string) => {
+      const response = await apiFetch(`/api/image/history/${historyId}`, {
+        method: "DELETE",
       });
 
       if (!response.ok) {
-        throw new Error((await response.text()) || "创建任务失败");
+        throw new Error((await response.text()) || "删除失败");
       }
-
-      const { task_id } = await response.json();
-
-      return new Promise<string>((resolve, reject) => {
-        const poll = async () => {
-          try {
-            const pollResponse = await apiFetch(`/api/image/tasks/${task_id}`);
-
-            if (!pollResponse.ok) {
-              throw new Error(
-                (await pollResponse.text()) || "查询任务状态失败"
-              );
-            }
-
-            const data = await pollResponse.json();
-
-            if (data.task_status === "SUCCEED") {
-              resolve(data.output_images?.[0] ?? null);
-              return;
-            }
-
-            if (data.task_status === "FAILED") {
-              reject(new Error(data.history?.errorMessage || "图片生成失败"));
-              return;
-            }
-
-            setTimeout(poll, 2500);
-          } catch (error) {
-            reject(error);
-          }
-        };
-
-        poll();
-      });
     },
   });
 }
@@ -64,13 +75,15 @@ export function useImageGeneration() {
 export function useImageHistory(
   workspaceSlug?: string,
   scope: "workspace" | "user" = "user",
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; refetchPending?: boolean }
 ) {
   const enabled = options?.enabled ?? true;
+  const refetchPending = options?.refetchPending ?? false;
 
   return useQuery({
     queryKey: ["image-history", workspaceSlug, scope],
     enabled,
+    refetchInterval: refetchPending ? 3000 : false,
     queryFn: async () => {
       const params = new URLSearchParams({ scope, limit: "30" });
       if (workspaceSlug) {
@@ -118,7 +131,6 @@ export function useOptimizePrompt() {
       const decoder = new TextDecoder();
       let optimizedText = "";
 
-      // 覆盖当前的内容准备接收新的流
       onUpdate("");
 
       while (true) {

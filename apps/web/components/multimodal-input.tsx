@@ -27,7 +27,15 @@ import {
   DOCUMENT_IMPORT_ACCEPT,
   isSupportedDocumentImport,
 } from "@/lib/document-import/constants";
-import { useDocumentImportBusy } from "@/lib/document-import/convert-store";
+import {
+  useDocumentImportBusy,
+  clearConvertTask,
+  failConvertTask,
+  startConvertTask,
+  updateConvertProgress,
+} from "@/lib/document-import/convert-store";
+import { pollJobUntilComplete } from "@/lib/jobs/poll-job";
+import type { WebScrapeJobResult } from "@/lib/jobs/types";
 import { SelectItem } from "@repo/ui";
 
 import type { TokenQuota } from "@repo/database";
@@ -920,37 +928,14 @@ function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
   const [pageUrl, setPageUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveWebPage = useCallback(async () => {
-    const trimmedUrl = pageUrl.trim();
-    if (!trimmedUrl) {
-      toast.error("请输入网页链接");
-      return;
-    }
-
-    setIsSaving(true);
-    const toastId = toast.loading("正在抓取网页并保存到知识库...");
-
-    try {
-      const result = await apiJson<{
-        id: string;
-        title: string;
-        sourcePageUrl: string | null;
-        markdown: string;
-        warning: string | null;
-      }>("/api/web-scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: trimmedUrl,
-          workspaceSlug,
-        }),
-      });
-
-      const tiptapDoc = markdownToTiptap(result.markdown);
-      const saveRes = await apiFetch(`/api/editor-documents/${result.id}`, {
+  const saveScrapedDocument = useCallback(
+    async (documentId: string, markdown: string, title?: string) => {
+      const tiptapDoc = markdownToTiptap(markdown);
+      const saveRes = await apiFetch(`/api/editor-documents/${documentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          title,
           content: JSON.stringify(tiptapDoc),
           yjsState: null,
         }),
@@ -961,20 +946,117 @@ function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
 
       await queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       await queryClient.invalidateQueries({
-        queryKey: documentKeys.detail(result.id),
+        queryKey: documentKeys.detail(documentId),
+      });
+    },
+    [queryClient]
+  );
+
+  const runWebScrapeViaJob = useCallback(
+    async (url: string, documentId: string, jobId: string) => {
+      try {
+        const result = await pollJobUntilComplete<WebScrapeJobResult>(
+          jobId,
+          (progress) => updateConvertProgress(documentId, progress)
+        );
+
+        updateConvertProgress(documentId, "正在保存文档...");
+        await saveScrapedDocument(
+          documentId,
+          result.markdown,
+          result.title
+        );
+
+        toast.success(`已保存「${result.title}」`);
+        if (result.warning) {
+          toast.warning(result.warning, { duration: 6000 });
+        }
+        clearConvertTask(documentId);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "网页保存失败，请重试";
+        failConvertTask(documentId, message);
+        toast.error(message);
+      }
+    },
+    [saveScrapedDocument]
+  );
+
+  const handleSaveWebPage = useCallback(async () => {
+    const trimmedUrl = pageUrl.trim();
+    if (!trimmedUrl) {
+      toast.error("请输入网页链接");
+      return;
+    }
+
+    setIsSaving(true);
+    const toastId = toast.loading("正在创建文档...");
+
+    try {
+      const jobResponse = await apiFetch("/api/web-scrape/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: trimmedUrl,
+          workspaceSlug,
+        }),
       });
 
-      toast.success(`已保存「${result.title}」`, { id: toastId });
+      if (jobResponse.status === 503) {
+        toast.loading("正在抓取网页并保存到知识库...", { id: toastId });
 
-      if (result.warning) {
-        toast.warning(result.warning, { duration: 6000 });
+        const result = await apiJson<{
+          id: string;
+          title: string;
+          sourcePageUrl: string | null;
+          markdown: string;
+          warning: string | null;
+        }>("/api/web-scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: trimmedUrl,
+            workspaceSlug,
+          }),
+        });
+
+        await saveScrapedDocument(result.id, result.markdown, result.title);
+        toast.success(`已保存「${result.title}」`, { id: toastId });
+        if (result.warning) {
+          toast.warning(result.warning, { duration: 6000 });
+        }
+
+        const editorPath = workspaceSlug
+          ? `/${workspaceSlug}/editor/${result.id}`
+          : `/editor/${result.id}`;
+        router.push(editorPath);
+        setPageUrl("");
+        return;
       }
 
-      const editorPath = workspaceSlug
-        ? `/${workspaceSlug}/editor/${result.id}`
-        : `/editor/${result.id}`;
-      router.push(editorPath);
+      if (!jobResponse.ok) {
+        const err = (await jobResponse.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        };
+        throw new Error(err.message || err.error || "网页保存失败，请重试");
+      }
+
+      const jobData = (await jobResponse.json()) as {
+        jobId: string;
+        id: string;
+      };
+
+      toast.dismiss(toastId);
+      startConvertTask(jobData.id, "正在抓取网页...");
       setPageUrl("");
+
+      const editorPath = workspaceSlug
+        ? `/${workspaceSlug}/editor/${jobData.id}`
+        : `/editor/${jobData.id}`;
+      router.push(editorPath);
+
+      void runWebScrapeViaJob(trimmedUrl, jobData.id, jobData.jobId);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "网页保存失败，请重试",
@@ -983,7 +1065,13 @@ function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
     } finally {
       setIsSaving(false);
     }
-  }, [pageUrl, workspaceSlug, router, queryClient]);
+  }, [
+    pageUrl,
+    workspaceSlug,
+    router,
+    runWebScrapeViaJob,
+    saveScrapedDocument,
+  ]);
 
   const handleDownloadExtension = useCallback(() => {
     toast.info(
@@ -1235,7 +1323,7 @@ function PureModelSelectorCompact({
           });
         }
       }}
-      value={selectedDynamicModel?.full_slug}
+      value={selectedDynamicModel?.full_slug ?? ""}
     >
       <PromptInputModelSelectTrigger
         className="h-8 px-2"

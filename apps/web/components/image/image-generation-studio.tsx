@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
 import { HistoryIcon, ImageIcon } from "lucide-react";
 import { toast } from "@/components/toast";
@@ -10,8 +10,32 @@ import { MODELS, SIZES } from "./constants";
 import { StudioHistoryPanel } from "./studio-history-panel";
 import { StudioResultPanel } from "./studio-result-panel";
 import { StudioSidebar } from "./studio-sidebar";
-import { useImageGeneration, useImageHistory } from "./actions";
+import {
+  useCreateImageGenerationTask,
+  useDeleteImageHistory,
+  useImageHistory,
+} from "./actions";
 import type { HistoryItem, PromptOptions } from "./types";
+import {
+  completeImageGenerationTask,
+  failImageGenerationTask,
+  removeImageGenerationTask,
+  setActiveImageGenerationTask,
+  useActiveImageGenerationTask,
+  usePendingImageGenerationCount,
+} from "@/lib/image-generation/generation-store";
+import { cancelBackgroundImagePoll } from "@/lib/image-generation/generation-runner";
+
+type ResultView =
+  | { type: "empty" }
+  | { type: "generating" }
+  | { type: "success"; imageUrl: string }
+  | {
+      type: "failed";
+      historyId: string;
+      error: string;
+      providerTaskId?: string | null;
+    };
 
 export function ImageGenerationStudio({
   workspaceSlug,
@@ -38,16 +62,87 @@ export function ImageGenerationStudio({
     quality: [],
     negatives: [],
   });
-  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [resultView, setResultView] = useState<ResultView>({ type: "empty" });
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(
+    null
+  );
+  const [pausingTaskId, setPausingTaskId] = useState<string | null>(null);
+
+  const pendingCount = usePendingImageGenerationCount();
+  const activeTask = useActiveImageGenerationTask();
 
   const {
     data: history = [],
     isLoading: isHistoryLoading,
     refetch: loadHistory,
-  } = useImageHistory(workspaceSlug, historyScope);
+  } = useImageHistory(workspaceSlug, historyScope, {
+    refetchPending: pendingCount > 0,
+  });
 
-  const { mutate: generateImage, isPending: isGenerating } =
-    useImageGeneration();
+  const { mutate: createImageTask, isPending: isSubmitting } =
+    useCreateImageGenerationTask();
+  const { mutate: deleteImageHistory } = useDeleteImageHistory();
+
+  const resultImage =
+    resultView.type === "success" ? resultView.imageUrl : null;
+  const failedError =
+    resultView.type === "failed" ? resultView.error : null;
+  const isGenerating =
+    resultView.type === "generating" &&
+    (activeTask?.status === "pending" ||
+      activeTask?.status === "processing" ||
+      !activeTask);
+
+  useEffect(() => {
+    for (const item of history) {
+      if (!item.providerTaskId) {
+        continue;
+      }
+
+      if (item.status === "FAILED") {
+        failImageGenerationTask(
+          item.providerTaskId,
+          item.errorMessage || "图片生成失败"
+        );
+      } else if (item.status === "SUCCEED" && item.outputImageUrl) {
+        completeImageGenerationTask(
+          item.providerTaskId,
+          item.outputImageUrl
+        );
+      }
+    }
+  }, [history]);
+
+  useEffect(() => {
+    if (activeTask?.status === "completed") {
+      setResultView({
+        type: "success",
+        imageUrl: activeTask.outputImageUrl ?? "",
+      });
+      void loadHistory();
+    }
+
+    if (activeTask?.status === "failed" && resultView.type === "generating") {
+      const historyItem = history.find(
+        (item) => item.providerTaskId === activeTask.taskId
+      );
+      setResultView({
+        type: "failed",
+        historyId: historyItem?.id ?? "",
+        error: activeTask.error || "图片生成失败",
+        providerTaskId: activeTask.taskId,
+      });
+      void loadHistory();
+    }
+  }, [
+    activeTask?.status,
+    activeTask?.outputImageUrl,
+    activeTask?.error,
+    activeTask?.taskId,
+    history,
+    loadHistory,
+    resultView.type,
+  ]);
 
   function togglePromptOption(
     group: keyof PromptOptions,
@@ -70,11 +165,44 @@ export function ImageGenerationStudio({
     );
   }
 
-  function selectHistoryItem(item: HistoryItem) {
-    setActiveTab("result");
-    if (item.outputImageUrl) {
-      setResultImage(item.outputImageUrl);
+  function handlePauseGeneration(item: HistoryItem) {
+    if (!item.providerTaskId) {
+      return;
     }
+
+    setPausingTaskId(item.providerTaskId);
+    cancelBackgroundImagePoll(item.providerTaskId);
+    toast({
+      type: "success",
+      description: "已暂停该任务的后台跟踪",
+    });
+    setPausingTaskId(null);
+  }
+
+  function handleDeleteHistory(item: HistoryItem) {
+    setDeletingHistoryId(item.id);
+    deleteImageHistory(item.id, {
+      onSuccess: () => {
+        if (item.providerTaskId) {
+          removeImageGenerationTask(item.providerTaskId);
+        }
+        if (resultView.type === "failed" && resultView.historyId === item.id) {
+          setResultView({ type: "empty" });
+        }
+        toast({ type: "success", description: "已删除生成记录" });
+        void loadHistory();
+      },
+      onError: (error) => {
+        toast({
+          type: "error",
+          description:
+            error instanceof Error ? error.message : "删除失败",
+        });
+      },
+      onSettled: () => {
+        setDeletingHistoryId(null);
+      },
+    });
   }
 
   function handleReset() {
@@ -90,7 +218,8 @@ export function ImageGenerationStudio({
       quality: [],
       negatives: [],
     });
-    setResultImage(null);
+    setResultView({ type: "empty" });
+    setActiveImageGenerationTask(null);
   }
 
   async function handleGenerate() {
@@ -107,8 +236,8 @@ export function ImageGenerationStudio({
       return;
     }
 
-    setResultImage(null);
     setActiveTab("result");
+    setResultView({ type: "generating" });
 
     const promptAdditions = Object.entries(promptOptions)
       .filter(([key]) => key !== "negatives")
@@ -122,7 +251,7 @@ export function ImageGenerationStudio({
       .filter(Boolean)
       .join(", ");
 
-    generateImage(
+    createImageTask(
       {
         model,
         prompt: composedPrompt,
@@ -132,21 +261,20 @@ export function ImageGenerationStudio({
         promptOptions,
       },
       {
-        onSuccess: (imageUrl) => {
-          setResultImage(imageUrl);
+        onSuccess: () => {
           toast({
             type: "success",
-            description: "图片已生成并自动上传到素材库",
+            description: "已提交生成任务，可继续创作或切换页面",
           });
-          loadHistory();
+          void loadHistory();
         },
         onError: (error) => {
+          setResultView({ type: "empty" });
           toast({
             type: "error",
             description:
               error instanceof Error ? error.message : "图片生成失败",
           });
-          loadHistory();
         },
       }
     );
@@ -164,7 +292,8 @@ export function ImageGenerationStudio({
           negativePrompt={negativePrompt}
           size={size}
           promptOptions={promptOptions}
-          isGenerating={isGenerating}
+          isGenerating={isSubmitting}
+          pendingCount={pendingCount}
           canCreate={canCreate}
           onModelChange={setModel}
           onPromptChange={setPrompt}
@@ -186,11 +315,11 @@ export function ImageGenerationStudio({
               <TabsList>
                 <TabsTrigger value="result" className="py-1">
                   <ImageIcon />
-                  {"生成结果"}
+                  生成结果
                 </TabsTrigger>
                 <TabsTrigger value="history" className="py-1">
                   <HistoryIcon />
-                  {"历史记录"}
+                  历史记录
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -201,6 +330,24 @@ export function ImageGenerationStudio({
               <StudioResultPanel
                 resultImage={resultImage}
                 isGenerating={isGenerating}
+                progressMessage={activeTask?.progress}
+                failedError={failedError}
+                isDeleting={
+                  resultView.type === "failed" &&
+                  deletingHistoryId === resultView.historyId
+                }
+                onDeleteFailed={
+                  resultView.type === "failed" && resultView.historyId
+                    ? () => {
+                        const item = history.find(
+                          (entry) => entry.id === resultView.historyId
+                        );
+                        if (item) {
+                          handleDeleteHistory(item);
+                        }
+                      }
+                    : undefined
+                }
               />
             </TabsContent>
 
@@ -211,7 +358,10 @@ export function ImageGenerationStudio({
               <StudioHistoryPanel
                 history={history}
                 isHistoryLoading={isHistoryLoading}
-                onSelectHistory={selectHistoryItem}
+                onDeleteHistory={handleDeleteHistory}
+                onPauseGeneration={handlePauseGeneration}
+                deletingHistoryId={deletingHistoryId}
+                pausingTaskId={pausingTaskId}
               />
             </TabsContent>
           </Tabs>

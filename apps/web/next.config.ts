@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   images: {
     dangerouslyAllowSVG: true,
+    qualities: [100, 75],
     remotePatterns: [
       {
         hostname: "avatar.vercel.sh",
@@ -72,6 +73,7 @@ const nextConfig: NextConfig = {
       "/api/pdf",
       "/api/document-import",
       "/api/web-scrape",
+      "/api/jobs",
       "/api/image",
       "/api/unsplash",
       "/api/notifications",

@@ -10,6 +10,7 @@ export function formatTime(value: string) {
 export function getStatusLabel(status: string) {
   if (status === "SUCCEED") return "已完成";
   if (status === "FAILED") return "失败";
+  if (status === "UPLOADING") return "保存中";
   if (status === "PROCESSING") return "生成中";
   return "排队中";
 }

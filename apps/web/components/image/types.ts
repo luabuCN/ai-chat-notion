@@ -18,6 +18,7 @@ export type HistoryItem = {
   aspectRatio: string | null;
   status: string;
   providerStatus: string | null;
+  providerTaskId: string | null;
   outputImageUrl: string | null;
   errorMessage: string | null;
   workspaceRole: string;

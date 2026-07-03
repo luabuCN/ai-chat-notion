@@ -23,6 +23,11 @@ export const MODELS = [
     name: "Majicflux v1",
     badge: "质感写实",
   },
+  {
+    id: "krea/Krea-2-Turbo",
+    name: "Krea-2-Turbo",
+    badge: "高质量",
+  },
 ];
 
 export const SIZES = [
