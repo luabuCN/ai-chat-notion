@@ -74,7 +74,7 @@
       ]
     },
     "@repo/server#build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["@repo/database#build", "@repo/ai#build"],
       "outputs": ["dist/**"],
       "env": ["NODE_ENV", "POSTGRES_URL", "AUTH_SECRET"]
     },
