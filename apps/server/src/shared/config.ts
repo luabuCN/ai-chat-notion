@@ -23,7 +23,7 @@ export function isLocalHttpEnvironment() {
   return process.env.AUTH_TRUST_HOST === "true";
 }
 
-/** Must stay aligned with apps/web/middleware.ts getToken secureCookie flag. */
+/** Must stay aligned with apps/web/proxy.ts getToken secureCookie flag. */
 export function usesSecureSessionCookie() {
   return serverConfig.isProduction && !isLocalHttpEnvironment();
 }
