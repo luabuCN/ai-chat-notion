@@ -1,15 +1,23 @@
-import { ImagePreview } from "@repo/ui";
-import { Download, ImagePlus, Loader2 } from "lucide-react";
+import { ImagePreview, Button } from "@repo/ui";
+import { AlertCircle, Download, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 type StudioResultPanelProps = {
   resultImage: string | null;
   isGenerating: boolean;
+  progressMessage?: string;
+  failedError?: string | null;
+  onDeleteFailed?: () => void;
+  isDeleting?: boolean;
 };
 
 export function StudioResultPanel({
   resultImage,
   isGenerating,
+  progressMessage,
+  failedError,
+  onDeleteFailed,
+  isDeleting = false,
 }: StudioResultPanelProps) {
   return (
     <div className="flex h-full min-h-0 items-center justify-center">
@@ -29,7 +37,6 @@ export function StudioResultPanel({
                 />
               </ImagePreview>
 
-              {/* 下载按钮 - hover 时显示 */}
               <div className="absolute right-4 top-4 flex -translate-y-1 gap-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
                 <a
                   href={resultImage}
@@ -44,6 +51,34 @@ export function StudioResultPanel({
               </div>
             </div>
           </motion.div>
+        ) : failedError ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex w-full flex-col items-center px-6 text-center"
+          >
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-red-50">
+              <AlertCircle className="size-8 text-red-500" />
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-zinc-900">
+              生成失败
+            </h3>
+            <p className="mt-2 max-w-md text-sm leading-6 text-zinc-500">
+              {failedError}
+            </p>
+            {onDeleteFailed ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-6 rounded-xl"
+                disabled={isDeleting}
+                onClick={onDeleteFailed}
+              >
+                <Trash2 className="size-4" />
+                {isDeleting ? "删除中..." : "删除记录"}
+              </Button>
+            ) : null}
+          </motion.div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-center">
             {isGenerating ? (
@@ -53,18 +88,26 @@ export function StudioResultPanel({
                 className="flex w-full flex-col items-center px-6"
               >
                 <div className="relative mb-8 aspect-square w-full max-w-[400px]">
-                  {/* 骨架屏 */}
                   <div className="relative h-full w-full overflow-hidden rounded-2xl bg-zinc-100">
                     <motion.div
                       className="absolute inset-0 w-[150%] bg-linear-to-r from-transparent via-white/80 to-transparent skew-x-[-20deg]"
                       initial={{ left: "-150%" }}
                       animate={{ left: "150%" }}
-                      transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1.2,
+                        ease: "easeInOut",
+                      }}
                     />
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold text-zinc-900">{"正在生成中..."}</h3>
+                <h3 className="text-lg font-semibold text-zinc-900">
+                  {progressMessage || "正在生成中..."}
+                </h3>
+                <p className="mt-2 text-sm text-zinc-500">
+                  任务在后台运行，切换页面不会中断
+                </p>
               </motion.div>
             ) : (
               <motion.div
@@ -76,10 +119,10 @@ export function StudioResultPanel({
                   <ImagePlus className="size-7 text-zinc-400" />
                 </div>
                 <h3 className="mt-4 text-base font-semibold text-zinc-900">
-                  {"还没有生成任何图片"}
+                  还没有生成任何图片
                 </h3>
                 <p className="mt-1.5 max-w-xs text-sm leading-6 text-zinc-400">
-                  {"填写描述后点击「开始创作」即可生成"}
+                  填写描述后点击「开始创作」即可生成
                 </p>
               </motion.div>
             )}

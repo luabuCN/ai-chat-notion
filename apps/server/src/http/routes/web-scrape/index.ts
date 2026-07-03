@@ -1,6 +1,10 @@
 import { Hono } from "hono";
-import { scrapeWebPageHandler } from "./handlers.js";
+import {
+  createWebScrapeJobHandler,
+  scrapeWebPageHandler,
+} from "./handlers.js";
 
 export const webScrapeRoutes = new Hono();
 
+webScrapeRoutes.post("/jobs", createWebScrapeJobHandler);
 webScrapeRoutes.post("/", scrapeWebPageHandler);

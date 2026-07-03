@@ -6,6 +6,8 @@ import { MaterialLibraryDialog } from "@/components/editor/material-library-dial
 import { DocumentLinkPickerDialog } from "@/components/editor/document-link-picker-dialog";
 import { NotificationProvider } from "@/components/notification-provider";
 import { PageMetadataManager } from "@/components/page-metadata-manager";
+import { ImageGenerationManager } from "@/components/image/image-generation-manager";
+import { ImageGenerationProgressIndicator } from "@/components/image/image-generation-progress-indicator";
 import { SidebarInset, SidebarProvider } from "@repo/ui";
 import { auth } from "../(auth)/auth";
 
@@ -29,6 +31,8 @@ export default async function Layout({
                 {children}
                 <MaterialLibraryDialog />
                 <DocumentLinkPickerDialog />
+                <ImageGenerationManager />
+                <ImageGenerationProgressIndicator />
               </NotificationProvider>
             </SidebarInset>
           </SidebarProvider>

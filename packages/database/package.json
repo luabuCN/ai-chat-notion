@@ -4,27 +4,27 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./client": {
-      "types": "./dist/client.d.ts",
+      "types": "./src/client.ts",
       "default": "./dist/client.js"
     },
     "./workspace-name": {
-      "types": "./dist/workspace-name.d.ts",
+      "types": "./src/workspace-name.ts",
       "default": "./dist/workspace-name.js"
     },
     "./dicebear-avatar": {
-      "types": "./dist/dicebear-avatar.d.ts",
+      "types": "./src/dicebear-avatar.ts",
       "default": "./dist/dicebear-avatar.js"
     }
   },
   "scripts": {
-    "build": "prisma generate || echo skip && tsc -p tsconfig.build.json",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
     "postinstall": "prisma generate",
     "generate": "prisma generate",
     "db:generate": "dotenv -e ../../.env.local -- prisma generate",

@@ -76,6 +76,7 @@ type StudioSidebarProps = {
   size: string;
   promptOptions: PromptOptions;
   isGenerating: boolean;
+  pendingCount?: number;
   canCreate: boolean;
   onModelChange: (value: string) => void;
   onPromptChange: (value: string) => void;
@@ -99,6 +100,7 @@ export function StudioSidebar({
   size,
   promptOptions,
   isGenerating,
+  pendingCount = 0,
   canCreate,
   onModelChange,
   onPromptChange,
@@ -375,6 +377,11 @@ export function StudioSidebar({
 
       {/* 底部生成按钮 */}
       <div className="px-5 py-4">
+        {pendingCount > 0 ? (
+          <p className="mb-2 text-center text-xs text-zinc-500">
+            {pendingCount} 个任务在后台生成中，可继续提交新任务
+          </p>
+        ) : null}
         <Button
           type="button"
           onClick={onGenerate}
@@ -384,7 +391,7 @@ export function StudioSidebar({
           {isGenerating ? (
             <span className="flex items-center gap-2">
               <Loader2 className="size-4 animate-spin" />
-              {"正在生成并上传素材..."}
+              {"正在提交任务..."}
             </span>
           ) : (
             <span className="flex items-center gap-2">

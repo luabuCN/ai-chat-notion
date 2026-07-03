@@ -21,6 +21,8 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { apiFetch } from "@/lib/api-client";
 import { uploadFileToApi } from "@/lib/file-upload";
 import { htmlToTiptap, markdownToTiptap } from "@repo/editor";
+import { pollJobUntilComplete } from "@/lib/jobs/poll-job";
+import type { DocumentImportJobResult } from "@/lib/jobs/types";
 import {
   clearConvertTask,
   failConvertTask,
@@ -76,89 +78,150 @@ async function saveDocumentContent(
   if (!res.ok) throw new Error("保存文档失败");
 }
 
+async function runImportViaJob(
+  file: File,
+  docId: string,
+  queryClient: QueryClient
+) {
+  updateConvertProgress(docId, "正在上传并排队解析...");
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("docId", docId);
+  formData.append("polish", "auto");
+
+  const res = await apiFetch("/api/document-import/jobs", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (res.status === 503) {
+    await runImportViaSse(file, docId, queryClient);
+    return;
+  }
+
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? "文档解析任务创建失败");
+  }
+
+  const { jobId } = (await res.json()) as { jobId: string };
+  const result = await pollJobUntilComplete<DocumentImportJobResult>(
+    jobId,
+    (progress) => updateConvertProgress(docId, progress)
+  );
+
+  if (result.warnings?.length) {
+    toast.warning(result.warnings.join("\n"), { duration: 8000 });
+  }
+
+  finishConvertTask(docId, result.markdown);
+  updateConvertProgress(docId, "正在保存文档...");
+  await saveDocumentContent(docId, {
+    contentFormat: result.contentFormat,
+    markdown: result.markdown,
+    html: result.html,
+  });
+
+  await queryClient.invalidateQueries({
+    queryKey: documentKeys.detail(docId),
+  });
+
+  toast.success("文档已导入并保存");
+  clearConvertTask(docId);
+}
+
+async function runImportViaSse(
+  file: File,
+  docId: string,
+  queryClient: QueryClient
+) {
+  updateConvertProgress(docId, "正在解析文档...");
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("polish", "auto");
+
+  const res = await apiFetch("/api/document-import/parse", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok || !res.body) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? "文档解析失败");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let sseBuffer = "";
+  let finalMarkdown = "";
+  let contentFormat: ImportContentFormat = "markdown";
+  let finalHtml: string | undefined;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    sseBuffer += decoder.decode(value, { stream: true });
+    const chunks = sseBuffer.split("\n\n");
+    sseBuffer = chunks.pop() ?? "";
+
+    for (const chunk of chunks) {
+      const dataLine = chunk.trim();
+      if (!dataLine.startsWith("data: ")) continue;
+
+      const json = JSON.parse(dataLine.slice(6)) as
+        | { type: "progress"; message: string }
+        | {
+            type: "done";
+            contentFormat: ImportContentFormat;
+            markdown: string;
+            rawMarkdown: string;
+            html?: string;
+            pageCount?: number;
+            warnings?: string[];
+          }
+        | { type: "error"; message: string };
+
+      if (json.type === "progress") {
+        updateConvertProgress(docId, json.message);
+      } else if (json.type === "done") {
+        finalMarkdown = json.markdown;
+        contentFormat = json.contentFormat;
+        finalHtml = json.html;
+        if (json.warnings && json.warnings.length > 0) {
+          toast.warning(json.warnings.join("\n"), { duration: 8000 });
+        }
+        finishConvertTask(docId, json.markdown);
+      } else if (json.type === "error") {
+        throw new Error(json.message);
+      }
+    }
+  }
+
+  updateConvertProgress(docId, "正在保存文档...");
+  await saveDocumentContent(docId, {
+    contentFormat,
+    markdown: finalMarkdown,
+    html: finalHtml,
+  });
+
+  await queryClient.invalidateQueries({
+    queryKey: documentKeys.detail(docId),
+  });
+
+  toast.success("文档已导入并保存");
+  clearConvertTask(docId);
+}
+
 async function runImportInBackground(
   file: File,
   docId: string,
   queryClient: QueryClient
 ) {
   try {
-    updateConvertProgress(docId, "正在解析文档...");
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("polish", "auto");
-
-    const res = await apiFetch("/api/document-import/parse", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok || !res.body) {
-      const err = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(err.error ?? "文档解析失败");
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let sseBuffer = "";
-    let finalMarkdown = "";
-    let contentFormat: ImportContentFormat = "markdown";
-    let finalHtml: string | undefined;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      sseBuffer += decoder.decode(value, { stream: true });
-      const chunks = sseBuffer.split("\n\n");
-      sseBuffer = chunks.pop() ?? "";
-
-      for (const chunk of chunks) {
-        const dataLine = chunk.trim();
-        if (!dataLine.startsWith("data: ")) continue;
-
-        const json = JSON.parse(dataLine.slice(6)) as
-          | { type: "progress"; message: string }
-          | {
-              type: "done";
-              contentFormat: ImportContentFormat;
-              markdown: string;
-              rawMarkdown: string;
-              html?: string;
-              pageCount?: number;
-              warnings?: string[];
-            }
-          | { type: "error"; message: string };
-
-        if (json.type === "progress") {
-          updateConvertProgress(docId, json.message);
-        } else if (json.type === "done") {
-          finalMarkdown = json.markdown;
-          contentFormat = json.contentFormat;
-          finalHtml = json.html;
-          if (json.warnings && json.warnings.length > 0) {
-            toast.warning(json.warnings.join("\n"), { duration: 8000 });
-          }
-          finishConvertTask(docId, json.markdown);
-        } else if (json.type === "error") {
-          throw new Error(json.message);
-        }
-      }
-    }
-
-    updateConvertProgress(docId, "正在保存文档...");
-    await saveDocumentContent(docId, {
-      contentFormat,
-      markdown: finalMarkdown,
-      html: finalHtml,
-    });
-
-    await queryClient.invalidateQueries({
-      queryKey: documentKeys.detail(docId),
-    });
-
-    toast.success("文档已导入并保存");
-    clearConvertTask(docId);
+    await runImportViaJob(file, docId, queryClient);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "文档导入失败，请重试";
     failConvertTask(docId, msg);

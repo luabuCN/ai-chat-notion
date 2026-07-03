@@ -24,6 +24,7 @@ import { imageRoutes } from "./routes/image/index.js";
 import { unsplashRoutes } from "./routes/unsplash/index.js";
 import { notificationRoutes } from "./routes/notification/index.js";
 import { tokenUsageRoutes } from "./routes/token-usage/index.js";
+import { jobRoutes } from "./routes/jobs/index.js";
 
 export const app = new Hono();
 
@@ -54,6 +55,7 @@ app.route("/api/image", imageRoutes);
 app.route("/api/unsplash", unsplashRoutes);
 app.route("/api/notifications", notificationRoutes);
 app.route("/api/token-usage", tokenUsageRoutes);
+app.route("/api/jobs", jobRoutes);
 
 app.notFound(() =>
   new ApiError("not_found:api", "Route not found").toResponse()

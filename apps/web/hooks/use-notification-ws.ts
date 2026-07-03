@@ -42,6 +42,18 @@ export function useNotificationWs(token: string | null) {
           ws.send(JSON.stringify({ type: "pong" }));
           return;
         }
+        if (data.type === "image_generation_complete") {
+          window.dispatchEvent(
+            new CustomEvent("image-generation-complete", {
+              detail: {
+                providerTaskId: data.providerTaskId,
+                outputImageUrl: data.outputImageUrl,
+              },
+            })
+          );
+          void queryClient.invalidateQueries({ queryKey: ["image-history"] });
+          return;
+        }
         if (data.type === "new_notification") {
           const notification = data.notification;
           const currentPath = pathnameRef.current;
