@@ -336,7 +336,7 @@ export function EditorHeader({
   };
 
   return (
-    <header className="flex items-center justify-between px-4 h-14 border-b shrink-0 gap-2">
+    <header className="flex items-center justify-between px-4 h-14  shrink-0 gap-2">
       <div className="flex items-center gap-2">
         {(!open || windowWidth < 768) && (
           <SidebarToggle className="" variant="ghost" />

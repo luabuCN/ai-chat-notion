@@ -18,12 +18,54 @@ import {
   Pause,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { SIZES } from "./constants";
 import type { HistoryItem } from "./types";
 import { formatTime } from "./utils";
 
 function isGeneratingItem(item: HistoryItem) {
   return !item.outputImageUrl && item.status !== "FAILED";
+}
+
+/** 带骨架屏加载动画的图片，用于历史卡片中已生成但尚未加载完成的图片 */
+function HistoryCardImage({
+  src,
+  alt,
+}: {
+  src: string;
+  alt: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <>
+      {!loaded && (
+        <div className="absolute inset-0 overflow-hidden bg-zinc-100">
+          <motion.div
+            className="absolute inset-0 w-[150%] bg-linear-to-r from-transparent via-zinc-200/80 to-transparent skew-x-[-20deg]"
+            initial={{ left: "-150%" }}
+            animate={{ left: "150%" }}
+            transition={{
+              repeat: Infinity,
+              duration: 1.2,
+              ease: "easeInOut",
+            }}
+          />
+        </div>
+      )}
+      <PhotoView src={src}>
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          className={`h-full w-full object-cover transition-all duration-300 group-hover:scale-105 ${
+            loaded ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      </PhotoView>
+    </>
+  );
 }
 
 type StudioHistoryPanelProps = {
@@ -147,13 +189,10 @@ export function StudioHistoryPanel({
               >
                 {item.outputImageUrl ? (
                   <>
-                    <PhotoView src={item.outputImageUrl}>
-                      <img
-                        src={item.outputImageUrl}
-                        alt={item.prompt}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    </PhotoView>
+                    <HistoryCardImage
+                      src={item.outputImageUrl}
+                      alt={item.prompt}
+                    />
                     <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
                     <div className="absolute right-3 top-3 flex gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <a

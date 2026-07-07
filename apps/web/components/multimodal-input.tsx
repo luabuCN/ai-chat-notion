@@ -520,7 +520,7 @@ function PureMultimodalInput({
         )}
       <PromptInput
         className={cn(
-          "rounded-2xl border border-border/80 bg-background p-2.5 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/40 md:p-3",
+          "rounded-lg border border-border/45 bg-background p-2.5 shadow-sm transition-[border-color,box-shadow] duration-200 focus-within:border-border/65 focus-within:shadow-md md:p-3",
           showLandingPanels && landingInputOffsetClassName
         )}
         onSubmit={(event) => {
@@ -572,7 +572,7 @@ function PureMultimodalInput({
             {selectedDocuments.map((doc) => (
               <span
                 key={doc.id}
-                className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-xs text-accent-foreground"
+                className="inline-flex items-center gap-1 rounded-sm bg-muted/60 px-2 py-0.5 text-xs text-foreground/80"
               >
                 {doc.icon && <span>{doc.icon}</span>}
                 <span className="max-w-[150px] truncate">{doc.title}</span>
@@ -645,7 +645,7 @@ function PureMultimodalInput({
               <StopButton setMessages={setMessages} stop={stop} />
             ) : (
               <PromptInputSubmit
-                className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+                className="size-8 rounded-md bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
                 disabled={
                   !input.trim() ||
                   uploadQueue.length > 0 ||
@@ -853,17 +853,17 @@ function LandingUploadCard({
   return (
     <motion.div
       className={cn(
-        "group flex h-full min-h-[172px] flex-col gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4 text-left transition-colors md:min-h-[188px]",
+        "group flex h-full min-h-[172px] flex-col gap-3 rounded-lg border border-border/45 bg-background p-4 text-left shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-border/60 hover:shadow-md md:min-h-[188px]",
         disabled && "opacity-80"
       )}
     >
       <div className="flex shrink-0 items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <FileUp size={16} />
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className="font-medium text-[17px]">上传文档</div>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground">
             支持 PDF、Word、MD
           </span>
         </div>
@@ -877,9 +877,9 @@ function LandingUploadCard({
 
       <div
         className={cn(
-          "flex min-h-0 flex-1 items-center rounded-xl border border-dashed border-border/80 px-4 py-3 transition-colors",
-          isDragging && "border-primary/50 bg-primary/5",
-          !disabled && "cursor-pointer hover:border-border hover:bg-background/60"
+          "flex min-h-0 flex-1 items-center rounded-md bg-background/40 px-4 py-3 transition-colors",
+          isDragging && "bg-primary/5",
+          !disabled && "cursor-pointer hover:bg-background/70"
         )}
         onClick={handleDropZoneClick}
         onDragLeave={handleDragLeave}
@@ -895,7 +895,7 @@ function LandingUploadCard({
             <p>自动同步知识库</p>
           </div>
           <Button
-            className="h-auto gap-1.5 rounded-full px-4 py-1.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[13px]"
+            className="h-auto gap-1.5 rounded-md px-4 py-1.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[13px]"
             disabled={disabled}
             onClick={(event) => {
               event.stopPropagation();
@@ -1092,11 +1092,11 @@ function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
 
   return (
     <motion.div
-      className="flex h-full min-h-[172px] flex-col gap-4 rounded-2xl border border-border/70 bg-background/95 p-4 md:min-h-[188px]"
+      className="flex h-full min-h-[172px] flex-col gap-4 rounded-lg border border-border/45 bg-background p-4 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-border/60 hover:shadow-md md:min-h-[188px]"
       transition={{ type: "spring", stiffness: 320, damping: 28 }}
     >
       <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Globe2 size={16} />
         </div>
         <div>
@@ -1110,7 +1110,7 @@ function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
       <div className="flex flex-1 flex-col justify-center gap-3">
         <div className="flex gap-2">
           <Input
-            className="min-w-0 flex-1 h-auto rounded-xl border-border/80 bg-muted/20 py-2.5 text-[13px] shadow-none placeholder:text-muted-foreground focus-visible:border-border focus-visible:bg-background/60 focus-visible:ring-0 md:text-[13px]"
+            className="min-w-0 flex-1 h-auto rounded-md  bg-background/50 py-2.5 text-[13px]  placeholder:text-muted-foreground focus-visible:bg-background/80 focus-visible:ring-0 md:text-[13px]"
             disabled={isSaving}
             onChange={(event) => setPageUrl(event.target.value)}
             onKeyDown={handleUrlKeyDown}
@@ -1119,7 +1119,7 @@ function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
             value={pageUrl}
           />
           <Button
-            className="h-auto shrink-0 gap-1.5 rounded-xl px-4 py-2.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[14px]"
+            className="h-auto shrink-0 gap-1.5 rounded-md px-4 py-2.5 text-xs font-normal hover:bg-primary/90 active:scale-100 [&_svg]:size-[14px]"
             disabled={isSaving || !pageUrl.trim()}
             onClick={() => {
               void handleSaveWebPage();
@@ -1131,18 +1131,14 @@ function SaveWebPageCard({ workspaceSlug }: { workspaceSlug?: string }) {
           </Button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="h-px flex-1 bg-border/60" />
-          <span className="text-[11px] text-muted-foreground">或</span>
-          <div className="h-px flex-1 bg-border/60" />
-        </div>
+        <p className="text-center text-[11px] text-muted-foreground">或</p>
 
         <Button
-          className="h-auto w-full gap-2 rounded-xl border-border/80 bg-muted/20 py-2.5 text-[13px] font-normal shadow-none hover:border-border hover:bg-muted/40 active:scale-100 [&_svg]:size-[14px]"
+          className="h-auto w-full gap-2 rounded-md bg-background/50 py-2.5 text-[13px] font-normal transition-[background-color,box-shadow] hover:bg-background/70 hover:shadow-[0_0_12px_rgba(0,0,0,0.08)] active:scale-100 [&_svg]:size-[14px] cursor-pointer"
           disabled={isSaving}
           onClick={handleDownloadExtension}
           type="button"
-          variant="outline"
+          variant="ghost"
         >
           <Download size={14} />
           下载浏览器插件
@@ -1163,7 +1159,7 @@ function PureAttachmentsButton({
 }) {
   return (
     <Button
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+      className="aspect-square h-8 rounded-md p-1 transition-colors hover:bg-accent/60"
       data-testid="attachments-button"
       disabled={status !== "ready" || !supportsFileInput}
       onClick={(event) => {
@@ -1199,10 +1195,10 @@ function PureOpenUiToggle({
           <span tabIndex={isDisabled ? 0 : -1}>
             <Button
               className={cn(
-                "aspect-square h-8 rounded-lg p-1 transition-colors",
+                "aspect-square h-8 rounded-md p-1 transition-colors",
                 enabled && supportsOpenUi
-                  ? "bg-accent text-accent-foreground hover:bg-accent/80"
-                  : "hover:bg-accent"
+                  ? "bg-accent/70 text-accent-foreground hover:bg-accent/80"
+                  : "hover:bg-accent/60"
               )}
               data-testid="openui-toggle"
               disabled={isDisabled}
@@ -1252,10 +1248,10 @@ function PureReasoningToggle({
           <span tabIndex={isDisabled ? 0 : -1}>
             <Button
               className={cn(
-                "aspect-square h-8 rounded-lg p-1 transition-colors",
+                "aspect-square h-8 rounded-md p-1 transition-colors",
                 enabled && supportsReasoning
-                  ? "bg-accent text-accent-foreground hover:bg-accent/80"
-                  : "hover:bg-accent"
+                  ? "bg-accent/70 text-accent-foreground hover:bg-accent/80"
+                  : "hover:bg-accent/60"
               )}
               data-testid="reasoning-toggle"
               disabled={isDisabled}
@@ -1427,7 +1423,7 @@ function PureStopButton({
 }) {
   return (
     <Button
-      className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+      className="size-7 rounded-md bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
       data-testid="stop-button"
       onClick={(event) => {
         event.preventDefault();

@@ -97,7 +97,7 @@ function DocumentCarouselCard({
       className="group/card block h-full"
       href={buildEditorPath(document.id, workspaceSlug)}
     >
-      <article className="flex h-[168px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-background shadow-sm transition-shadow hover:shadow-md">
+      <article className="flex h-[168px] flex-col overflow-hidden rounded-lg bg-muted/60 transition-colors hover:bg-muted/35">
         <div className="relative h-[72px] shrink-0 overflow-hidden">
           {hasCover && useColorCover ? (
             <div
@@ -126,7 +126,7 @@ function DocumentCarouselCard({
         </div>
 
         <div className="relative flex min-h-0 flex-1 flex-col px-3 pb-3 pt-5">
-          <div className="absolute -top-5 left-4 flex size-9 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm">
+          <div className="absolute -top-5 left-4 flex size-9 items-center justify-center rounded-md bg-background">
             {document.icon ? (
               <span className="text-base leading-none">{document.icon}</span>
             ) : (
@@ -139,7 +139,7 @@ function DocumentCarouselCard({
           </h3>
 
           <div className="mt-auto flex items-center gap-1.5 pt-2 text-[11px] text-muted-foreground">
-            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-muted/70">
+            <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
               <Clock3 className="size-2.5" />
             </span>
             <span>{formatDocumentDate(document.updatedAt)}</span>
@@ -155,12 +155,12 @@ function CarouselSkeleton() {
     <div className="flex gap-3 overflow-hidden">
       {Array.from({ length: 5 }).map((_, index) => (
         <div
-          className="flex h-[168px] w-[168px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-background shadow-sm"
+          className="flex h-[168px] w-[168px] shrink-0 flex-col overflow-hidden rounded-lg bg-muted/25"
           key={index}
         >
           <div className="h-[72px] shrink-0 animate-pulse bg-muted/50" />
           <div className="relative flex min-h-0 flex-1 flex-col px-3 pb-3 pt-5">
-            <div className="absolute -top-5 left-4 size-9 animate-pulse rounded-full border border-border/70 bg-muted/50" />
+            <div className="absolute -top-5 left-4 size-9 animate-pulse rounded-md bg-muted/50" />
             <div className="h-4 w-3/4 animate-pulse rounded bg-muted/50" />
             <div className="mt-auto h-3 w-1/2 animate-pulse rounded bg-muted/50" />
           </div>
@@ -281,7 +281,7 @@ export function RecentDocumentsCarousel({
 
             <CarouselPrevious
               className={cn(
-                "absolute -left-4 top-1/2 z-20 size-8 -translate-y-1/2 border-border/70 bg-background opacity-0 shadow-sm transition-opacity duration-200",
+                "absolute -left-4 top-1/2 z-20 size-8 -translate-y-1/2 border-0 bg-muted/40 opacity-0 shadow-none transition-opacity duration-200 hover:bg-muted/60",
                 canScrollPrev ? "group-hover:opacity-100" : "hidden"
               )}
               onClick={() => scrollBySteps(-1)}
@@ -290,7 +290,7 @@ export function RecentDocumentsCarousel({
             />
             <CarouselNext
               className={cn(
-                "absolute -right-4 top-1/2 z-20 size-8 -translate-y-1/2 border-border/70 bg-background opacity-0 shadow-sm transition-opacity duration-200",
+                "absolute -right-4 top-1/2 z-20 size-8 -translate-y-1/2 border-0 bg-muted/40 opacity-0 shadow-none transition-opacity duration-200 hover:bg-muted/60",
                 canScrollNext ? "group-hover:opacity-100" : "hidden"
               )}
               onClick={() => scrollBySteps(1)}
