@@ -153,7 +153,7 @@ export function StudioSidebar({
 
       {/* 主内容区 - 可滚动 */}
       <div className="min-h-0 flex-1 ">
-        <div className="space-y-6 px-5 pb-4">
+        <div className="space-y-4 px-5 pb-4">
 
           {/* AI 模型 */}
           <div className="space-y-2">
@@ -258,13 +258,13 @@ export function StudioSidebar({
               <p className="text-sm font-medium text-zinc-800">{"灵感模板"}</p>
               <p className="mt-0.5 text-xs text-zinc-400">{"点击后填充可填充词语"}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
               {PROMPT_TEMPLATES.map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => onApplyTemplate(item)}
-                  className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 text-left transition hover:bg-blue-50 hover:text-primary"
+                  className="line-clamp-2 rounded bg-zinc-100 px-3 py-1 text-left text-xs leading-5 text-zinc-600 transition hover:bg-blue-50 hover:text-primary"
                 >
                   {item}
                 </button>
@@ -291,7 +291,7 @@ export function StudioSidebar({
                   {"增强提示词与负向提示词"}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-6 py-2">
+              <div className="space-y-4 py-2">
                 {/* 增强提示词 */}
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-zinc-950">
@@ -376,7 +376,7 @@ export function StudioSidebar({
       </div>
 
       {/* 底部生成按钮 */}
-      <div className="px-5 py-4">
+      <div className="px-5 pb-2">
         {pendingCount > 0 ? (
           <p className="mb-2 text-center text-xs text-zinc-500">
             {pendingCount} 个任务在后台生成中，可继续提交新任务

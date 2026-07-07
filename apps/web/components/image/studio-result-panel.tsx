@@ -1,6 +1,7 @@
 import { ImagePreview, Button } from "@repo/ui";
 import { AlertCircle, Download, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 
 type StudioResultPanelProps = {
   resultImage: string | null;
@@ -19,6 +20,13 @@ export function StudioResultPanel({
   onDeleteFailed,
   isDeleting = false,
 }: StudioResultPanelProps) {
+  const [resultLoaded, setResultLoaded] = useState(false);
+
+  // resultImage 变化时重置加载状态
+  useEffect(() => {
+    setResultLoaded(false);
+  }, [resultImage]);
+
   return (
     <div className="flex h-full min-h-0 items-center justify-center">
       <div className="flex h-full w-full flex-col overflow-hidden">
@@ -29,15 +37,32 @@ export function StudioResultPanel({
             className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-zinc-50 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-size-[16px_16px]"
           >
             <div className="group relative aspect-square h-full max-h-full w-full max-w-[800px] overflow-hidden rounded-2xl">
+              {!resultLoaded && (
+                <div className="absolute inset-0 overflow-hidden rounded-2xl bg-zinc-100">
+                  <motion.div
+                    className="absolute inset-0 w-[150%] bg-linear-to-r from-transparent via-zinc-200/80 to-transparent skew-x-[-20deg]"
+                    initial={{ left: "-150%" }}
+                    animate={{ left: "150%" }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1.2,
+                      ease: "easeInOut",
+                    }}
+                  />
+                </div>
+              )}
               <ImagePreview src={resultImage}>
                 <img
                   src={resultImage}
                   alt="Generated outcome"
-                  className="h-full w-full cursor-zoom-in object-contain transition-transform duration-700 group-hover:scale-[1.02]"
+                  onLoad={() => setResultLoaded(true)}
+                  className={`h-full w-full cursor-zoom-in object-contain transition-all duration-500 group-hover:scale-[1.02] ${
+                    resultLoaded ? "opacity-100" : "opacity-0"
+                  }`}
                 />
               </ImagePreview>
 
-              <div className="absolute right-4 top-4 flex -translate-y-1 gap-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+              <div className={`absolute right-4 top-4 flex -translate-y-1 gap-2 transition-all duration-200 ${resultLoaded ? "group-hover:translate-y-0 group-hover:opacity-100" : "opacity-0"}`}>
                 <a
                   href={resultImage}
                   target="_blank"

@@ -281,8 +281,8 @@ export function ImageGenerationStudio({
   }
 
   return (
-    <div className="h-dvh p-2 md:p-4">
-      <div className="flex h-full min-h-0 overflow-hidden rounded-[28px] border border-zinc-200 bg-white text-zinc-950 shadow-sm">
+    <div className="h-dvh">
+      <div className="flex h-full min-h-0 overflow-hidden rounded-[28px]  border-zinc-200 bg-white text-zinc-950">
         <StudioSidebar
           currentWorkspaceName={currentWorkspace?.name}
           role={role}

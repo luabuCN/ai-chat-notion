@@ -44,31 +44,18 @@ function buildNodeView(
   wrapper.className = `group relative w-fit max-w-full select-none ${alignmentClass}`;
 
   const img = document.createElement("img");
-  img.src = src ?? "";
   img.alt = alt ?? "";
   if (title) img.title = title;
-  img.className = "rounded border block max-w-full h-auto";
+  img.className = "rounded border block max-w-full h-auto opacity-0 transition-opacity duration-200";
   img.draggable = false;
   if (width) {
     img.style.width = `${width}px`;
   }
 
-  // Left resize handle
-  const leftHandle = document.createElement("div");
-  leftHandle.className =
-    "image-resize-handle image-resize-handle-left opacity-0 group-hover:opacity-100 absolute top-0 bottom-0 left-0 w-5 cursor-ew-resize flex items-center justify-center z-10";
-  leftHandle.innerHTML =
-    '<div class="h-16 w-2 rounded-full bg-neutral-500/45 shadow-sm ring-1 ring-black/5 dark:bg-neutral-400/40 dark:ring-white/10"></div>';
-
-  // Right resize handle
-  const rightHandle = document.createElement("div");
-  rightHandle.className =
-    "image-resize-handle image-resize-handle-right opacity-0 group-hover:opacity-100 absolute top-0 bottom-0 right-0 w-5 cursor-ew-resize flex items-center justify-center z-10";
-  rightHandle.innerHTML =
-    '<div class="h-16 w-2 rounded-full bg-neutral-500/45 shadow-sm ring-1 ring-black/5 dark:bg-neutral-400/40 dark:ring-white/10"></div>';
-
+  // 预览按钮覆盖层（提前创建，加载完成后才显示）
   const overlay = document.createElement("div");
   overlay.className = "absolute right-3 top-3 opacity-60 transition-opacity group-hover:opacity-100";
+  overlay.style.display = "none";
 
   const btn = document.createElement("button");
   btn.type = "button";
@@ -87,7 +74,73 @@ function buildNodeView(
   });
 
   overlay.appendChild(btn);
+
+  // 加载骨架屏（旋转动画）
+  const loadingOverlay = document.createElement("div");
+  loadingOverlay.className = "tiptap-image-loading";
+  loadingOverlay.innerHTML =
+    '<div class="tiptap-image-loading__spinner"></div>';
+  if (width) {
+    loadingOverlay.style.width = `${width}px`;
+  }
+
+  // 加载出错占位
+  const errorOverlay = document.createElement("div");
+  errorOverlay.className = "tiptap-image-error";
+  errorOverlay.style.display = "none";
+  errorOverlay.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span>图片加载失败</span>';
+
+  const setSrc = (newSrc: string) => {
+    img.src = newSrc ?? "";
+    if (!newSrc) {
+      // 没有 src 时直接展示错误态
+      loadingOverlay.style.display = "none";
+      errorOverlay.style.display = "flex";
+      img.style.opacity = "0";
+      overlay.style.display = "none";
+      return;
+    }
+    // 重置为加载中
+    loadingOverlay.style.display = "flex";
+    errorOverlay.style.display = "none";
+    img.style.opacity = "0";
+    overlay.style.display = "none";
+  };
+
+  img.addEventListener("load", () => {
+    loadingOverlay.style.display = "none";
+    errorOverlay.style.display = "none";
+    img.style.opacity = "1";
+    overlay.style.display = "";
+  });
+  img.addEventListener("error", () => {
+    loadingOverlay.style.display = "none";
+    errorOverlay.style.display = "flex";
+    img.style.opacity = "0";
+    overlay.style.display = "none";
+  });
+
+  // 初始设置 src（触发加载）
+  setSrc(src);
+
+  // Left resize handle
+  const leftHandle = document.createElement("div");
+  leftHandle.className =
+    "image-resize-handle image-resize-handle-left opacity-0 group-hover:opacity-100 absolute top-0 bottom-0 left-0 w-5 cursor-ew-resize flex items-center justify-center z-10";
+  leftHandle.innerHTML =
+    '<div class="h-16 w-2 rounded-full bg-neutral-500/45 shadow-sm ring-1 ring-black/5 dark:bg-neutral-400/40 dark:ring-white/10"></div>';
+
+  // Right resize handle
+  const rightHandle = document.createElement("div");
+  rightHandle.className =
+    "image-resize-handle image-resize-handle-right opacity-0 group-hover:opacity-100 absolute top-0 bottom-0 right-0 w-5 cursor-ew-resize flex items-center justify-center z-10";
+  rightHandle.innerHTML =
+    '<div class="h-16 w-2 rounded-full bg-neutral-500/45 shadow-sm ring-1 ring-black/5 dark:bg-neutral-400/40 dark:ring-white/10"></div>';
+
   wrapper.appendChild(leftHandle);
+  wrapper.appendChild(loadingOverlay);
+  wrapper.appendChild(errorOverlay);
   wrapper.appendChild(img);
   wrapper.appendChild(rightHandle);
   wrapper.appendChild(overlay);
@@ -153,7 +206,36 @@ function buildNodeView(
     rightHandle.style.display = "none";
   }
 
-  return { wrapper, img };
+  /** 应用属性变更（src/alt/title/width/alignment），复用加载状态管理 */
+  const applyAttrs = (attrs: {
+    src: string;
+    alt: string | null;
+    title: string | null;
+    width?: number | null;
+    alignment?: "left" | "center" | "right";
+  }) => {
+    img.alt = attrs.alt ?? "";
+    img.title = attrs.title ?? "";
+    if (attrs.width) {
+      img.style.width = `${attrs.width}px`;
+      loadingOverlay.style.width = `${attrs.width}px`;
+    } else {
+      loadingOverlay.style.width = "";
+    }
+    const alignmentClass =
+      attrs.alignment === "left"
+        ? "ml-0"
+        : attrs.alignment === "right"
+        ? "ml-auto"
+        : "mx-auto";
+    wrapper.className = `group relative w-fit max-w-full select-none ${alignmentClass}`;
+    // 仅当 src 变化时重置加载状态
+    if (img.src !== (attrs.src ?? "") && img.getAttribute("src") !== (attrs.src ?? "")) {
+      setSrc(attrs.src);
+    }
+  };
+
+  return { wrapper, img, applyAttrs };
 }
 
 export const TiptapImage = Image.extend({
@@ -208,28 +290,19 @@ export const TiptapImage = Image.extend({
   },
   addNodeView() {
     return ({ node, view, getPos }) => {
-      const { wrapper, img } = buildNodeView(node, view, getPos);
+      const { wrapper, applyAttrs } = buildNodeView(node, view, getPos);
 
       return {
         dom: wrapper,
         update(updatedNode) {
           if (updatedNode.type.name !== "image") return false;
-          const attrs = updatedNode.attrs as {
+          applyAttrs(updatedNode.attrs as {
             src: string;
             alt: string | null;
             title: string | null;
             width?: number | null;
             alignment?: "left" | "center" | "right";
-          };
-          img.src = attrs.src ?? "";
-          img.alt = attrs.alt ?? "";
-          img.title = attrs.title ?? "";
-          if (attrs.width) {
-            img.style.width = `${attrs.width}px`;
-          }
-          // Update alignment
-          const alignmentClass = attrs.alignment === "left" ? "ml-0" : attrs.alignment === "right" ? "ml-auto" : "mx-auto";
-          wrapper.className = `group relative w-fit max-w-full select-none ${alignmentClass}`;
+          });
           return true;
         },
       };
