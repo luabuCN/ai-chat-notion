@@ -12,7 +12,7 @@ import { textResult, errorResult } from "./types.js";
 export function registerUpdateDocumentTool(ctx: ToolContext) {
   ctx.server.tool(
     "update_document",
-    "修改指定文档的标题和/或内容。需要传入文档 ID，至少提供 title 或 content 之一。内容支持 Markdown 格式。",
+    "修改指定文档的标题和/或内容。需要传入文档 ID，至少提供 title 或 content 之一。内容支持 Markdown 格式。注意：标题通过 title 参数传入，内容中禁止使用一级标题(# )，从二级标题(##)开始使用。",
     {
       documentId: z
         .string()
@@ -22,7 +22,7 @@ export function registerUpdateDocumentTool(ctx: ToolContext) {
       content: z
         .string()
         .optional()
-        .describe("新内容，支持 Markdown 格式（可选）"),
+        .describe("新内容，支持 Markdown 格式（可选）。禁止使用一级标题(# )，从二级标题(##)开始。"),
     },
     async ({ documentId, title, content }) => {
       try {
