@@ -198,6 +198,18 @@ function createMcpServerInstance(session: AuthSession): McpServer {
           return errorResult("无权访问此文档");
         }
 
+        // 查找文档所属空间名称
+        let workspaceName: string | null = null;
+        let workspaceSlug: string | null = null;
+        if (document.workspaceId) {
+          const workspaces = await getWorkspacesByUserId({
+            userId: session.user.id,
+          });
+          const ws = workspaces.find((w) => w.id === document.workspaceId);
+          workspaceName = ws?.name ?? null;
+          workspaceSlug = ws?.slug ?? null;
+        }
+
         return textResult(
           JSON.stringify({
             id: document.id,
@@ -205,6 +217,8 @@ function createMcpServerInstance(session: AuthSession): McpServer {
             icon: document.icon,
             content: document.content || "(空文档)",
             workspaceId: document.workspaceId,
+            workspaceName,
+            workspaceSlug,
             createdAt: document.createdAt,
             updatedAt: document.updatedAt,
           }),
@@ -322,16 +336,31 @@ function createMcpServerInstance(session: AuthSession): McpServer {
           (doc) => doc.userId === session.user.id,
         );
 
+        // 查询用户的所有空间，构建 ID -> { name, slug } 查找映射
+        const workspaces = await getWorkspacesByUserId({
+          userId: session.user.id,
+        });
+        const wsMap = new Map(
+          workspaces.map((ws) => [ws.id, { name: ws.name, slug: ws.slug }]),
+        );
+
         return textResult(
           JSON.stringify(
-            userDocs.map((doc) => ({
-              id: doc.id,
-              title: doc.title,
-              icon: doc.icon,
-              workspaceId: doc.workspaceId,
-              createdAt: doc.createdAt,
-              updatedAt: doc.updatedAt,
-            })),
+            userDocs.map((doc) => {
+              const ws = doc.workspaceId
+                ? wsMap.get(doc.workspaceId)
+                : undefined;
+              return {
+                id: doc.id,
+                title: doc.title,
+                icon: doc.icon,
+                workspaceId: doc.workspaceId,
+                workspaceName: ws?.name ?? null,
+                workspaceSlug: ws?.slug ?? null,
+                createdAt: doc.createdAt,
+                updatedAt: doc.updatedAt,
+              };
+            }),
           ),
         );
       } catch (error) {
