@@ -12,13 +12,13 @@ import { textResult, errorResult, buildDocumentUrl, getDefaultWorkspaceId } from
 export function registerCreateDocumentTool(ctx: ToolContext) {
   ctx.server.tool(
     "create_document",
-    "创建一个新文档。传入标题和内容（Markdown 格式），可选传入目标空间 slug。不传空间则创建到默认空间。",
+    "创建一个新文档。传入标题和内容（Markdown 格式），可选传入目标空间 slug。不传空间则创建到默认空间。注意：标题通过 title 参数传入，内容中禁止使用一级标题(# )，从二级标题(##)开始使用。",
     {
       title: z.string().describe("文档标题"),
       content: z
         .string()
         .optional()
-        .describe("文档内容，支持 Markdown 格式（标题、列表、代码块等）"),
+        .describe("文档内容，支持 Markdown 格式（标题、列表、代码块等）。禁止使用一级标题(# )，从二级标题(##)开始。"),
       workspaceSlug: z
         .string()
         .optional()
