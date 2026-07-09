@@ -12,6 +12,7 @@ import { registerCreateDocumentTool } from "./tools/create-document.js";
 import { registerGetDocumentTool } from "./tools/get-document.js";
 import { registerUpdateDocumentTool } from "./tools/update-document.js";
 import { registerListDocumentsTool } from "./tools/list-documents.js";
+import { registerDeleteDocumentTool } from "./tools/delete-document.js";
 
 /**
  * 从 MCP Bearer token 认证用户。
@@ -58,6 +59,7 @@ function createMcpServerInstance(session: AuthSession): McpServer {
   registerGetDocumentTool(ctx);
   registerUpdateDocumentTool(ctx);
   registerListDocumentsTool(ctx);
+  registerDeleteDocumentTool(ctx);
 
   return server;
 }

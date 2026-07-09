@@ -3,7 +3,7 @@ import {
   getEditorDocumentById,
   updateEditorDocument,
 } from "@repo/database";
-import { textToYjsState } from "../../../../shared/text-to-yjs.js";
+import { textToTiptapContent } from "../../../../shared/text-to-yjs.js";
 import { cacheDel, CACHE_KEYS } from "../../../../shared/redis-cache.js";
 import type { ToolContext } from "./types.js";
 import { textResult, errorResult } from "./types.js";
@@ -36,27 +36,27 @@ export function registerUpdateDocumentTool(ctx: ToolContext) {
           return errorResult("无权修改此文档");
         }
 
-        // 如果提供了 content，转换为 Tiptap JSON + Yjs 状态
+        // 如果提供了 content，转换为 Tiptap JSON
+        // 不生成 yjsState：设为 null 清除旧状态，编辑器打开时自动从 content 转换
         let tiptapContent: string | undefined;
-        let yjsState: Uint8Array<ArrayBuffer> | undefined;
+        let needCacheClear = false;
 
         if (content !== undefined) {
-          const result = textToYjsState(content);
-          tiptapContent = result.content;
-          yjsState = result.yjsState;
+          tiptapContent = textToTiptapContent(content);
+          needCacheClear = true;
         }
 
         const updated = await updateEditorDocument({
           id: documentId,
           title,
           content: tiptapContent,
-          yjsState,
+          yjsState: content !== undefined ? null : undefined,
           lastEditedBy: ctx.session.user.id,
           lastEditedByName: ctx.session.user.name || "Unknown",
         });
 
-        // 清除 Redis 缓存中的 yjsState，使下次加载从 DB 读取新内容
-        if (yjsState) {
+        // 清除 Redis 缓存中的 yjsState，使下次加载从 DB 读取新 content
+        if (needCacheClear) {
           await cacheDel(CACHE_KEYS.yjsState(documentId));
         }
 
