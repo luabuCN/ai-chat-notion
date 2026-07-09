@@ -145,7 +145,7 @@ export function McpConnectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="overflow-hidden sm:max-w-[480px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Plug className="size-5 text-zinc-500" />
@@ -163,7 +163,7 @@ export function McpConnectionDialog({
           </Button>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {/* MCP Server URL */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -313,8 +313,8 @@ export function McpConnectionDialog({
                 )}
               </Button>
             </div>
-            <pre className="max-h-48 overflow-auto rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
-              <code>{configJson}</code>
+            <pre className="max-h-48 w-full overflow-x-auto rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
+              <code className="whitespace-pre-wrap break-all">{configJson}</code>
             </pre>
             {!fullToken && hasToken && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
