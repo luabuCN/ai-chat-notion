@@ -17,7 +17,6 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  X,
 } from "lucide-react";
 import { toast } from "./toast";
 
@@ -146,21 +145,11 @@ export function McpConnectionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden sm:max-w-[480px]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Plug className="size-5 text-zinc-500" />
-            <DialogTitle className="text-base font-semibold">
-              MCP 连接
-            </DialogTitle>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            onClick={() => onOpenChange(false)}
-          >
-            <X className="size-4" />
-          </Button>
+        <div className="flex items-center gap-2">
+          <Plug className="size-5 text-zinc-500" />
+          <DialogTitle className="text-base font-semibold">
+            MCP 连接
+          </DialogTitle>
         </div>
 
         <div className="min-w-0 space-y-4">
