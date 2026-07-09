@@ -25,6 +25,7 @@ model User {
   sessions           Session[]
   receivedNotifications Notification[] @relation("receivedNotifications")
   sentNotifications     Notification[] @relation("sentNotifications")
+  mcpTokens             McpToken[]
 }
 
 model Account {
@@ -370,6 +371,19 @@ enum NotificationType {
   COMMENT
   MENTION
   SYSTEM
+}
+
+model McpToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @db.Uuid
+  tokenHash String   @unique @db.VarChar(64)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@map("McpToken")
 }
 
 model UserMonthlyTokenUsage {

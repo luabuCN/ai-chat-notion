@@ -8,6 +8,7 @@ import { EditorDocument } from "./types.js";
 export async function createEditorDocument({
   title,
   content,
+  yjsState,
   userId,
   workspaceId,
   parentDocumentId,
@@ -18,6 +19,7 @@ export async function createEditorDocument({
 }: {
   title: string;
   content?: string;
+  yjsState?: Uint8Array<ArrayBuffer>;
   userId: string;
   workspaceId?: string | null;
   parentDocumentId?: string | null;
@@ -31,6 +33,7 @@ export async function createEditorDocument({
       data: {
         title,
         content: content ?? "",
+        ...(yjsState && { yjsState }),
         userId,
         workspaceId: workspaceId ?? null,
         parentDocumentId: parentDocumentId ?? null,
@@ -255,7 +258,7 @@ export async function updateEditorDocument({
    * 注意：评论 CRDT 与正文 CRDT 共存于同一份 ydoc。如果在 content 更新时无脑清空
    * yjsState 会丢失评论，因此本方法不再隐式清空。
    */
-  yjsState?: Buffer | null;
+  yjsState?: Uint8Array<ArrayBuffer> | null;
   icon?: string | null;
   coverImage?: string | null;
   coverImageType?: "color" | "url" | null;
