@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -113,36 +113,35 @@ export function McpConnectionDialog({
     }
   };
 
-  const handleCopyConfig = async () => {
-    if (!fullToken) {
-      toast({ type: "error", description: "请先生成或重新生成 Token 以获取完整明文" });
-      return;
-    }
+  const hasToken = tokenInfo.hasToken;
+  const displayToken = fullToken && showToken ? fullToken : null;
 
+  const configJson = useMemo(() => {
+    const tokenForConfig = fullToken || "<your-token>";
     const config = {
       mcpServers: {
         zhizuo: {
           type: "streamable-http",
           url: mcpServerUrl,
           headers: {
-            Authorization: `Bearer ${fullToken}`,
+            Authorization: `Bearer ${tokenForConfig}`,
           },
         },
       },
     };
+    return JSON.stringify(config, null, 2);
+  }, [fullToken, mcpServerUrl]);
 
+  const handleCopyJson = async () => {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+      await navigator.clipboard.writeText(configJson);
       setCopied(true);
-      toast({ type: "success", description: "已复制到剪贴板" });
+      toast({ type: "success", description: "已复制 JSON 配置" });
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({ type: "error", description: "复制失败" });
     }
   };
-
-  const hasToken = tokenInfo.hasToken;
-  const displayToken = fullToken && showToken ? fullToken : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -287,19 +286,45 @@ export function McpConnectionDialog({
               </>
             )}
 
-            {fullToken && (
+          </div>
+
+          {/* JSON Config Preview */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                JSON 配置
+              </label>
               <Button
+                variant="ghost"
                 size="sm"
-                variant="outline"
-                onClick={handleCopyConfig}
+                className="h-7 gap-1 px-2 text-xs"
+                onClick={handleCopyJson}
               >
                 {copied ? (
-                  <Check className="size-4" />
+                  <>
+                    <Check className="size-3.5" />
+                    已复制
+                  </>
                 ) : (
-                  <Copy className="size-4" />
+                  <>
+                    <Copy className="size-3.5" />
+                    一键复制
+                  </>
                 )}
-                复制配置
               </Button>
+            </div>
+            <pre className="max-h-48 overflow-auto rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
+              <code>{configJson}</code>
+            </pre>
+            {!fullToken && hasToken && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                配置中的 token 为占位符，请重新生成 Token 以获取可用的完整配置。
+              </p>
+            )}
+            {!hasToken && (
+              <p className="text-xs text-zinc-400">
+                请先生成 Token 以获取可用的配置。
+              </p>
             )}
           </div>
 
