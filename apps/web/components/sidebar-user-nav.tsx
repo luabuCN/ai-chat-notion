@@ -126,7 +126,7 @@ export function SidebarUserNav({ user }: { user: User }) {
               className="cursor-pointer"
               onSelect={() => setMcpDialogOpen(true)}
             >
-              <Plug className="mr-2 size-4" />
+              <Plug className="size-4" />
               MCP 连接
             </DropdownMenuItem>
             <DropdownMenuSeparator />
