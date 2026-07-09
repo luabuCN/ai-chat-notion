@@ -17,6 +17,7 @@
     "@hocuspocus/server": "^3.4.3",
     "@hocuspocus/transformer": "^3.4.3",
     "@hono/node-server": "^1.19.6",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/client": "6",
     "@repo/ai": "workspace:*",
     "@repo/database": "workspace:*",

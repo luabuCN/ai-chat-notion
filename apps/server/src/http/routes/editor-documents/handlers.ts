@@ -882,12 +882,15 @@ export async function updateEditorDocumentHandler(c: Context) {
     } = body;
 
     // Only decode when explicitly passed
-    let yjsState: Buffer | null | undefined;
+    let yjsState: Uint8Array<ArrayBuffer> | null | undefined;
     if (yjsStateB64 === null) {
       yjsState = null;
     } else if (typeof yjsStateB64 === "string") {
       try {
-        yjsState = Buffer.from(yjsStateB64, "base64");
+        const buf = Buffer.from(yjsStateB64, "base64");
+        const arr = new Uint8Array(buf.byteLength);
+        arr.set(buf);
+        yjsState = arr;
       } catch {
         return new ApiError(
           "bad_request:api",

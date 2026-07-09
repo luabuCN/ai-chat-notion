@@ -1,12 +1,12 @@
 "use client";
 
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Plug } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { useTransition } from "react";
+import { useTransition, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,12 +23,14 @@ import { resolveUserAvatarUrl } from "@repo/database/dicebear-avatar";
 import { setUserLocale } from "@/i18n/service";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
+import { McpConnectionDialog } from "./mcp-connection-dialog";
 
 export function SidebarUserNav({ user }: { user: User }) {
   const router = useRouter();
   const { data, status } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
   const [isPending, startTransition] = useTransition();
+  const [mcpDialogOpen, setMcpDialogOpen] = useState(false);
 
   const handleLocaleChange = (locale: string) => {
     startTransition(() => {
@@ -120,6 +122,13 @@ export function SidebarUserNav({ user }: { user: User }) {
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={() => setMcpDialogOpen(true)}
+            >
+              <Plug className="mr-2 size-4" />
+              MCP 连接
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button
@@ -147,6 +156,10 @@ export function SidebarUserNav({ user }: { user: User }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+      <McpConnectionDialog
+        open={mcpDialogOpen}
+        onOpenChange={setMcpDialogOpen}
+      />
     </SidebarMenu>
   );
 }
