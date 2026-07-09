@@ -4,7 +4,7 @@ import {
   getWorkspaceBySlug,
 } from "@repo/database";
 import { verifyWorkspaceAccess } from "../../../../shared/workspace-access.js";
-import { textToYjsState } from "../../../../shared/text-to-yjs.js";
+import { textToTiptapContent } from "../../../../shared/text-to-yjs.js";
 import type { ToolContext } from "./types.js";
 import { textResult, errorResult, buildDocumentUrl, getDefaultWorkspaceId } from "./types.js";
 
@@ -49,15 +49,12 @@ export function registerCreateDocumentTool(ctx: ToolContext) {
           }
         }
 
-        // 将文本内容转换为 Tiptap JSON + Yjs 二进制状态
-        const { content: tiptapJson, yjsState } = textToYjsState(
-          content ?? "",
-        );
+        // 将文本内容转换为 Tiptap JSON（不生成 yjsState，编辑器打开时自动转换）
+        const tiptapContent = textToTiptapContent(content ?? "");
 
         const document = await createEditorDocument({
           title,
-          content: tiptapJson,
-          yjsState,
+          content: tiptapContent,
           userId: ctx.session.user.id,
           workspaceId,
         });
