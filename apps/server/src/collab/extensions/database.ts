@@ -28,6 +28,9 @@ import {
 // 压缩阈值：超过 50KB 的文档启用压缩
 const COMPRESSION_THRESHOLD = 50 * 1024;
 
+// CRDT 状态精简阈值：超过此大小则执行全量精简（消除删除历史残留）
+const CRDT_COMPACTION_THRESHOLD = 500 * 1024;
+
 // 日志条件化：生产环境关闭详细日志
 const isDev = process.env.NODE_ENV === "development";
 const nativeLog = console.log;
@@ -268,7 +271,8 @@ export const databaseExtension = new Database({
    *
    * 持久化前兜底校验：只有 owner/edit 权限的用户才能触发写入
    */
-  store: async ({ documentName, state, context }) => {
+  store: async ({ documentName, state: initialState, context }) => {
+    let state: Uint8Array = initialState;
     debugLog(`[Database] Storing document: ${documentName}`);
 
     // 兜底校验：确认当前用户仍有写权限
@@ -306,6 +310,25 @@ export const databaseExtension = new Database({
           );
           return;
         }
+      }
+    }
+
+    // CRDT 状态精简：超过阈值时执行全量精简，消除删除历史残留
+    if (state.length > CRDT_COMPACTION_THRESHOLD) {
+      const compactDoc = new Y.Doc();
+      try {
+        Y.applyUpdate(compactDoc, state);
+        const compactedState = Y.encodeStateAsUpdate(compactDoc);
+        if (compactedState.length < state.length) {
+          debugLog(`[Database] CRDT compacted for ${documentName}: ${state.length} -> ${compactedState.length} bytes (${Math.round((1 - compactedState.length / state.length) * 100)}% reduction)`);
+          state = compactedState;
+        } else {
+          debugLog(`[Database] CRDT compaction skipped for ${documentName} (no reduction: ${state.length} -> ${compactedState.length})`);
+        }
+      } catch (e) {
+        console.warn(`[Database] CRDT compaction failed for ${documentName}, using original state:`, e);
+      } finally {
+        compactDoc.destroy();
       }
     }
 

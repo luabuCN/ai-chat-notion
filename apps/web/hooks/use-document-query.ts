@@ -84,11 +84,14 @@ async function createApiMutationError(
 
 async function fetchDocument(
   documentId: string,
-  options?: { includeYjsState?: boolean }
+  options?: { includeYjsState?: boolean; metadataOnly?: boolean }
 ): Promise<EditorDocumentWithAccess> {
   const params = new URLSearchParams();
   if (options?.includeYjsState) {
     params.set("includeYjsState", "1");
+  }
+  if (options?.metadataOnly) {
+    params.set("metadataOnly", "1");
   }
   const query = params.toString();
   const response = await apiFetch(
@@ -271,16 +274,17 @@ export function useSidebarDocuments(
 
 export function useGetDocument(
   documentId: string | null | undefined,
-  options?: { includeYjsState?: boolean; enabled?: boolean }
+  options?: { includeYjsState?: boolean; metadataOnly?: boolean; enabled?: boolean }
 ) {
   const includeYjsState = options?.includeYjsState ?? false;
+  const metadataOnly = options?.metadataOnly ?? false;
   const enabled =
     options?.enabled !== undefined
       ? options.enabled
       : Boolean(documentId);
   return useQuery({
-    queryKey: [...documentKeys.detail(documentId ?? ""), { includeYjsState }],
-    queryFn: () => fetchDocument(documentId!, { includeYjsState }),
+    queryKey: [...documentKeys.detail(documentId ?? ""), { includeYjsState, metadataOnly }],
+    queryFn: () => fetchDocument(documentId!, { includeYjsState, metadataOnly }),
     enabled: enabled && !!documentId,
   });
 }

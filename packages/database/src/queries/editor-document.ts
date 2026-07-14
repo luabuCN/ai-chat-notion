@@ -76,19 +76,33 @@ export const editorDocumentMetadataSelect = {
   sourcePageUrl: true,
 } as const;
 
+/** metadataOnly 专用 select：从 select 中完全移除 content 字段，确保 Prisma 不返回该列。 */
+const { content: _omitContent, ...metadataOnlySelect } = editorDocumentMetadataSelect;
+
 export async function getEditorDocumentMetadataById({
   id,
   includeYjsState,
+  metadataOnly,
 }: {
   id: string;
   includeYjsState?: boolean;
+  /**
+   * 仅返回元数据（title, icon, coverImage, 权限字段等），排除 content 字段。
+   * 协同模式下首次请求使用，避免传输大段 JSON 正文。
+   */
+  metadataOnly?: boolean;
 }) {
   try {
+    // metadataOnly: 从 select 中完全移除 content 字段（不传给 Prisma），
+    // 比 content: false 更可靠 — Prisma select 只识别显式列出的字段。
+    const baseSelect = metadataOnly
+      ? metadataOnlySelect
+      : editorDocumentMetadataSelect;
     const document = await prisma.editorDocument.findUnique({
       where: { id },
       select: includeYjsState
-        ? { ...editorDocumentMetadataSelect, yjsState: true }
-        : editorDocumentMetadataSelect,
+        ? { ...baseSelect, yjsState: true }
+        : baseSelect,
     });
 
     if (!document) {
@@ -98,7 +112,9 @@ export async function getEditorDocumentMetadataById({
       );
     }
 
-    return document as EditorDocument;
+    // metadataOnly 模式下 content 不在 select 中，返回类型可能缺少 content 字段。
+    // 调用方已处理 content 为 undefined 的情况。
+    return document as unknown as EditorDocument;
   } catch (error) {
     if (error instanceof ChatSDKError) {
       throw error;

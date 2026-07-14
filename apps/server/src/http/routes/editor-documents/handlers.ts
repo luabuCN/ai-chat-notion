@@ -779,6 +779,7 @@ export async function getEditorDocumentHandler(c: Context) {
 
   try {
     const includeYjsState = c.req.query("includeYjsState") === "1";
+    const metadataOnly = c.req.query("metadataOnly") === "1";
     const {
       access,
       document,
@@ -790,7 +791,7 @@ export async function getEditorDocumentHandler(c: Context) {
       id,
       session?.user.id,
       session?.user.email,
-      { ignoreDeletedAt: true, includeYjsState }
+      { ignoreDeletedAt: true, includeYjsState, metadataOnly }
     );
 
     if (document?.deletedAt) {

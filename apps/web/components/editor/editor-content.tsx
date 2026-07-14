@@ -86,8 +86,10 @@ export function EditorContent({
   userAvatarUrl,
   isFullWidth = false,
 }: EditorContentProps) {
+  // 打开文档只拉一次元数据（标题/图标/封面/权限）；正文走协同 WS + y-indexeddb。
+  // 与 useEditorDocumentAccess / EditorHeaderWrapper 共用同一 queryKey，React Query 自动去重。
   const { data: document, isLoading, error } = useGetDocument(documentId, {
-    includeYjsState: false,
+    metadataOnly: true,
   });
   const updateDocumentMutation = useUpdateDocument();
   const { connectedUsers, setConnectedUsers, setConnectionStatus } = useCollaboration();
@@ -225,14 +227,27 @@ export function EditorContent({
   const useHttpPersistence =
     !shouldConnectCollab || collabPersistenceFallback || isCollabTokenError;
 
-  // 始终并行拉取 yjsState：协同模式下用于预灌 ydoc 使编辑器即时展示内容，
-  // 非协同模式下用于从 yjsState 恢复正文。与 token 请求并行执行。
-  const { data: documentWithYjs } = useGetDocument(documentId, {
-    includeYjsState: true,
-    enabled: !!document,
-  });
+  // effectiveDocument = document（元数据；正文不经此请求）
+  const effectiveDocument = document;
 
-  const effectiveDocument = documentWithYjs ?? document;
+  /**
+   * 仅非协同路径按需拉 yjsState：回收站、强制本地、token 失败、断线兜底。
+   * 正常打开不请求，正文由 Hocuspocus WS（+ y-indexeddb）提供。
+   */
+  const needsHttpYjsState = Boolean(
+    document &&
+      document.id === documentId &&
+      (Boolean(document.deletedAt) ||
+        forcePlainLocalPersistence ||
+        collabPersistenceFallback ||
+        isCollabTokenError)
+  );
+
+  const { data: yjsStateDocument } = useGetDocument(documentId, {
+    metadataOnly: true,
+    includeYjsState: true,
+    enabled: needsHttpYjsState,
+  });
 
   const collabServerUrl = useCollabWsUrl();
 
@@ -247,15 +262,19 @@ export function EditorContent({
     };
   }, [shouldConnectCollab, collabData?.token, collabServerUrl]);
 
-  /** 从 API 返回的 yjsState（base64），协同与非协同模式均提供 */
+  /** 协同模式不传；仅本地/兜底模式使用按需拉取的 yjsState */
   const initialYjsStateB64 = useMemo(() => {
-    const raw = (effectiveDocument as { yjsState?: string | null } | undefined)
-      ?.yjsState;
+    if (shouldConnectCollab) {
+      return null;
+    }
+    const raw = (
+      yjsStateDocument as { yjsState?: string | null } | undefined
+    )?.yjsState;
     if (typeof raw === "string" && raw.length > 0) {
       return raw;
     }
     return null;
-  }, [effectiveDocument]);
+  }, [shouldConnectCollab, yjsStateDocument]);
 
   /**
    * 文档切换 / 权限变更 / PDF 转换完成时需重挂载编辑器。
@@ -480,18 +499,17 @@ export function EditorContent({
       }, 600);
     }
 
+    // Title and icon from metadata request
     const newTitle = document.title ?? "";
     const newIcon = document.icon ?? null;
-    const newContent = document.content ?? "";
-
     setTitle(newTitle);
     setIcon(newIcon);
-    setContent(newContent);
-
     prevTitleRef.current = newTitle;
     prevIconRef.current = newIcon;
-    prevContentRef.current = newContent;
 
+    // Content is not fetched via HTTP (metadataOnly=1).
+    // Editor loads content from: WebSocket → y-indexeddb（本地/兜底再按需拉 yjsState）。
+    // The editor's internal loading state (isEditorBodyReady + 3s timeout) handles the gap.
     setDocumentSnapshotApplied(true);
   }, [document, documentId]);
 
@@ -502,7 +520,7 @@ export function EditorContent({
 
     const latestTitle = document.title ?? "";
     const latestIcon = document.icon ?? null;
-    const latestContent = document.content ?? "";
+    const latestContent = effectiveDocument?.content ?? "";
 
     setTitle(latestTitle);
     setIcon(latestIcon);
@@ -512,7 +530,7 @@ export function EditorContent({
     prevIconRef.current = latestIcon;
     prevContentRef.current = latestContent;
     setDocumentSnapshotApplied(true);
-  }, [document, documentId, permissionRevoked]);
+  }, [document, documentId, permissionRevoked, effectiveDocument]);
 
   useEffect(() => {
     setPermissionRevoked(false);
@@ -671,7 +689,7 @@ export function EditorContent({
     }
 
     const contentNeedsPatch =
-      contentDebounced !== document.content &&
+      contentDebounced !== effectiveDocument?.content &&
       contentDebounced !== prevContentRef.current;
 
     const yjsNeedsPatch =
@@ -713,13 +731,15 @@ export function EditorContent({
     contentDebounced,
     localYjsStateB64Debounced,
     documentId,
-    document?.content,
+    effectiveDocument?.content,
     document?.deletedAt,
     effectiveReadOnly,
     useHttpPersistence,
     updateDocumentMutation.mutate,
     isEditorBodyReady,
   ]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- document.content intentionally omitted (metadataOnly);
 
   useEffect(() => {
     return () => {
@@ -751,7 +771,7 @@ export function EditorContent({
       updates.icon = icon;
     }
     if (useHttpPersistence) {
-      if (content !== document.content) {
+      if (content !== effectiveDocument?.content) {
         updates.content = content;
       }
       const yjsLatest = latestYjsStateB64Ref.current;
@@ -801,6 +821,7 @@ export function EditorContent({
     document,
     documentId,
     effectiveReadOnly,
+    effectiveDocument,
     icon,
     useHttpPersistence,
     shouldConnectCollab,

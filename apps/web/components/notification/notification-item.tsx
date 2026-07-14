@@ -95,7 +95,9 @@ export function NotificationItem({
 
     if (!targetSlug) {
       try {
-        const res = await apiFetch(`/api/editor-documents/${documentId}`);
+        const res = await apiFetch(
+          `/api/editor-documents/${documentId}?metadataOnly=1`
+        );
         if (res.ok) {
           const doc = (await res.json()) as { workspaceId?: string | null };
           if (doc.workspaceId) {
