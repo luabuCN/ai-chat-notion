@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "./generated/prisma/client.js";
 
 const prismaClientSingleton = () => {
   const postgresUrl = process.env.POSTGRES_URL;
@@ -8,30 +9,31 @@ const prismaClientSingleton = () => {
       "POSTGRES_URL environment variable is not set. " +
       "Please set it in your .env file. " +
       "Format: postgresql://user:password@host:port/database";
-    
+
     if (process.env.NODE_ENV === "development") {
       console.error(errorMessage);
     }
-    
+
     throw new Error(errorMessage);
   }
 
-  const url = postgresUrl.includes("connection_limit")
-    ? postgresUrl
-    : `${postgresUrl}${postgresUrl.includes("?") ? "&" : "?"}connection_limit=15&pool_timeout=20`;
+  const adapter = new PrismaPg({
+    connectionString: postgresUrl,
+    // Preserve previous Prisma v6 URL pool settings (connection_limit=15, pool_timeout=20).
+    max: 15,
+    connectionTimeoutMillis: 20_000,
+  });
 
   return new PrismaClient({
+    adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-    datasources: {
-      db: {
-        url,
-      },
-    },
   });
 };
 
+type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
+
 declare const globalThis: {
-  prismaGlobal: ReturnType<typeof prismaClientSingleton> | undefined;
+  prismaGlobal: PrismaClientSingleton | undefined;
 } & typeof global;
 
 const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();

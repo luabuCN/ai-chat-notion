@@ -1,6 +1,7 @@
 import { ChatSDKError } from "../errors.js";
 import { prisma } from "../client.js";
-import { Prisma, type NotificationType } from "@prisma/client";
+import { Prisma } from "../generated/prisma/client.js";
+import type { NotificationType } from "../generated/prisma/enums.js";
 
 // ==================== Notification Functions ====================
 
