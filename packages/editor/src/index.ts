@@ -1,6 +1,3 @@
-// Tiptap Editor (non-collaborative)
-export * from "./tiptap-editor";
-
 // Unified Editor (with collaboration support)
 export {
   UnifiedEditor,

@@ -24,7 +24,6 @@ import {
   DropdownMenuCheckboxItem,
 } from "@repo/ui";
 import {
-  useGetDocument,
   useDuplicateDocument,
   useMoveDocument,
   useArchive,
@@ -35,6 +34,7 @@ import { useEditorExport } from "@repo/editor";
 import { DocumentSelectorDialog } from "./document-selector-dialog";
 import { toast } from "sonner";
 import { getEditorListPathAfterLeavingDocument } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
 
 const FULL_WIDTH_MIN_WIDTH = 980;
 
@@ -78,7 +78,6 @@ export function DocumentActionsMenu({
       : Array.isArray(params.slug)
       ? params.slug[0]
       : "";
-  const { data: document } = useGetDocument(documentId);
   const { exportDocument } = useEditorExport();
   const duplicateMutation = useDuplicateDocument();
   const moveMutation = useMoveDocument();
@@ -164,12 +163,19 @@ export function DocumentActionsMenu({
   };
 
   const handleExportMarkdown = async () => {
-    if (!document?.content) return;
-
     try {
       setIsMenuOpen(false);
       setIsExporting(true);
-      const content = JSON.parse(document.content);
+      // 导出时按需拉取 content，避免打开文档时走全量 CRUD
+      const res = await apiFetch(`/api/editor-documents/${documentId}`);
+      if (!res.ok) {
+        throw new Error("获取文档内容失败");
+      }
+      const doc = (await res.json()) as { content?: string };
+      if (!doc.content) {
+        throw new Error("文档内容为空");
+      }
+      const content = JSON.parse(doc.content);
       await exportDocument(content, title);
       toast.success("导出成功");
     } catch (error) {

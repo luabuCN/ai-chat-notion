@@ -33,12 +33,13 @@ export async function verifyDocumentAccess(
   documentId: string,
   userId?: string,
   userEmail?: string,
-  options?: { ignoreDeletedAt?: boolean; includeYjsState?: boolean }
+  options?: { ignoreDeletedAt?: boolean; includeYjsState?: boolean; metadataOnly?: boolean }
 ): Promise<DocumentAccessResult> {
   try {
     const document = await getEditorDocumentMetadataById({
       id: documentId,
       includeYjsState: options?.includeYjsState,
+      metadataOnly: options?.metadataOnly,
     });
 
     // Check if there are collaborators (for determining collab edit availability)

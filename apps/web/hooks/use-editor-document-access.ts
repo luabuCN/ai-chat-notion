@@ -66,7 +66,7 @@ export function useEditorDocumentAccess(documentId: string) {
     data: document,
     isPending,
     error,
-  } = useGetDocument(documentId);
+  } = useGetDocument(documentId, { metadataOnly: true });
 
   const docError = parseDocumentError(error);
   const documentWithAccess = document as EditorDocumentWithAccess | undefined;

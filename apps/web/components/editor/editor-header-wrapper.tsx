@@ -34,7 +34,7 @@ export function EditorHeaderWrapper({
   isFullWidth = false,
   onFullWidthChange,
 }: EditorHeaderWrapperProps) {
-  const { data: document } = useGetDocument(documentId);
+  const { data: document } = useGetDocument(documentId, { metadataOnly: true });
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const mutations = useMutationState({
     filters: { mutationKey: documentKeys.updates() },
