@@ -1,6 +1,9 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // Node ESM (Vercel) requires explicit .js extensions in relative imports.
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
