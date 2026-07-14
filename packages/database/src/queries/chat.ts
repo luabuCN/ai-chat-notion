@@ -1,5 +1,6 @@
 import { ChatSDKError } from "../errors.js";
 import { prisma } from "../client.js";
+import type { Prisma } from "../generated/prisma/client.js";
 import { AppUsage } from "../usage.js";
 import {
   deleteDocumentsByIds,
@@ -114,7 +115,7 @@ export async function getChatsByUserId({
 
     // 构建查询条件
     // AI 对话始终只显示用户自己的聊天，不显示工作空间其他人的聊天
-    const where: any = {
+    const where: Prisma.ChatWhereInput = {
       userId: id, // 始终按用户 ID 过滤
     };
 

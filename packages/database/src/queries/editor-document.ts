@@ -1,6 +1,7 @@
 import { generateUUID } from "../utils.js";
 import { ChatSDKError } from "../errors.js";
 import { prisma } from "../client.js";
+import type { Prisma } from "../generated/prisma/client.js";
 import { EditorDocument } from "./types.js";
 
 // EditorDocument 相关查询函数
@@ -214,13 +215,13 @@ export async function getEditorDocumentsByUserId({
   onlyDeleted?: boolean;
 }) {
   try {
-    const where: any = {
-      parentDocumentId: onlyDeleted ? undefined : parentDocumentId ?? null,
+    const where: Prisma.EditorDocumentWhereInput = {
+      parentDocumentId: onlyDeleted ? undefined : (parentDocumentId ?? null),
       deletedAt: onlyDeleted
         ? { not: null }
         : includeDeleted
-        ? undefined
-        : null,
+          ? undefined
+          : null,
     };
 
     if (workspaceId) {
@@ -287,7 +288,7 @@ export async function updateEditorDocument({
   sourcePageUrl?: string | null;
 }) {
   try {
-    const data: any = {};
+    const data: Prisma.EditorDocumentUpdateInput = {};
     if (title !== undefined) data.title = title;
     if (content !== undefined) {
       data.content = content;

@@ -28,7 +28,7 @@
     "postinstall": "prisma generate",
     "generate": "prisma generate",
     "db:generate": "dotenv -e ../../.env.local -- prisma generate",
-    "db:migrate": "dotenv -e ../../.env.local -- prisma migrate dev",
+    "db:migrate": "dotenv -e ../../.env.local -- prisma migrate dev && prisma generate",
     "db:push": "dotenv -e ../../.env.local -- prisma db push --accept-data-loss",
     "db:pull": "dotenv -e ../../.env.local -- prisma db pull",
     "db:studio": "dotenv -e ../../.env.local -- prisma studio",
@@ -36,18 +36,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/client": "6",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "ai": "6.0.37",
     "bcrypt-ts": "^5.0.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "prisma": "6",
+    "pg": "^8.16.3",
     "tailwind-merge": "^2.5.2",
     "tokenlens": "1.3.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.8.6",
+    "@types/pg": "^8.20.0",
+    "dotenv": "^16.4.5",
+    "prisma": "^7.8.0",
     "typescript": "^5.6.3"
   },
   "turbo": {
@@ -56,7 +60,10 @@
     ],
     "tasks": {
       "build": {
-        "outputs": ["dist/**"]
+        "outputs": [
+          "dist/**",
+          "src/generated/**"
+        ]
       }
     }
   }

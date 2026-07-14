@@ -1,8 +1,9 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    // Prisma 7 client types require bundler resolution; NodeNext collapses query results to any.
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "target": "ES2022",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "outDir": "dist",

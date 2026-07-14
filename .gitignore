@@ -16,6 +16,9 @@ build
 #serve
 dist
 
+# Prisma generated client
+packages/database/src/generated
+
 docs
 
 # misc
