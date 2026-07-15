@@ -1,5 +1,6 @@
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
+import type { HocuspocusProvider } from "@hocuspocus/provider";
 import { Placeholder } from "@tiptap/extensions";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import {
@@ -8,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MutableRefObject,
 } from "react";
 import { ImagePreviewControlled } from "@repo/ui";
 import { toast } from "sonner";
@@ -35,6 +37,7 @@ import { useSlashCommandTrigger } from "./hooks/use-slash-command";
 import "./styles/tiptap-editor.css";
 import { CodeBlockBubbleMenu } from "./tiptap/menus/codeblock-bubble-menu";
 import { SearchReplacePanel } from "./components/search-replace-panel";
+import { canMountEditor } from "./lib/can-mount-editor";
 import { decodeBase64ToUint8Array } from "./lib/yjs-utils";
 import { useIndexeddbPersistence } from "./hooks/use-indexeddb-persistence";
 import {
@@ -121,6 +124,226 @@ export interface UnifiedEditorProps {
   ) => void | Promise<void>;
 }
 
+interface UnifiedEditorSurfaceProps {
+  documentId: string;
+  editorKey: string;
+  ydoc: Y.Doc;
+  provider: HocuspocusProvider | null;
+  collabConfig: UnifiedEditorProps["collabConfig"];
+  initialContent?: string;
+  isWebSocketSynced: boolean;
+  httpYjsStateApplied: boolean;
+  isMountedRef: MutableRefObject<boolean>;
+  placeholder?: string;
+  onCreate?: (editor: Editor) => void;
+  onUpdate?: (editor: Editor) => void;
+  onEditorReady?: () => void;
+  onLocalYjsState?: (state: Uint8Array) => void;
+  enableHttpPersistence?: boolean;
+  className: string;
+  showAiTools: boolean;
+  aiApiUrl?: string;
+  readonly: boolean;
+  user?: CollaborativeUser;
+  awarenessUser: CollaborativeUser | null;
+  stableNavigate: (href: string) => void;
+  stableUploadFile: (file: File) => Promise<string>;
+  mentionableUsers?: UnifiedEditorProps["mentionableUsers"];
+  highlightCommentId?: string;
+  highlightBlockId?: string;
+  onCommentMentionNotify?: UnifiedEditorProps["onCommentMentionNotify"];
+}
+
+/**
+ * 仅在 Yjs 已有内容（IndexedDB / HTTP 预灌 / WS synced）后挂载。
+ * 避免 Collaboration + UniqueID 在空 ydoc 上写入默认空段落并与后续同步合并。
+ */
+function UnifiedEditorSurface({
+  documentId,
+  editorKey,
+  ydoc,
+  provider,
+  collabConfig,
+  initialContent,
+  isWebSocketSynced,
+  httpYjsStateApplied,
+  isMountedRef,
+  placeholder,
+  onCreate,
+  onUpdate,
+  onEditorReady,
+  onLocalYjsState,
+  enableHttpPersistence = false,
+  className,
+  showAiTools,
+  aiApiUrl,
+  readonly,
+  user,
+  awarenessUser,
+  stableNavigate,
+  stableUploadFile,
+  mentionableUsers,
+  highlightCommentId,
+  highlightBlockId,
+  onCommentMentionNotify,
+}: UnifiedEditorSurfaceProps) {
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
+
+  const extensions = useMemo(() => {
+    const exts = [
+      ...defaultExtensions,
+      ImageUploadPlaceholder.configure({
+        uploadFile: stableUploadFile,
+      }),
+      AttachmentUploadPlaceholder.configure({
+        uploadFile: stableUploadFile,
+      }),
+      DocumentLink.configure({ navigate: stableNavigate }),
+      Placeholder.configure({
+        placeholder: placeholder ?? "Type / for commands, or press Space for AI...",
+        emptyEditorClass: "is-editor-empty text-gray-400",
+        emptyNodeClass: "is-empty text-gray-400",
+      }),
+      SlashCommand.configure({
+        suggestion: getSuggestion({
+          ai: showAiTools,
+          uploadFile: stableUploadFile,
+        }),
+      }),
+      Collaboration.configure({
+        document: ydoc,
+      }),
+    ];
+
+    if (collabConfig && awarenessUser && provider) {
+      exts.push(
+        CollaborationCaret.configure({
+          provider,
+          user: awarenessUser,
+        })
+      );
+    }
+
+    return exts;
+  }, [
+    placeholder,
+    ydoc,
+    showAiTools,
+    awarenessUser,
+    provider,
+    collabConfig,
+    stableNavigate,
+    stableUploadFile,
+  ]);
+
+  const editor = useEditor(
+    {
+      editable: !readonly,
+      extensions,
+      immediatelyRender: false,
+      shouldRerenderOnTransaction: false,
+      editorProps: {
+        attributes: {
+          spellcheck: "false",
+          class: "tiptap !pl-10",
+        },
+        handleClick: handleLinkClick,
+      },
+      onCreate: ({ editor: e }) => {
+        onCreate?.(e);
+      },
+      onUpdate: ({ editor: e }) => {
+        onUpdateRef.current?.(e);
+      },
+      onContentError: ({ error }) => {
+        toast.error("编辑器内容错误", {
+          description: error.message,
+        });
+      },
+    },
+    [editorKey, provider, readonly]
+  );
+
+  useEffect(() => {
+    if (!editor || !provider || !awarenessUser || !collabConfig) {
+      return;
+    }
+    provider.setAwarenessField("user", awarenessUser);
+  }, [editor, provider, awarenessUser, collabConfig]);
+
+  const { handleSlashCommand, onDragHandleNodeChange } =
+    useSlashCommandTrigger(editor);
+
+  const { isCommentUiEnabled } = useEditorContentSync({
+    editor,
+    ydoc,
+    editorKey,
+    collabConfig: collabConfig ?? null,
+    initialContent,
+    isWebSocketSynced,
+    httpYjsStateApplied,
+    isMountedRef,
+    readonly,
+    enableHttpPersistence,
+    onLocalYjsState,
+    onEditorReady,
+  });
+
+  if (readonly) {
+    return (
+      <div className={className}>
+        <EditorContent
+          editor={editor}
+          className="prose dark:prose-invert focus:outline-none max-w-full z-0"
+        />
+        <TableOfContents editor={editor} />
+        <ImagePreviewPortal />
+        <SearchReplacePanel editor={editor} readonly />
+        <LinkConfirmDialog />
+      </div>
+    );
+  }
+
+  return (
+    <div className={className} key={editorKey}>
+      <ImagePreviewPortal />
+      <LinkConfirmDialog />
+      {editor && (
+        <>
+          <CommentBlockMarginTrigger
+            currentUser={user}
+            documentId={documentId}
+            editor={editor}
+            highlightBlockId={highlightBlockId}
+            highlightCommentId={highlightCommentId}
+            mentionableUsers={mentionableUsers}
+            onCommentMentionNotify={onCommentMentionNotify}
+            uiEnabled={isCommentUiEnabled}
+            ydoc={ydoc}
+          />
+          <BlockDragHandleToolbar
+            editor={editor}
+            onAddClick={handleSlashCommand}
+            onDragHandleNodeChange={onDragHandleNodeChange}
+          />
+          <EditorContent
+            editor={editor}
+            className="prose dark:prose-invert focus:outline-none max-w-full z-0"
+          />
+          <TableHandle editor={editor} />
+          <DefaultBubbleMenu editor={editor} />
+          <MediaBubbleMenu editor={editor} />
+          <CodeBlockBubbleMenu editor={editor} />
+          <TableOfContents editor={editor} />
+          <AIPanel editor={editor} aiApiUrl={aiApiUrl} />
+          <SearchReplacePanel editor={editor} readonly={readonly} />
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
  * 统一编辑器组件
  *
@@ -128,10 +351,8 @@ export interface UnifiedEditorProps {
  *   切换协同模式时重新创建 editor（避免 awareness 错误）。
  * - 协同连接 / awareness / 内容同步逻辑分别拆分至 useHocuspocusProvider /
  *   useCollaborationAwareness / useEditorContentSync。
- *
- * 注意：HTTP yjsState 预灌 effect 保留在本组件中、且声明于 useEditor 之前——
- * TipTap v3 的 useEditor 在 useEffect 中创建编辑器实例，预灌必须先于该 effect
- * 执行，编辑器才能以已填充的 ydoc 创建（避免多余的 onUpdate 事务）。
+ * - TipTap Collaboration + UniqueID：必须等 IndexedDB / WS / HTTP yjsState
+ *   使 ydoc 就绪后再挂载编辑器，否则空文档会种下默认空段落并与真实内容合并。
  */
 export function UnifiedEditor({
   documentId,
@@ -182,9 +403,6 @@ export function UnifiedEditor({
     throw new Error("Upload function not available");
   }, []);
 
-  const onUpdateRef = useRef(onUpdate);
-  onUpdateRef.current = onUpdate;
-
   /** 写入 Yjs awareness 的用户信息；CollaborationCaret 会覆盖 `user` 字段，必须含 avatar */
   const awarenessUser = useMemo(() => {
     if (!user) {
@@ -198,7 +416,6 @@ export function UnifiedEditor({
     };
   }, [user]);
 
-  // 编辑器版本 key：documentId + 协同模式
   const editorKey = useMemo(
     () => `${documentId}-${collabConfig ? "collab" : "local"}`,
     [documentId, collabConfig]
@@ -222,22 +439,18 @@ export function UnifiedEditor({
     return doc;
   }, [collabConfig, documentId, yjsStateSignature]);
 
-  // y-indexeddb 作为客户端读取缓存层，不替代服务端持久化。
   const { isRestored } = useIndexeddbPersistence(ydoc, documentId, readonly);
 
   const { handleAwarenessUpdate, resetSignature } =
     useCollaborationAwareness(onConnectedUsersChange);
 
-  // editorKey / collabConfig 切换时重置 awareness 用户签名
   useEffect(() => {
     resetSignature();
   }, [editorKey, collabConfig]);
 
-  /** 协同模式下 HTTP yjsState 是否已应用到 ydoc（provider 5s 兜底定时器读取） */
   const httpYjsStateAppliedRef = useRef(false);
   const [httpYjsStateApplied, setHttpYjsStateApplied] = useState(false);
 
-  // editorKey / collabConfig 切换时重置 yjsState 预灌状态（须先于下方 http-yjsState effect）
   useEffect(() => {
     httpYjsStateAppliedRef.current = false;
     setHttpYjsStateApplied(false);
@@ -245,7 +458,7 @@ export function UnifiedEditor({
 
   /**
    * 协同模式下用 HTTP yjsState 预灌 ydoc（Provider 创建前执行），使 ydoc 已有内容；
-   * WS 同步到达后 Yjs CRDT 自动合并（幂等）。须声明于 useEditor 之前（见组件注释）。
+   * WS 同步到达后 Yjs CRDT 自动合并（幂等）。须在挂载编辑器之前完成。
    */
   useEffect(() => {
     if (!collabConfig || !initialYjsStateB64) {
@@ -284,166 +497,53 @@ export function UnifiedEditor({
     onPermissionRevoked,
   });
 
-  // Extensions
-  const extensions = useMemo(() => {
-    const exts = [
-      ...defaultExtensions,
-      ImageUploadPlaceholder.configure({
-        uploadFile: stableUploadFile,
-      }),
-      AttachmentUploadPlaceholder.configure({
-        uploadFile: stableUploadFile,
-      }),
-      DocumentLink.configure({ navigate: stableNavigate }),
-      Placeholder.configure({
-        placeholder: placeholder ?? "Type / for commands, or press Space for AI...",
-        emptyEditorClass: "is-editor-empty text-gray-400",
-        emptyNodeClass: "is-empty text-gray-400",
-      }),
-      SlashCommand.configure({
-        suggestion: getSuggestion({
-          ai: showAiTools,
-          uploadFile: stableUploadFile,
-        }),
-      }),
-      Collaboration.configure({
-        document: ydoc,
-      }),
-    ];
-
-    // 协同模式下添加光标扩展
-    if (collabConfig && awarenessUser && provider) {
-      exts.push(
-        CollaborationCaret.configure({
-          provider,
-          user: awarenessUser,
-        })
-      );
-    }
-
-    return exts;
-  }, [
-    placeholder,
-    ydoc,
-    showAiTools,
-    awarenessUser,
-    provider,
-    collabConfig,
-    stableNavigate,
-    stableUploadFile,
-  ]);
-
-  // 创建编辑器 - 使用 editorKey 作为依赖
-  const editor = useEditor(
-    {
-      editable: !readonly,
-      extensions,
-      immediatelyRender: false,
-      shouldRerenderOnTransaction: false,
-      editorProps: {
-        attributes: {
-          spellcheck: "false",
-          class: "tiptap !pl-10",
-        },
-        handleClick: handleLinkClick,
-      },
-      onCreate: ({ editor: e }) => {
-        onCreate?.(e);
-      },
-      onUpdate: ({ editor: e }) => {
-        onUpdateRef.current?.(e);
-      },
-      onContentError: ({ error }) => {
-        toast.error("编辑器内容错误", {
-          description: error.message,
-        });
-      },
-    },
-    [editorKey, provider, readonly]
+  const ydocFragmentLength = useMemo(
+    () => ydoc.getXmlFragment("default").length,
+    [ydoc, isRestored, isWebSocketSynced, httpYjsStateApplied]
   );
 
-  /** editor 挂载后 CollaborationCaret 插件 init 会覆盖 awareness，再同步一次 avatar */
-  useEffect(() => {
-    if (!editor || !provider || !awarenessUser || !collabConfig) {
-      return;
-    }
-    provider.setAwarenessField("user", awarenessUser);
-  }, [editor, provider, awarenessUser, collabConfig]);
-
-  const { handleSlashCommand, onDragHandleNodeChange } =
-    useSlashCommandTrigger(editor);
-
-  const { isCommentUiEnabled } = useEditorContentSync({
-    editor,
-    ydoc,
-    editorKey,
-    collabConfig: collabConfig ?? null,
-    initialContent,
+  const readyToMount = canMountEditor({
+    isRestored,
+    hasCollabConfig: Boolean(collabConfig),
     isWebSocketSynced,
     httpYjsStateApplied,
-    isMountedRef,
-    readonly,
-    enableHttpPersistence,
-    onLocalYjsState,
-    onEditorReady,
+    ydocFragmentLength,
   });
 
-  if (!isClientReady) {
+  if (!isClientReady || !readyToMount) {
     return null;
   }
 
-  if (readonly) {
-    return (
-      <div className={className}>
-        <EditorContent
-          editor={editor}
-          className="prose dark:prose-invert focus:outline-none max-w-full z-0"
-        />
-        <TableOfContents editor={editor} />
-        <ImagePreviewPortal />
-        <SearchReplacePanel editor={editor} readonly />
-        <LinkConfirmDialog />
-      </div>
-    );
-  }
-
   return (
-    <div className={className} key={editorKey}>
-      <ImagePreviewPortal />
-      <LinkConfirmDialog />
-      {/* 编辑器主体 */}
-      {editor && (
-        <>
-          <CommentBlockMarginTrigger
-            currentUser={user}
-            documentId={documentId}
-            editor={editor}
-            highlightBlockId={highlightBlockId}
-            highlightCommentId={highlightCommentId}
-            mentionableUsers={mentionableUsers}
-            onCommentMentionNotify={onCommentMentionNotify}
-            uiEnabled={isCommentUiEnabled}
-            ydoc={ydoc}
-          />
-          <BlockDragHandleToolbar
-            editor={editor}
-            onAddClick={handleSlashCommand}
-            onDragHandleNodeChange={onDragHandleNodeChange}
-          />
-          <EditorContent
-            editor={editor}
-            className="prose dark:prose-invert focus:outline-none max-w-full z-0"
-          />
-          <TableHandle editor={editor} />
-          <DefaultBubbleMenu editor={editor} />
-          <MediaBubbleMenu editor={editor} />
-          <CodeBlockBubbleMenu editor={editor} />
-          <TableOfContents editor={editor} />
-          <AIPanel editor={editor} aiApiUrl={aiApiUrl} />
-          <SearchReplacePanel editor={editor} readonly={readonly} />
-        </>
-      )}
-    </div>
+    <UnifiedEditorSurface
+      aiApiUrl={aiApiUrl}
+      awarenessUser={awarenessUser}
+      className={className}
+      collabConfig={collabConfig}
+      documentId={documentId}
+      editorKey={editorKey}
+      enableHttpPersistence={enableHttpPersistence}
+      highlightBlockId={highlightBlockId}
+      highlightCommentId={highlightCommentId}
+      httpYjsStateApplied={httpYjsStateApplied}
+      initialContent={initialContent}
+      isMountedRef={isMountedRef}
+      isWebSocketSynced={isWebSocketSynced}
+      mentionableUsers={mentionableUsers}
+      onCommentMentionNotify={onCommentMentionNotify}
+      onCreate={onCreate}
+      onEditorReady={onEditorReady}
+      onLocalYjsState={onLocalYjsState}
+      onUpdate={onUpdate}
+      placeholder={placeholder}
+      provider={provider}
+      readonly={readonly}
+      showAiTools={showAiTools}
+      stableNavigate={stableNavigate}
+      stableUploadFile={stableUploadFile}
+      user={user}
+      ydoc={ydoc}
+    />
   );
 }
 

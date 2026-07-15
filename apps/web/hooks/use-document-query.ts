@@ -665,7 +665,7 @@ export interface AllDocumentItem {
   coverImagePosition?: number | null;
 }
 
-async function fetchAllDocuments(
+export async function fetchAllDocuments(
   workspaceId?: string,
   parentDocumentId?: string,
   flat?: boolean,

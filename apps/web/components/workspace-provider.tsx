@@ -13,6 +13,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Workspace } from "./workspace-switcher";
 import { apiFetch } from "@/lib/api-client";
+import {
+  documentKeys,
+  fetchAllDocuments,
+} from "@/hooks/use-document-query";
 
 export const workspaceKeys = {
   all: ["workspaces"] as const,
@@ -22,7 +26,7 @@ interface WorkspaceContextValue {
   currentWorkspace: Workspace | null;
   workspaces: Workspace[];
   isLoading: boolean;
-  switchWorkspace: (workspace: Workspace) => Promise<void>;
+  switchWorkspace: (workspace: Workspace) => Promise<boolean>;
   refreshWorkspaces: () => Promise<void>;
   createWorkspace: (name: string, icon?: string) => Promise<Workspace | null>;
   applyWorkspaceUpdate: (
@@ -77,6 +81,8 @@ export function WorkspaceProvider({
   );
   const currentWorkspaceRef = useRef<Workspace | null>(null);
   const redirectingFromRemovedWorkspaceRef = useRef(false);
+  /** 乐观切换目标：URL slug 尚未跟上时，禁止 sync effect 回写旧空间 */
+  const pendingSwitchIdRef = useRef<string | null>(null);
 
   const {
     data: workspaces = [],
@@ -94,13 +100,28 @@ export function WorkspaceProvider({
 
   // Sync current workspace with URL slug
   useEffect(() => {
-    if (workspaces.length > 0 && slug) {
-      const workspace = workspaces.find((w) => w.slug === slug);
-      if (workspace && workspace.id !== currentWorkspace?.id) {
+    if (workspaces.length === 0 || !slug) {
+      return;
+    }
+
+    const workspace = workspaces.find((w) => w.slug === slug);
+    if (!workspace) {
+      return;
+    }
+
+    if (pendingSwitchIdRef.current) {
+      if (workspace.id === pendingSwitchIdRef.current) {
+        pendingSwitchIdRef.current = null;
         setCurrentWorkspace(workspace);
       }
+      // URL 仍是旧 slug：保留乐观更新的 currentWorkspace，避免回退
+      return;
     }
-  }, [slug, workspaces, currentWorkspace]);
+
+    setCurrentWorkspace((prev) =>
+      prev?.id === workspace.id ? prev : workspace
+    );
+  }, [slug, workspaces]);
 
   // Pick default workspace once list is available
   useEffect(() => {
@@ -136,6 +157,7 @@ export function WorkspaceProvider({
     }
 
     redirectingFromRemovedWorkspaceRef.current = true;
+    pendingSwitchIdRef.current = defaultWorkspace.id;
     setCurrentWorkspace(defaultWorkspace);
 
     void (async () => {
@@ -160,21 +182,52 @@ export function WorkspaceProvider({
     await queryClient.invalidateQueries({ queryKey: workspaceKeys.all });
   }, [queryClient]);
 
-  const switchWorkspace = useCallback(async (workspace: Workspace) => {
-    try {
-      const response = await apiFetch("/api/workspaces/switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId: workspace.id }),
-      });
-
-      if (response.ok) {
-        setCurrentWorkspace(workspace);
+  const switchWorkspace = useCallback(
+    async (workspace: Workspace): Promise<boolean> => {
+      if (workspace.id === currentWorkspaceRef.current?.id) {
+        return true;
       }
-    } catch (error) {
-      console.error("Failed to switch workspace:", error);
-    }
-  }, []);
+
+      const previous = currentWorkspaceRef.current;
+      pendingSwitchIdRef.current = workspace.id;
+      setCurrentWorkspace(workspace);
+
+      try {
+        const response = await apiFetch("/api/workspaces/switch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspaceId: workspace.id }),
+        });
+
+        if (!response.ok) {
+          pendingSwitchIdRef.current = null;
+          setCurrentWorkspace(previous);
+          return false;
+        }
+
+        // 预取最近访问，导航 remount 后直接命中缓存，避免卡片骨架再闪一次
+        void queryClient.prefetchQuery({
+          queryKey: documentKeys.allDocsList(
+            workspace.id,
+            undefined,
+            true,
+            "workspace",
+            12
+          ),
+          queryFn: () =>
+            fetchAllDocuments(workspace.id, undefined, true, "workspace", 12),
+        });
+
+        return true;
+      } catch (error) {
+        pendingSwitchIdRef.current = null;
+        setCurrentWorkspace(previous);
+        console.error("Failed to switch workspace:", error);
+        return false;
+      }
+    },
+    [queryClient]
+  );
 
   const applyWorkspaceUpdate = useCallback(
     (
@@ -207,6 +260,7 @@ export function WorkspaceProvider({
           queryClient.setQueryData<Workspace[]>(workspaceKeys.all, (prev) =>
             prev ? [...prev, workspace] : [workspace]
           );
+          pendingSwitchIdRef.current = workspace.id;
           setCurrentWorkspace(workspace);
           return workspace;
         }
