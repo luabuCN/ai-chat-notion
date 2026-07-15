@@ -175,16 +175,38 @@ export function RecentDocumentsCarousel({
 }: {
   workspaceSlug?: string;
 }) {
-  const { currentWorkspace, isLoading: isWorkspaceLoading } = useWorkspace();
+  const { currentWorkspace, workspaces, isLoading: isWorkspaceLoading } =
+    useWorkspace();
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
-  const { data, isLoading } = useAllDocuments(currentWorkspace?.id, undefined, {
+
+  // 跟 URL slug 对齐，避免乐观切换 currentWorkspace 时先拉一轮、导航 remount 后再拉一轮
+  const workspaceId = useMemo(() => {
+    if (workspaceSlug) {
+      return (
+        workspaces.find((workspace) => workspace.slug === workspaceSlug)?.id ??
+        (currentWorkspace?.slug === workspaceSlug
+          ? currentWorkspace.id
+          : undefined)
+      );
+    }
+    return currentWorkspace?.id;
+  }, [
+    workspaceSlug,
+    workspaces,
+    currentWorkspace?.id,
+    currentWorkspace?.slug,
+  ]);
+
+  const { data, isLoading } = useAllDocuments(workspaceId, undefined, {
     flat: true,
     sources: "workspace",
     limit: 12,
-    enabled: Boolean(currentWorkspace?.id) && !isWorkspaceLoading,
+    enabled: Boolean(workspaceId) && !isWorkspaceLoading,
   });
+
+  const showSkeleton = isLoading && !data;
 
   const updateScrollShadows = useCallback((api: CarouselApi) => {
     if (!api) {
@@ -236,7 +258,7 @@ export function RecentDocumentsCarousel({
     return data.filter((doc) => doc.source === "workspace" && !doc.deletedAt);
   }, [data]);
 
-  if (!isLoading && recentDocuments.length === 0) {
+  if (!showSkeleton && recentDocuments.length === 0) {
     return null;
   }
 
@@ -245,7 +267,7 @@ export function RecentDocumentsCarousel({
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
       exit={{ opacity: 0, y: 12 }}
-      initial={{ opacity: 0, y: 16 }}
+      initial={showSkeleton ? { opacity: 0, y: 16 } : false}
       transition={{ duration: 0.28, ease: "easeOut", delay: 0.04 }}
     >
       <div className="mb-3 flex items-center gap-2 px-0.5">
@@ -254,7 +276,7 @@ export function RecentDocumentsCarousel({
       </div>
 
       <div className="group relative">
-        {isLoading ? (
+        {showSkeleton ? (
           <CarouselSkeleton />
         ) : (
           <Carousel

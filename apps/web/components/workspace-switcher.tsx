@@ -41,6 +41,7 @@ import { EmojiPicker } from "./editor/emoji-picker";
 import { generateDefaultWorkspaceName } from "@repo/database/workspace-name";
 import { apiFetch, getApiErrorMessage } from "@/lib/api-client";
 import { toast } from "sonner";
+import { useWorkspace } from "./workspace-provider";
 
 export type Workspace = {
   id: string;
@@ -71,6 +72,7 @@ export function WorkspaceSwitcher({
   onRefresh,
 }: WorkspaceSwitcherProps) {
   const router = useRouter();
+  const { switchWorkspace } = useWorkspace();
   const [open, setOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -202,9 +204,9 @@ export function WorkspaceSwitcher({
         setCreateDialogOpen(false);
         resetCreateForm();
         await onRefresh?.();
+        await switchWorkspace(workspace);
         onSwitch?.(workspace);
         router.push(`/${workspace.slug}/chat`);
-        router.refresh();
         return;
       }
 
@@ -219,19 +221,24 @@ export function WorkspaceSwitcher({
   };
 
   const handleSwitchWorkspace = async (workspace: Workspace) => {
+    if (workspace.id === currentWorkspace?.id) {
+      setOpen(false);
+      return;
+    }
+
     try {
-      await apiFetch("/api/workspaces/switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId: workspace.id }),
-      });
+      const ok = await switchWorkspace(workspace);
+      if (!ok) {
+        toast.error("切换空间失败");
+        return;
+      }
 
       setOpen(false);
       onSwitch?.(workspace);
       router.push(`/${workspace.slug}/chat`);
-      router.refresh();
     } catch (error) {
       console.error("Failed to switch workspace:", error);
+      toast.error("切换空间失败");
     }
   };
 

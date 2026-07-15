@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { User } from "next-auth";
 
@@ -14,10 +14,7 @@ import { SidebarToggle } from "@/components/sidebar-toggle";
 import { SidebarTrash } from "@/components/sidebar-trash";
 import { QuickSearchPalette } from "@/components/quick-search-palette";
 import { NotificationCenter } from "@/components/notification/notification-center";
-import {
-  WorkspaceSwitcher,
-  type Workspace,
-} from "@/components/workspace-switcher";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { useWorkspace } from "@/components/workspace-provider";
 import {
   Sidebar,
@@ -65,7 +62,6 @@ function SidebarNavLink({
 }
 
 export function AppSidebar({ user }: { user: User | undefined }) {
-  const router = useRouter();
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
   const { currentWorkspace, workspaces, refreshWorkspaces } = useWorkspace();
@@ -81,11 +77,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     setOpenMobile(false);
   };
 
-  const handleWorkspaceSwitch = (workspace: Workspace) => {
-    router.push(`/${workspace.slug}/chat`);
-    router.refresh();
-  };
-
   return (
     <>
       <Sidebar className="group-data-[side=left]:border-r-0">
@@ -98,7 +89,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   workspaces={workspaces}
                   userId={user.id!}
                   userName={user.name}
-                  onSwitch={handleWorkspaceSwitch}
                   onRefresh={refreshWorkspaces}
                 />
               )}
