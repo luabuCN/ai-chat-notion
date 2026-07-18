@@ -496,7 +496,8 @@ const getSuggestion = ({
             editor: props.editor,
           });
 
-          if (!props.clientRect) {
+          const clientRect = props.clientRect;
+          if (!clientRect) {
             return;
           }
 
@@ -506,11 +507,11 @@ const getSuggestion = ({
           popup.appendChild(component.element);
           document.body.appendChild(popup);
 
-          updatePopupPosition(popup, props.clientRect);
+          updatePopupPosition(popup, clientRect);
           // 首帧菜单高度可能尚未算准，下一帧按真实高度再翻转到上方
           requestAnimationFrame(() => {
             if (popup) {
-              updatePopupPosition(popup, props.clientRect);
+              updatePopupPosition(popup, clientRect);
             }
           });
         },
@@ -518,14 +519,15 @@ const getSuggestion = ({
         onUpdate(props) {
           component.updateProps({ ...props, uploadFile });
 
-          if (!props.clientRect || !popup) {
+          const clientRect = props.clientRect;
+          if (!clientRect || !popup) {
             return;
           }
 
-          updatePopupPosition(popup, props.clientRect);
+          updatePopupPosition(popup, clientRect);
           requestAnimationFrame(() => {
             if (popup) {
-              updatePopupPosition(popup, props.clientRect);
+              updatePopupPosition(popup, clientRect);
             }
           });
         },
