@@ -1022,9 +1022,15 @@ export function EditorContent({
                 <EditorBodyLoadingSkeleton />
               </div>
             ) : null}
+            {/*
+              未就绪时脱离文档流，避免 TipTap 挂载瞬间把父级从 min-h 撑开、
+              滚动条出现后再换行，造成「加载完抖一下」。
+            */}
             <div
               className={
-                isEditorBodyReady ? undefined : "pointer-events-none opacity-0"
+                isEditorBodyReady
+                  ? "transition-opacity duration-150 ease-out"
+                  : "pointer-events-none invisible absolute inset-x-0 top-0 w-full"
               }
               aria-hidden={!isEditorBodyReady}
             >

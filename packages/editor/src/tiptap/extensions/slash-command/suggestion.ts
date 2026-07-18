@@ -340,6 +340,64 @@ const uploadItems: CommandSuggestionItem[] = [
   },
 ];
 
+const POPUP_VIEWPORT_PADDING = 8;
+const POPUP_GAP = 4;
+const POPUP_FALLBACK_HEIGHT = 320;
+const EDITOR_SCROLL_CONTAINER_ID = "editor-scroll-container";
+
+type EditorScrollLock = {
+  unlock: () => void;
+};
+
+/**
+ * 菜单打开时锁定正文滚动位置。
+ * 不改 overflow（避免滚动条消失导致整页左右抖），只拦截滚轮/触摸并把 scrollTop 钉住。
+ */
+const lockEditorScroll = (): EditorScrollLock | null => {
+  const el = document.getElementById(EDITOR_SCROLL_CONTAINER_ID);
+  if (!el) {
+    return null;
+  }
+
+  const lockedScrollTop = el.scrollTop;
+
+  const preventWheelTouch = (event: Event) => {
+    event.preventDefault();
+  };
+
+  const pinScrollTop = () => {
+    if (el.scrollTop !== lockedScrollTop) {
+      el.scrollTop = lockedScrollTop;
+    }
+  };
+
+  const preventScrollKeys = (event: KeyboardEvent) => {
+    // 仅拦截会滚动视口的键；Space 留给编辑器输入/过滤
+    if (
+      event.key === "PageUp" ||
+      event.key === "PageDown" ||
+      event.key === "Home" ||
+      event.key === "End"
+    ) {
+      event.preventDefault();
+    }
+  };
+
+  el.addEventListener("wheel", preventWheelTouch, { passive: false });
+  el.addEventListener("touchmove", preventWheelTouch, { passive: false });
+  el.addEventListener("scroll", pinScrollTop);
+  document.addEventListener("keydown", preventScrollKeys, true);
+
+  return {
+    unlock: () => {
+      el.removeEventListener("wheel", preventWheelTouch);
+      el.removeEventListener("touchmove", preventWheelTouch);
+      el.removeEventListener("scroll", pinScrollTop);
+      document.removeEventListener("keydown", preventScrollKeys, true);
+    },
+  };
+};
+
 const updatePopupPosition = (
   popup: HTMLDivElement,
   clientRect: (() => DOMRect | null) | null
@@ -350,23 +408,56 @@ const updatePopupPosition = (
   if (!rect) return;
 
   const viewportHeight = window.innerHeight;
-  const popupHeight = popup.offsetHeight || 320;
-  const spaceBelow = viewportHeight - rect.bottom;
-  const spaceAbove = rect.top;
+  const viewportWidth = window.innerWidth;
+  // 正文在内部滚动容器里，必须用 fixed + 视口坐标；不要混用 absolute/window.scrollY
+  const measuredHeight = popup.offsetHeight;
+  const popupHeight =
+    measuredHeight > 0 ? measuredHeight : POPUP_FALLBACK_HEIGHT;
+  const popupWidth = popup.offsetWidth || 288;
+  const spaceBelow = viewportHeight - rect.bottom - POPUP_VIEWPORT_PADDING;
+  const spaceAbove = rect.top - POPUP_VIEWPORT_PADDING;
 
-  // Determine placement: prefer bottom, flip to top if not enough space
-  const placement =
-    spaceBelow >= popupHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
-
-  let top: number;
-  if (placement === "bottom") {
-    top = rect.bottom + window.scrollY;
-  } else {
-    top = rect.top + window.scrollY - popupHeight;
+  let placement: "bottom" | "top" = "bottom";
+  if (spaceBelow < popupHeight && spaceAbove > spaceBelow) {
+    placement = "top";
   }
 
-  popup.style.position = "absolute";
-  popup.style.left = `${rect.left + window.scrollX}px`;
+  // 按可用空间限制菜单高度，避免为塞进视口而远离光标
+  const availableSpace =
+    placement === "bottom"
+      ? Math.max(spaceBelow - POPUP_GAP, 120)
+      : Math.max(spaceAbove - POPUP_GAP, 120);
+  const maxMenuHeight = Math.min(POPUP_FALLBACK_HEIGHT, availableSpace);
+  popup.style.maxHeight = `${maxMenuHeight}px`;
+  popup.style.overflow = "hidden";
+  const menuRoot = popup.firstElementChild;
+  if (menuRoot instanceof HTMLElement) {
+    menuRoot.style.maxHeight = `${maxMenuHeight}px`;
+  }
+
+  const heightForPlace = Math.min(
+    measuredHeight > 0 ? measuredHeight : POPUP_FALLBACK_HEIGHT,
+    availableSpace
+  );
+
+  let top =
+    placement === "bottom"
+      ? rect.bottom + POPUP_GAP
+      : rect.top - heightForPlace - POPUP_GAP;
+
+  top = Math.min(
+    Math.max(top, POPUP_VIEWPORT_PADDING),
+    viewportHeight - POPUP_VIEWPORT_PADDING - Math.min(heightForPlace, availableSpace)
+  );
+
+  let left = rect.left;
+  left = Math.min(
+    Math.max(left, POPUP_VIEWPORT_PADDING),
+    viewportWidth - popupWidth - POPUP_VIEWPORT_PADDING
+  );
+
+  popup.style.position = "fixed";
+  popup.style.left = `${left}px`;
   popup.style.top = `${top}px`;
   popup.style.zIndex = "50";
 };
@@ -396,6 +487,7 @@ const getSuggestion = ({
     render: () => {
       let component: ReactRenderer<SuggestionListHandle, SuggestionListProps>;
       let popup: HTMLDivElement | null = null;
+      let scrollLock: EditorScrollLock | null = null;
 
       return {
         onStart: (props) => {
@@ -408,11 +500,19 @@ const getSuggestion = ({
             return;
           }
 
+          scrollLock = lockEditorScroll();
+
           popup = document.createElement("div");
           popup.appendChild(component.element);
           document.body.appendChild(popup);
 
           updatePopupPosition(popup, props.clientRect);
+          // 首帧菜单高度可能尚未算准，下一帧按真实高度再翻转到上方
+          requestAnimationFrame(() => {
+            if (popup) {
+              updatePopupPosition(popup, props.clientRect);
+            }
+          });
         },
 
         onUpdate(props) {
@@ -423,6 +523,11 @@ const getSuggestion = ({
           }
 
           updatePopupPosition(popup, props.clientRect);
+          requestAnimationFrame(() => {
+            if (popup) {
+              updatePopupPosition(popup, props.clientRect);
+            }
+          });
         },
 
         onKeyDown(props) {
@@ -437,6 +542,8 @@ const getSuggestion = ({
         },
 
         onExit() {
+          scrollLock?.unlock();
+          scrollLock = null;
           if (popup) {
             popup.remove();
             popup = null;

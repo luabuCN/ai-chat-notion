@@ -63,11 +63,23 @@ const cleanMarks = (node: any): any => {
   return node;
 };
 
-const buildInlinePreviewContent = (text: string) => {
+type MarkJSON = { type: string; attrs?: Record<string, unknown> };
+
+const buildInlinePreviewContent = (text: string, marks?: MarkJSON[]) => {
   const lines = text.split("\n");
   return lines.flatMap((line, index) => {
-    const content: Array<{ type: string; text?: string }> = line
-      ? [{ type: "text", text: line }]
+    const content: Array<{
+      type: string;
+      text?: string;
+      marks?: MarkJSON[];
+    }> = line
+      ? [
+          {
+            type: "text",
+            text: line,
+            ...(marks?.length ? { marks } : {}),
+          },
+        ]
       : [];
     if (index < lines.length - 1) {
       content.push({ type: "hardBreak" });
@@ -76,20 +88,65 @@ const buildInlinePreviewContent = (text: string) => {
   });
 };
 
-const buildPlainTextBlockContent = (text: string) => ({
+const buildPlainTextBlockContent = (text: string, marks?: MarkJSON[]) => ({
   type: "paragraph",
-  content: buildInlinePreviewContent(text),
+  content: buildInlinePreviewContent(text, marks),
 });
+
+const buildPlainTextInlineContent = (text: string, marks?: MarkJSON[]) =>
+  buildInlinePreviewContent(text, marks);
 
 const parseMarkdownContent = (editor: Editor, markdown: string) => {
   const manager = (editor as any).storage.markdown?.manager;
   if (!manager) {
-    return markdown;
+    return null;
   }
 
   const processedMarkdown = markdown.replace(/^(#{1,6})([^\s#])/gm, "$1 $2");
   const json = manager.parse(processedMarkdown);
   return cleanMarks(json.type === "doc" ? json.content : json);
+};
+
+/** 单段落 Markdown 拆成 inline，以便续写接在同一文本块里并继承格式 */
+const unwrapSingleParagraphContent = (content: unknown): unknown => {
+  if (
+    Array.isArray(content) &&
+    content.length === 1 &&
+    content[0] &&
+    typeof content[0] === "object" &&
+    (content[0] as { type?: string }).type === "paragraph"
+  ) {
+    return (content[0] as { content?: unknown }).content ?? [];
+  }
+
+  if (
+    content &&
+    typeof content === "object" &&
+    !Array.isArray(content) &&
+    (content as { type?: string }).type === "paragraph"
+  ) {
+    return (content as { content?: unknown }).content ?? [];
+  }
+
+  return content;
+};
+
+const withInheritedMarks = (content: unknown, marks?: MarkJSON[]) => {
+  if (!marks?.length || !Array.isArray(content)) {
+    return content;
+  }
+
+  return content.map((node) => {
+    if (
+      node &&
+      typeof node === "object" &&
+      (node as { type?: string }).type === "text" &&
+      !(node as { marks?: unknown[] }).marks?.length
+    ) {
+      return { ...node, marks };
+    }
+    return node;
+  });
 };
 
 const getCurrentBlockRange = (editor: Editor) => {
@@ -189,6 +246,20 @@ const scrollCaretIntoReadableView = (editor: Editor) => {
 // 触发来源模式
 export type AITriggerMode = "command" | "bubble";
 
+export type AIPanelAnchor = {
+  from: number;
+  to: number;
+};
+
+const capturePanelAnchor = (editor: Editor | null): AIPanelAnchor | null => {
+  if (!editor || editor.isDestroyed) {
+    return null;
+  }
+
+  const { from, to } = editor.state.selection;
+  return { from, to };
+};
+
 interface AIPanelState {
   // Services
   abortController: AbortController | null;
@@ -198,6 +269,8 @@ interface AIPanelState {
   isVisible: boolean;
   isInputFocused: boolean;
   mode: AITriggerMode; // 触发来源
+  /** 悬浮栏定位锚点：生成过程中不跟随 selection 漂移 */
+  panelAnchor: AIPanelAnchor | null;
 
   // Input States
   prompt: string;
@@ -258,6 +331,7 @@ export const store = create<AIPanelState>()((set, get) => ({
   hasSelection: false,
   isInputFocused: false,
   mode: "command" as AITriggerMode,
+  panelAnchor: null,
   prompt: "",
   isThinking: false,
   isStreaming: false,
@@ -269,7 +343,17 @@ export const store = create<AIPanelState>()((set, get) => ({
   wasEditable: true,
 
   // Basic State Actions
-  setVisible: (visible: boolean) => set({ isVisible: visible }),
+  setVisible: (visible: boolean) => {
+    if (visible) {
+      const { editor, panelAnchor } = get();
+      set({
+        isVisible: true,
+        panelAnchor: panelAnchor ?? capturePanelAnchor(editor),
+      });
+      return;
+    }
+    set({ isVisible: false, panelAnchor: null });
+  },
   setHasSelection: (hasSelection: boolean) => set({ hasSelection }),
   setInputFocused: (focused: boolean) => set({ isInputFocused: focused }),
   setPrompt: (prompt: string) => set({ prompt }),
@@ -308,6 +392,7 @@ export const store = create<AIPanelState>()((set, get) => ({
       error: null,
       prompt: "",
       mode: "command" as AITriggerMode,
+      panelAnchor: null,
       wasEditable: true,
     });
   },
@@ -437,6 +522,7 @@ export const store = create<AIPanelState>()((set, get) => ({
       result: "",
       abortController: controller,
       wasEditable,
+      panelAnchor: get().panelAnchor ?? capturePanelAnchor(editor),
     });
 
     try {
@@ -514,6 +600,20 @@ export const store = create<AIPanelState>()((set, get) => ({
     const { editor } = get();
     if (!editor) return;
 
+    const appendAfterSelection =
+      options?.placement === "appendAfterSelection";
+
+    // 在锁定编辑器 / 移动选区前记下锚点与 marks，避免悬浮栏跟丢选区
+    const selectionSnapshot = {
+      from: editor.state.selection.from,
+      to: editor.state.selection.to,
+      marks: editor.state.selection.$to.marks().map((mark) => mark.toJSON()),
+    };
+    const panelAnchor = {
+      from: selectionSnapshot.from,
+      to: selectionSnapshot.to,
+    };
+
     const wasEditable = editor.isEditable;
     editor.setEditable(false);
 
@@ -521,28 +621,52 @@ export const store = create<AIPanelState>()((set, get) => ({
     const insertRange = getCurrentBlockRange(editor);
     let insertFrom = insertRange.from;
     let insertTo = insertRange.to;
+    let inheritedMarks: MarkJSON[] | undefined;
 
-    if (options?.placement === "appendAfterSelection") {
-      const { selection } = editor.state;
-      const depth = Math.min(1, selection.$to.depth);
-      const insertAt = depth === 0 ? selection.to : selection.$to.after(depth);
-      const previousDocSize = editor.state.doc.content.size;
-
-      editor
-        .chain()
-        .focus()
-        .insertContentAt(insertAt, { type: "paragraph" })
-        .run();
-
-      const insertedSize = editor.state.doc.content.size - previousDocSize;
+    if (appendAfterSelection) {
+      // 接在选中文本后面（同一文本块内），不要用 after(depth) 跳到整个顶层块之后
+      const maxPos = editor.state.doc.content.size;
+      const insertAt = Math.min(Math.max(selectionSnapshot.to, 0), maxPos);
       insertFrom = insertAt;
-      insertTo = insertAt + Math.max(insertedSize, 0);
+      insertTo = insertAt;
+      inheritedMarks = selectionSnapshot.marks;
+      editor.commands.setTextSelection(insertAt);
     }
 
     let streamedMarkdown = "";
     let hasRenderedContent = false;
     let hasRenderedFormattedContent = false;
     let lastRenderAt = 0;
+
+    const resolveStreamContent = () => {
+      let contentToInsert: unknown = null;
+      let isFormattedContent = false;
+
+      try {
+        contentToInsert = parseMarkdownContent(editor, streamedMarkdown);
+        if (contentToInsert != null) {
+          isFormattedContent = true;
+        }
+      } catch {
+        if (hasRenderedFormattedContent) {
+          return null;
+        }
+      }
+
+      if (contentToInsert == null) {
+        contentToInsert = appendAfterSelection
+          ? buildPlainTextInlineContent(streamedMarkdown, inheritedMarks)
+          : buildPlainTextBlockContent(streamedMarkdown, inheritedMarks);
+        isFormattedContent = false;
+      } else if (appendAfterSelection) {
+        const unwrapped = unwrapSingleParagraphContent(contentToInsert);
+        if (unwrapped !== contentToInsert) {
+          contentToInsert = withInheritedMarks(unwrapped, inheritedMarks);
+        }
+      }
+
+      return { contentToInsert, isFormattedContent };
+    };
 
     const renderInlineContent = (force = false) => {
       if (!streamedMarkdown) return;
@@ -552,48 +676,49 @@ export const store = create<AIPanelState>()((set, get) => ({
         return;
       }
 
-      let contentToInsert: any;
-      let isFormattedContent = false;
-
-      try {
-        contentToInsert = parseMarkdownContent(editor, streamedMarkdown);
-        isFormattedContent = true;
-      } catch {
-        if (hasRenderedFormattedContent) {
-          lastRenderAt = now;
-          return;
-        }
-        contentToInsert = buildPlainTextBlockContent(streamedMarkdown);
+      const maxPos = editor.state.doc.content.size;
+      if (
+        insertFrom < 0 ||
+        insertTo < insertFrom ||
+        insertFrom > maxPos ||
+        insertTo > maxPos
+      ) {
+        return;
       }
 
+      const resolved = resolveStreamContent();
+      if (!resolved) {
+        lastRenderAt = now;
+        return;
+      }
+
+      let { contentToInsert, isFormattedContent } = resolved;
       const previousDocSize = editor.state.doc.content.size;
 
-      try {
+      const insertStreamContent = (content: unknown) =>
         editor
           .chain()
-          .focus()
           .insertContentAt(
             { from: insertFrom, to: insertTo },
-            contentToInsert,
+            // TipTap Content 联合类型较宽，流式解析结果在运行时校验
+            content as never,
             { updateSelection: true }
           )
           .run();
+
+      try {
+        insertStreamContent(contentToInsert);
       } catch {
         if (hasRenderedContent) {
           lastRenderAt = now;
           return;
         }
 
-        editor
-          .chain()
-          .focus()
-          .insertContentAt(
-            { from: insertFrom, to: insertTo },
-            buildPlainTextBlockContent(streamedMarkdown),
-            { updateSelection: true }
-          )
-          .run();
+        contentToInsert = appendAfterSelection
+          ? buildPlainTextInlineContent(streamedMarkdown, inheritedMarks)
+          : buildPlainTextBlockContent(streamedMarkdown, inheritedMarks);
         isFormattedContent = false;
+        insertStreamContent(contentToInsert);
       }
 
       const nextDocSize = editor.state.doc.content.size;
@@ -615,6 +740,7 @@ export const store = create<AIPanelState>()((set, get) => ({
       result: "",
       abortController: controller,
       wasEditable,
+      panelAnchor,
     });
 
     try {
@@ -660,6 +786,7 @@ export const store = create<AIPanelState>()((set, get) => ({
         result: "",
         hasSelection: false,
         prompt: "",
+        panelAnchor: null,
       });
     } catch (error: any) {
       if (error.name === "AbortError") {
@@ -672,7 +799,7 @@ export const store = create<AIPanelState>()((set, get) => ({
           message: error.message,
           action: {
             label: "Retry",
-            handler: () => get().startInlineStream(request),
+            handler: () => get().startInlineStream(request, options),
           },
         },
         isStreaming: false,

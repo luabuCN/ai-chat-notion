@@ -48,7 +48,7 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
     }
 
     return (
-      <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
+      <div className="flex h-dvh max-h-dvh min-h-0 min-w-0 w-full flex-col overflow-hidden bg-background">
         {/* 与编辑页共用 #editor-scroll-container，供 EditorScrollNav 与气泡菜单定位 */}
         <div
           id="editor-scroll-container"

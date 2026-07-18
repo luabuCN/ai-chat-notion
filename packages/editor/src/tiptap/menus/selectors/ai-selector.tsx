@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useAIPanelStore } from "../../../components/ai-panel/ai-panel-store";
 import { BUBBLE_MENU_PORTAL_POPOVER_Z_CLASS } from "../bubble-menu-z";
-import { type MouseEvent, useState } from "react";
+import { type MouseEvent, type PointerEvent, useState } from "react";
 
 interface AiSelectorProps {
   editor: Editor | null;
@@ -96,6 +96,14 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
     submitPresetPrompt(presetId as any, options);
   };
 
+  const handleContinueWritingPointerDown = (
+    event: PointerEvent<HTMLButtonElement>
+  ) => {
+    // 避免 pointerdown 抢焦点导致编辑器选区丢失，续写插到错误位置
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const handleContinueWritingClick = () => {
     setOpen(false);
     setShowLanguages(false);
@@ -149,6 +157,7 @@ export const AiSelector = ({ editor }: AiSelectorProps) => {
           variant="ghost"
           size="sm"
           className="w-full justify-start gap-2 text-sm font-normal"
+          onPointerDown={handleContinueWritingPointerDown}
           onClick={handleContinueWritingClick}
         >
           <PenLine className="w-4 h-4" />

@@ -1,12 +1,11 @@
-import { getProviderWithModel } from "@repo/ai";
+import { DEFAULT_CHAT_MODEL, getProviderWithModel } from "@repo/ai";
 import { streamText, type LanguageModel, type ModelMessage } from "ai";
 import type { Context } from "hono";
 import {
-  DEFAULT_MODELSCOPE_MODEL,
-  runModelScopeChat,
-  streamModelScopeChat,
-  type ModelScopeChatParams,
-} from "../../ai/modelscope-chat.js";
+  runMoonshotChat,
+  streamMoonshotChat,
+  type MoonshotChatParams,
+} from "../../ai/moonshot-chat.js";
 import { getSessionFromRequest } from "../../../shared/auth.js";
 import {
   completionRequestSchema,
@@ -16,7 +15,7 @@ import {
 
 function parseOpenaiParams(
   body: OpenaiRequest,
-): ModelScopeChatParams | Response {
+): MoonshotChatParams | Response {
   if (Array.isArray(body.messages)) {
     return {
       messages: body.messages as ModelMessage[],
@@ -113,12 +112,12 @@ export async function openaiHandler(c: Context) {
   }
 
   if (body.stream === true) {
-    const streamResult = streamModelScopeChat(paramsOrResponse);
+    const streamResult = streamMoonshotChat(paramsOrResponse);
     if (streamResult === null) {
       return c.json(
         {
-          error: "MODELSCOPE_API_KEY is not configured",
-          model: body.model ?? DEFAULT_MODELSCOPE_MODEL,
+          error: "API_KEY is not configured",
+          model: body.model ?? DEFAULT_CHAT_MODEL,
         },
         503,
       );
@@ -155,7 +154,7 @@ export async function openaiHandler(c: Context) {
 
   let text: string | null;
   try {
-    text = await runModelScopeChat(paramsOrResponse);
+    text = await runMoonshotChat(paramsOrResponse);
   } catch (error) {
     const message =
       error instanceof Error && error.message.trim().length > 0
@@ -167,8 +166,8 @@ export async function openaiHandler(c: Context) {
   if (text === null) {
     return c.json(
       {
-        error: "MODELSCOPE_API_KEY is not configured",
-        model: body.model ?? DEFAULT_MODELSCOPE_MODEL,
+        error: "API_KEY is not configured",
+        model: body.model ?? DEFAULT_CHAT_MODEL,
       },
       503,
     );
