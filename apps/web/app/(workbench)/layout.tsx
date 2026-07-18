@@ -26,7 +26,7 @@ export default async function Layout({
         <DataStreamProvider>
           <SidebarProvider defaultOpen={!isCollapsed}>
             <AppSidebar user={session?.user} />
-            <SidebarInset>
+            <SidebarInset className="min-h-0 overflow-hidden">
               <NotificationProvider>
                 {children}
                 <MaterialLibraryDialog />

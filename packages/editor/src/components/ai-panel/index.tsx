@@ -42,6 +42,7 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
   const isThinking = useAIPanelStore((state) => state.isThinking);
   const isStreaming = useAIPanelStore((state) => state.isStreaming);
   const mode = useAIPanelStore((state) => state.mode);
+  const panelAnchor = useAIPanelStore((state) => state.panelAnchor);
   const setHasSelection = useAIPanelStore((state) => state.setHasSelection);
   const setMode = useAIPanelStore((state) => state.setMode);
   const result = useAIPanelStore((state) => state.result);
@@ -80,7 +81,12 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     if (editor.isDestroyed) return;
 
     const selection = editor.state.selection;
-    const { from, to } = selection;
+    // 生成中用固定锚点，避免确认框关闭 / 流式选区移动导致悬浮栏跳位
+    const from = panelAnchor?.from ?? selection.from;
+    const to = panelAnchor?.to ?? selection.to;
+    const maxPos = editor.state.doc.content.size;
+    const safeFrom = Math.min(Math.max(from, 0), maxPos);
+    const safeTo = Math.min(Math.max(to, safeFrom), maxPos);
 
     const editorContainer =
       document.getElementById("EDITOR-CONTAINER") ||
@@ -96,8 +102,8 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     let end: ReturnType<typeof view.coordsAtPos>;
 
     try {
-      start = view.coordsAtPos(from);
-      end = view.coordsAtPos(to);
+      start = view.coordsAtPos(safeFrom);
+      end = view.coordsAtPos(safeTo);
     } catch {
       return;
     }
@@ -149,7 +155,7 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     panel.style.width = `${panelWidth}px`;
     panel.style.maxHeight = `${availableHeight}px`;
     panel.style.overflowY = "auto";
-  }, [editor, isThinking, isStreaming, isVisible, mode]);
+  }, [editor, isThinking, isStreaming, isVisible, mode, panelAnchor]);
 
   const schedulePanelPositionUpdate = useCallback(() => {
     if (positionFrameRef.current !== null) {
@@ -205,13 +211,16 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
         return;
       }
       if (isThinking || isStreaming) {
+        // 阻止这次点击改写编辑器选区，否则取消确认后悬浮栏会跟到错误位置
+        event.preventDefault();
+        event.stopPropagation();
         setDismissConfirmOpen(true);
         return;
       }
       reset();
     }
-    document.addEventListener("mousedown", handleMouseDown);
-    return () => document.removeEventListener("mousedown", handleMouseDown);
+    document.addEventListener("mousedown", handleMouseDown, true);
+    return () => document.removeEventListener("mousedown", handleMouseDown, true);
   }, [isVisible, isThinking, isStreaming, reset]);
 
   const confirmCloseWhileBusy = useCallback(() => {
@@ -219,6 +228,19 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     reset();
     setDismissConfirmOpen(false);
   }, [reset, stopStream]);
+
+  const handleDismissOpenChange = useCallback(
+    (open: boolean) => {
+      setDismissConfirmOpen(open);
+      if (!open && isVisible) {
+        // Dialog 关闭后解除 scroll lock，下一帧按锚点校正位置
+        requestAnimationFrame(() => {
+          schedulePanelPositionUpdate();
+        });
+      }
+    },
+    [isVisible, schedulePanelPositionUpdate]
+  );
 
   useEffect(() => {
     if (!isVisible) {
@@ -256,7 +278,8 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     const handleUpdate = () => {
       const selection = editor.state.selection;
       setHasSelection(!selection.empty);
-      if (isVisible) {
+      // 生成中位置由 panelAnchor 固定，忽略 selection 漂移
+      if (isVisible && !isThinking && !isStreaming) {
         schedulePanelPositionUpdate();
       }
     };
@@ -265,7 +288,14 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     return () => {
       editor.off("selectionUpdate", handleUpdate);
     };
-  }, [editor, isVisible, schedulePanelPositionUpdate, setHasSelection]);
+  }, [
+    editor,
+    isVisible,
+    isThinking,
+    isStreaming,
+    schedulePanelPositionUpdate,
+    setHasSelection,
+  ]);
 
   // Listen to keyboard space key
   useEffect(() => {
@@ -305,7 +335,7 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     <>
       <AlertDialog
         open={dismissConfirmOpen}
-        onOpenChange={setDismissConfirmOpen}
+        onOpenChange={handleDismissOpenChange}
       >
         <AlertDialogContent
           ref={dismissConfirmRef}

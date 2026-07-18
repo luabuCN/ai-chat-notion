@@ -7,7 +7,7 @@ import { EditorContent } from "./editor-content";
 import { EditorLoadingSkeleton } from "./editor-loading-skeleton";
 import { DocumentSearchPalette } from "./document-search-palette";
 import { useEditorDocumentAccess } from "@/hooks/use-editor-document-access";
-import { useSidebar } from "@repo/ui";
+import { cn, useSidebar } from "@repo/ui";
 import { useLocalStorage } from "usehooks-ts";
 import {
   useConvertTask,
@@ -198,7 +198,11 @@ export function EditorPageClient({
       {/* h-dvh 而非 min-h-dvh：将滚动容器固定在视口高度内，
           避免 body 产生滚动条。Radix overlay 打开时不会因
           react-remove-scroll 移除 body 滚动条而引发布局抖动。 */}
-      <div className="flex h-dvh min-w-0 w-full flex-col bg-background">
+      {/*
+        overflow-hidden + min-h-0：避免 flex 子项按内容撑开后，外层（body/Sidebar）
+        与 #editor-scroll-container 同时出现滚动条。
+      */}
+      <div className="flex h-dvh max-h-dvh min-h-0 min-w-0 w-full flex-col overflow-hidden bg-background">
         {isDocumentPending ? (
           /* 首包未返回前不渲染顶栏，避免出现「未命名」+ 下方骨架的错位感 */
           <div
@@ -209,9 +213,12 @@ export function EditorPageClient({
           </div>
         ) : (
           <>
-            {/* 固定头部 */}
+            {/* 固定头部；首帧不用 left transition，避免 hydration 后整页横移一抖 */}
             <div
-              className="fixed top-0 right-0 z-50 bg-background transition-[left] duration-200 ease-linear left-0 md:left-[var(--sidebar-width)]"
+              className={cn(
+                "fixed top-0 right-0 z-50 bg-background left-0 md:left-[var(--sidebar-width)]",
+                mounted && "transition-[left] duration-200 ease-linear"
+              )}
               style={mounted ? { left: headerLeft } : undefined}
             >
               <EditorHeaderWrapper
@@ -229,7 +236,7 @@ export function EditorPageClient({
             {/* overflow-y-auto：让内容在此容器内滚动，而非 body；id 供气泡菜单与滚动导航定位 */}
             <div
               id="editor-scroll-container"
-              className="flex-1 overflow-y-auto scroll-pb-20 scroll-pt-11"
+              className="min-h-0 flex-1 overflow-y-auto scroll-pb-20 scroll-pt-11"
             >
               <EditorContent
                 locale={locale}

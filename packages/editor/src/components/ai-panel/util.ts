@@ -3,6 +3,16 @@ import { Selection } from "@tiptap/pm/state";
 import { DOCUMENT_TITLE_ID, MAX_CONTEXT_LENGTH } from "../../tiptap/constants";
 import { ChatMessage } from "./types";
 
+/** 协同文档 AI：始终只产出可插入正文，禁止对话腔 */
+const DOCUMENT_OUTPUT_RULES = [
+  "You are a document co-author inside a collaborative Notion-like editor.",
+  "Your entire reply must be ready-to-insert document body (Markdown when useful).",
+  "Never use level-1 headings (# or H1). The page title is already shown separately in the editor—start with paragraphs, or use ## / ### for sections when structure is needed.",
+  "Never greet, never apologize, never explain your process, never ask follow-up questions, never mention that you are an AI.",
+  "Never wrap the answer in quotes or code fences unless the user explicitly asks for code.",
+  "Do not prefix with labels like 'Here is', '以下是', '答案：', or similar meta text.",
+].join(" ");
+
 export const PRESET_CONFIGS = {
   // without selected content
   continue_writing: {
@@ -12,8 +22,9 @@ export const PRESET_CONFIGS = {
     contextLength: MAX_CONTEXT_LENGTH, // characters of surrounding context
     maxOutputTokens: MAX_CONTEXT_LENGTH, // tokens for AI response
     systemPrompt:
-      "You are an expert writer who excels at continuing text in a natural and coherent way. Maintain the original style and tone.",
-    instruction: "Continue this text naturally:",
+      "You excel at continuing document prose naturally and coherently. Match the existing style, tone, voice, and formatting.",
+    instruction:
+      "Continue the document from the given context. Output only the next paragraphs that belong in the document.",
   },
   write_outline: {
     titleContext: true,
@@ -22,8 +33,9 @@ export const PRESET_CONFIGS = {
     contextLength: MAX_CONTEXT_LENGTH,
     maxOutputTokens: MAX_CONTEXT_LENGTH,
     systemPrompt:
-      "You are an expert at creating well-structured outlines. Focus on main points and logical organization.",
-    instruction: "Create an outline for the content provided",
+      "You create clear hierarchical outlines for documents. Use ## for top-level sections and ### for subsections—never # (H1).",
+    instruction:
+      "Write a document outline based on the provided context. Output only the outline body.",
   },
   write_summary: {
     titleContext: true,
@@ -32,8 +44,9 @@ export const PRESET_CONFIGS = {
     contextLength: MAX_CONTEXT_LENGTH,
     maxOutputTokens: 2000, // summaries are shorter than originals
     systemPrompt:
-      "You are a skilled summarizer. Create concise yet comprehensive summaries while retaining key points.",
-    instruction: "Summarize the content provided",
+      "You write concise document summaries that keep key facts and structure without conversational filler.",
+    instruction:
+      "Write a summary suitable as document content. Output only the summary body.",
   },
   brainstorm: {
     titleContext: true,
@@ -42,8 +55,9 @@ export const PRESET_CONFIGS = {
     contextLength: 200, // minimal context needed
     maxOutputTokens: MAX_CONTEXT_LENGTH, // ideas can be lengthy
     systemPrompt:
-      "You are a creative idea generator. Think outside the box and provide diverse, innovative suggestions.",
-    instruction: "Generate ideas related to the content provided",
+      "You generate concrete writing ideas as document-ready bullet lists or short sections, not chat suggestions.",
+    instruction:
+      "Brainstorm related points as insertable document content (bullets or short paragraphs). Output only that content.",
   },
   // with selected content
   explain: {
@@ -53,8 +67,9 @@ export const PRESET_CONFIGS = {
     contextLength: 500, // some context for understanding
     maxOutputTokens: MAX_CONTEXT_LENGTH, // explanations can be detailed
     systemPrompt:
-      "You are an expert teacher. Explain concepts clearly and thoroughly, using simple language.",
-    instruction: "Explain this content clearly:",
+      "You rewrite selected content into clearer explanatory prose for a document reader, not as a tutor chatting with the user.",
+    instruction:
+      "Rewrite the selection into clearer explanatory document text. Output only the rewritten body that can replace or follow the selection.",
   },
   make_longer: {
     titleContext: true,
@@ -63,8 +78,9 @@ export const PRESET_CONFIGS = {
     contextLength: 500,
     maxOutputTokens: MAX_CONTEXT_LENGTH * 2, // output will be longer than input
     systemPrompt:
-      "You are skilled at expanding content while maintaining quality. Add relevant details and examples.",
-    instruction: "Make this content longer while maintaining quality:",
+      "You expand document passages with relevant detail while preserving voice and structure.",
+    instruction:
+      "Expand the selected content into a longer document passage. Output only the expanded body.",
   },
   make_shorter: {
     titleContext: true,
@@ -73,8 +89,9 @@ export const PRESET_CONFIGS = {
     contextLength: 500,
     maxOutputTokens: 2000, // output will be shorter than input
     systemPrompt:
-      "You are an expert at concise writing. Maintain core message while reducing length.",
-    instruction: "Make this content more concise:",
+      "You condense document passages while keeping the core meaning and a natural written tone.",
+    instruction:
+      "Condense the selected content. Output only the shortened document body.",
   },
   fix_syntax: {
     titleContext: false,
@@ -83,8 +100,9 @@ export const PRESET_CONFIGS = {
     contextLength: 200, // minimal context for grammar fixes
     maxOutputTokens: MAX_CONTEXT_LENGTH, // output similar to input length
     systemPrompt:
-      "You are a grammar and syntax expert. Fix errors while preserving the original meaning.",
-    instruction: "Fix any grammar or syntax errors in the content provided",
+      "You correct grammar, spelling, and syntax while preserving meaning and document style.",
+    instruction:
+      "Fix grammar and syntax in the selected content. Output only the corrected document body.",
   },
   translate: {
     titleContext: false,
@@ -93,8 +111,9 @@ export const PRESET_CONFIGS = {
     contextLength: 200, // minimal context for translation
     maxOutputTokens: MAX_CONTEXT_LENGTH * 2, // translations can be longer (esp. CJK <-> Latin)
     systemPrompt:
-      "You are a professional translator. Provide accurate translations while maintaining context and nuance.",
-    instruction: "Translate the content provided",
+      "You translate document text accurately while preserving tone, nuance, and formatting cues.",
+    instruction:
+      "Translate the selected content as specified. Output only the translated document body.",
   },
   change_tone: {
     titleContext: true,
@@ -103,8 +122,9 @@ export const PRESET_CONFIGS = {
     contextLength: MAX_CONTEXT_LENGTH,
     maxOutputTokens: MAX_CONTEXT_LENGTH, // similar length to input
     systemPrompt:
-      "You are skilled at adapting writing tone. Maintain content while adjusting style appropriately.",
-    instruction: "Adjust the tone of the content provided",
+      "You adapt writing tone for documents while keeping facts and structure intact.",
+    instruction:
+      "Rewrite the selected content in the requested tone. Output only the rewritten document body.",
   },
 } as const;
 
@@ -163,14 +183,7 @@ export function getDocumentTitle() {
 }
 
 export function getDefaultSystemPrompt() {
-  return `Please analyze the context information provided in the assistant's message. For language detection:
-  1. If there is selected content, respond in the same language as the selected content
-  2. If there is no selected content, detect the language from (in order of priority):
-         - Document title
-         - Previous context
-         - Following context
-      For example, if these elements are in Chinese, respond in Chinese. If they are in English, respond in English.
-      Use all provided context to inform your understanding of the topic.`;
+  return `${DOCUMENT_OUTPUT_RULES} Language rules: 1) If there is selected content, write in the same language as the selection. 2) Otherwise detect language from document title, previous context, then following context (in that order). Use provided context only to stay on-topic and consistent with the document.`;
 }
 
 export function buildUserPromptMessage(
@@ -180,28 +193,33 @@ export function buildUserPromptMessage(
   const content = getEditorSelectedContent(editor);
   const title = getDocumentTitle();
 
-  // Combine context information into a single message
   const contextParts = [
     title ? `Document title: ${title}` : null,
-    content ? `Selected content: ${content}` : null,
+    content ? `Selected content:\n${content}` : null,
   ].filter(Boolean);
 
   return [
     {
       role: "system",
-      content: `You are a helpful AI assistant that follows instructions precisely. ${getDefaultSystemPrompt()}`,
+      content: getDefaultSystemPrompt(),
     },
     ...(contextParts.length > 0
       ? [
           {
-            role: "assistant",
-            content: contextParts.join("\n\n"),
+            role: "user" as const,
+            content: `Document context:\n\n${contextParts.join("\n\n")}`,
           },
         ]
       : []),
-    ...(content ? [{ role: "user", content }] : []),
-    { role: "user", content: instruction },
-  ].filter(Boolean) as ChatMessage[];
+    {
+      role: "user",
+      content: [
+        "Write document content for this request.",
+        "Output only the insertable body—no chat replies, no explanations, no questions.",
+        `Request:\n${instruction}`,
+      ].join("\n\n"),
+    },
+  ];
 }
 
 export function buildContinueWritingPromptMessage(editor: Editor): ChatMessage[] {
@@ -213,34 +231,33 @@ export function buildContinueWritingPromptMessage(editor: Editor): ChatMessage[]
 
   const contextParts = [
     title ? `Document title: ${title}` : null,
-    beforeContext ? `Previous context: ${beforeContext}` : null,
-    content ? `Selected content to continue from: ${content}` : null,
-    afterContext ? `Following context after the selection: ${afterContext}` : null,
+    beforeContext ? `Previous context:\n${beforeContext}` : null,
+    content ? `Selected content to continue from:\n${content}` : null,
+    afterContext ? `Following context after the selection:\n${afterContext}` : null,
   ].filter(Boolean);
 
   return [
     {
       role: "system",
       content: [
-        "You are an expert continuation writer.",
-        "Continue the selected text naturally and coherently in the same language, style, tone, and formatting.",
-        "Write only the continuation content that should be inserted after the selected text.",
-        "Do not explain, do not ask follow-up questions, do not mention that you are an AI, and do not repeat the selected text.",
         getDefaultSystemPrompt(),
+        "Continue the selected text naturally in the same language, style, tone, and formatting.",
+        "Write only the continuation that should be inserted after the selected text.",
+        "Do not repeat the selected text.",
       ].join(" "),
     },
     ...(contextParts.length > 0
       ? [
           {
-            role: "assistant" as const,
-            content: `The context information is:\n\n${contextParts.join("\n\n")}`,
+            role: "user" as const,
+            content: `Document context:\n\n${contextParts.join("\n\n")}`,
           },
         ]
       : []),
     {
       role: "user",
       content:
-        "续写。请直接输出应该接在选中内容后面的正文，不要输出解释、提示语或问题。",
+        "Continue writing. Output only the next document body that follows the selection.",
     },
   ];
 }
@@ -264,19 +281,19 @@ export function buildPresetPromptMessage(
     ? getAfterContext(editor, editor.state.selection, contextLength)
     : null;
 
-  // Combine context information into a single message
   const contextParts = [
     title && config.titleContext ? `Document title: ${title}` : null,
     beforeContext && config.contextBefore
-      ? `Previous context: ${beforeContext}`
+      ? `Previous context:\n${beforeContext}`
       : null,
     afterContext && config.contextAfter
-      ? `Following context: ${afterContext}`
+      ? `Following context:\n${afterContext}`
       : null,
+    content ? `Selected content:\n${content}` : "Selected content: (empty)",
   ].filter(Boolean);
 
   const allOptions = Object.entries(options ?? {}).map(
-    ([key, value]) => `${key} is : ${value}`
+    ([key, value]) => `${key}: ${value}`
   );
 
   return [
@@ -284,23 +301,16 @@ export function buildPresetPromptMessage(
       role: "system",
       content: `${config.systemPrompt} ${getDefaultSystemPrompt()}`,
     },
-    ...(contextParts.length > 0
-      ? [
-          {
-            role: "assistant",
-            content: `The context information is: ${contextParts.join("\n\n")}`,
-          },
-        ]
-      : []),
     {
       role: "user",
-      content: `${config.instruction}, the selected content is ${
-        content ? `"${content}"` : "empty"
-      }. ${
-        allOptions.length
-          ? `, with these options: ${allOptions.join(", ")}`
-          : ""
-      }`,
+      content: [
+        `Document context:\n\n${contextParts.join("\n\n")}`,
+        allOptions.length ? `Options:\n${allOptions.join("\n")}` : null,
+        `${config.instruction}`,
+        "Output only the insertable document body.",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
     },
-  ].filter(Boolean) as ChatMessage[];
+  ];
 }

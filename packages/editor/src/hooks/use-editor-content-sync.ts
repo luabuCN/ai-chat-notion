@@ -117,15 +117,42 @@ export function useEditorContentSync({
       initialContentAppliedRef.current = true;
       setIsContentLoaded(true);
     }
+    /**
+     * 等 ProseMirror 布局高度稳定两帧再揭示，避免挂载后 UniqueID / 装饰器
+     * / 字体度量导致的二次撑高被用户感知为「加载完抖动」。
+     */
     const scheduleReady = () => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (!isMountedRef.current) {
-            return;
-          }
+      const viewDom = editor.view?.dom as HTMLElement | undefined;
+      let lastHeight = viewDom?.offsetHeight ?? 0;
+      let stableFrames = 0;
+      let frames = 0;
+      const maxFrames = 30;
+
+      const tick = () => {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        frames += 1;
+        const height = viewDom?.offsetHeight ?? 0;
+        if (height > 0 && height === lastHeight) {
+          stableFrames += 1;
+        } else {
+          stableFrames = 0;
+          lastHeight = height;
+        }
+
+        if (stableFrames >= 2 || frames >= maxFrames) {
           setIsCommentUiEnabled(true);
           onEditorReadyRef.current?.();
-        });
+          return;
+        }
+
+        requestAnimationFrame(tick);
+      };
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(tick);
       });
     };
     scheduleReady();

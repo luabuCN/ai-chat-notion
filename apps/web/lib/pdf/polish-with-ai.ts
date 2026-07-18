@@ -1,4 +1,4 @@
-import { runModelScopeChat } from "@/lib/ai/modelscope-chat";
+import { runMoonshotChat } from "@/lib/ai/moonshot-chat";
 
 /** PDF 转文档后的 Markdown 润色说明（仅文档生成流程使用，公共 API 由调用方自带提示词） */
 const PDF_POLISH_SYSTEM_PROMPT = `你是一个专业的 PDF 转 Markdown 格式优化专家。我会给你一段由 PDF 解析出的原始 Markdown。这段内容由于解析算法限制，可能存在表格对齐混乱、标题层级不准、列表项错乱等问题。
@@ -89,11 +89,11 @@ function demoteOversizedLeadingH1(md: string): string {
 }
 
 /**
- * PDF 解析管线：用上述系统提示 + 原始 Markdown 调用 ModelScope；失败或空结果则降级为原文。
+ * PDF 解析管线：用上述系统提示 + 原始 Markdown 调用 Moonshot；失败或空结果则降级为原文。
  */
 export async function polishWithAI(rawMd: string): Promise<string> {
   try {
-    const text = await runModelScopeChat({
+    const text = await runMoonshotChat({
       system: PDF_POLISH_SYSTEM_PROMPT,
       prompt: `请严格按系统说明，只返回 Markdown 正文（不要 JSON、不要解释）。\n特别注意：开头的长句说明请保持为普通段落，不要用一级标题 #。\n\n原始 Markdown 如下：\n---\n${rawMd}\n---`,
       temperature: 0.1,
