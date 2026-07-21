@@ -19,7 +19,7 @@ import {
 import { streamMainSitePost } from "@/lib/auth/stream-main-site";
 import { sendMessage } from "@/lib/messaging/extension-messaging";
 
-const OPENAI_COMPAT_PATH = "/api/ai/openai";
+const OPENAI_COMPAT_PATH = "/api/ai/completion";
 
 function buildSystemPrompt(selectedText: string): string {
   return [

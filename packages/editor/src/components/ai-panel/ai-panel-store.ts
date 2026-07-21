@@ -10,7 +10,7 @@ import {
 } from "./util";
 import { AIStreamRequest } from "./types";
 
-const DEFAULT_AI_API_URL = "/api/ai/openai";
+const DEFAULT_AI_API_URL = "/api/ai/completion";
 
 const buildAICompletionPayload = (request: AIStreamRequest) => {
   const options = request.options as
@@ -202,9 +202,9 @@ function findNearestVerticalScrollParent(from: HTMLElement | null): HTMLElement 
   return null;
 }
 
-const scrollCaretIntoReadableView = (editor: Editor) => {
+const scrollCaretIntoReadableView = (editor: Editor, explicitPos?: number) => {
   const view = editor.view;
-  const pos = editor.state.selection.anchor;
+  const pos = explicitPos ?? editor.state.selection.anchor;
   let caretRect: { top: number; bottom: number };
 
   try {
@@ -727,7 +727,9 @@ export const store = create<AIPanelState>()((set, get) => ({
       hasRenderedFormattedContent =
         hasRenderedFormattedContent || isFormattedContent;
       lastRenderAt = now;
-      scrollCaretIntoReadableView(editor);
+      // 更新锚点到插入末尾，让悬浮指示框跟随流式内容下移
+      set({ panelAnchor: { from: insertTo, to: insertTo } });
+      scrollCaretIntoReadableView(editor, insertTo);
     };
 
     set({

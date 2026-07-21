@@ -102,7 +102,7 @@ export const UnifiedEditorClient = memo(
       [uploadFileMutation]
     );
 
-    const aiApiUrl = useMemo(() => apiUrl("/api/ai/openai"), []);
+    const aiApiUrl = useMemo(() => apiUrl("/api/ai/completion"), []);
 
     // 稳定的协同配置（避免不必要的重新渲染）
     const stableCollabConfig = useMemo(() => {
