@@ -1,4 +1,4 @@
-import { runMoonshotChat } from "../../http/ai/moonshot-chat.js";
+import { runMoonshotChat } from "../../http/routes/ai/handlers.js";
 
 const PDF_POLISH_SYSTEM_PROMPT = `你是一个专业的 PDF 转 Markdown 格式优化专家。我会给你一段由 PDF 解析出的原始 Markdown。这段内容由于解析算法限制，可能存在表格对齐混乱、标题层级不准、列表项错乱等问题。
 

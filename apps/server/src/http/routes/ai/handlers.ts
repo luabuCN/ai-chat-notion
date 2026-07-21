@@ -1,48 +1,63 @@
 import { DEFAULT_CHAT_MODEL, getProviderWithModel } from "@repo/ai";
-import { streamText, type LanguageModel, type ModelMessage } from "ai";
+import {
+  generateText,
+  streamText,
+  type LanguageModel,
+  type ModelMessage,
+} from "ai";
 import type { Context } from "hono";
-import {
-  runMoonshotChat,
-  streamMoonshotChat,
-  type MoonshotChatParams,
-} from "../../ai/moonshot-chat.js";
-import { getSessionFromRequest } from "../../../shared/auth.js";
-import {
-  completionRequestSchema,
-  openaiRequestSchema,
-  type OpenaiRequest,
-} from "./schema.js";
+import { completionRequestSchema } from "./schema.js";
 
-function parseOpenaiParams(
-  body: OpenaiRequest,
-): MoonshotChatParams | Response {
-  if (Array.isArray(body.messages)) {
-    return {
-      messages: body.messages as ModelMessage[],
-      temperature: body.temperature,
-      model: body.model,
+// ─── Moonshot 非流式调用（供 PDF 润色等内部服务使用） ───────────────────────
+
+export type MoonshotChatParams =
+  | {
+      system?: string;
+      prompt: string;
+      temperature?: number;
+      model?: string;
+    }
+  | {
+      messages: ModelMessage[];
+      temperature?: number;
+      model?: string;
     };
+
+/**
+ * Moonshot（AI SDK `@ai-sdk/moonshotai`）非流式调用。
+ * 未配置 `API_KEY` 时返回 `null`。
+ */
+export async function runMoonshotChat(
+  params: MoonshotChatParams,
+): Promise<string | null> {
+  if (!process.env.API_KEY?.trim()) {
+    return null;
   }
 
-  if (typeof body.prompt === "string") {
-    return {
-      system: body.system,
-      prompt: body.prompt,
-      temperature: body.temperature,
-      model: body.model,
-    };
-  }
+  const modelId =
+    "model" in params && params.model ? params.model : DEFAULT_CHAT_MODEL;
+  const temperature = params.temperature ?? 0.1;
 
-  return new Response(
-    JSON.stringify({
-      error: "Provide either `prompt` (optional `system`) or `messages` array",
-    }),
-    {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
+  try {
+    const result = await generateText({
+      model: getProviderWithModel(modelId),
+      ...("messages" in params
+        ? { messages: params.messages }
+        : { system: params.system, prompt: params.prompt }),
+      temperature,
+    });
+
+    return result.text.trim();
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : "Moonshot 接口调用失败，请检查 API_KEY、模型名与网络";
+    throw new Error(message);
+  }
 }
+
+// ─── 路由 Handler ─────────────────────────────────────────────────────────────
 
 export async function completionHandler(c: Context) {
   try {
@@ -85,93 +100,4 @@ export async function completionHandler(c: Context) {
     console.error("AI completion error:", error);
     return c.text("AI completion failed", 500);
   }
-}
-
-export async function openaiHandler(c: Context) {
-  const session = await getSessionFromRequest(c.req.raw);
-  if (!session) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  let json: unknown;
-  try {
-    json = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
-  }
-
-  const parsed = openaiRequestSchema.safeParse(json);
-  if (!parsed.success) {
-    return c.json({ error: "Invalid body" }, 400);
-  }
-
-  const body = parsed.data;
-  const paramsOrResponse = parseOpenaiParams(body);
-  if (paramsOrResponse instanceof Response) {
-    return paramsOrResponse;
-  }
-
-  if (body.stream === true) {
-    const streamResult = streamMoonshotChat(paramsOrResponse);
-    if (streamResult === null) {
-      return c.json(
-        {
-          error: "API_KEY is not configured",
-          model: body.model ?? DEFAULT_CHAT_MODEL,
-        },
-        503,
-      );
-    }
-
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const delta of streamResult.textStream) {
-            controller.enqueue(encoder.encode(delta));
-          }
-          controller.close();
-        } catch (error) {
-          const message =
-            error instanceof Error && error.message.trim().length > 0
-              ? error.message
-              : "stream failed";
-          controller.enqueue(encoder.encode(`\n\n[Error] ${message}`));
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-store",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-      },
-    });
-  }
-
-  let text: string | null;
-  try {
-    text = await runMoonshotChat(paramsOrResponse);
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message.trim().length > 0
-        ? error.message
-        : "Upstream model request failed";
-    return c.json({ error: message }, 502);
-  }
-
-  if (text === null) {
-    return c.json(
-      {
-        error: "API_KEY is not configured",
-        model: body.model ?? DEFAULT_CHAT_MODEL,
-      },
-      503,
-    );
-  }
-
-  return c.json({ text });
 }

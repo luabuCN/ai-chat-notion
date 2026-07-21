@@ -33,7 +33,7 @@ import {
   getTranslationLanguageById,
 } from "@/lib/translation-languages";
 
-const OPENAI_COMPAT_PATH = "/api/ai/openai";
+const OPENAI_COMPAT_PATH = "/api/ai/completion";
 
 function buildTranslationSystemPrompt(
   selectedText: string,

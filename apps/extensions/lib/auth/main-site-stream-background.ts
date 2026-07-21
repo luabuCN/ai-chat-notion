@@ -2,7 +2,7 @@ import { MAIN_SITE_STREAM_PORT } from "@/lib/auth/stream-main-site";
 import { getApiToken, refreshApiToken } from "@/lib/auth/api-token";
 import { API_ORIGIN } from "@/lib/web-config";
 
-const ALLOWED_STREAM_PATH_PREFIX = "/api/ai/openai";
+const ALLOWED_STREAM_PATH_PREFIX = "/api/ai/completion";
 
 function buildApiUrl(path: string): string {
   const base = API_ORIGIN.replace(/\/$/, "");

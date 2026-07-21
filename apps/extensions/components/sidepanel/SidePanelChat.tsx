@@ -527,7 +527,7 @@ async function convertToMarkdown(
     let result = "";
 
     const { done } = streamMainSitePost(
-      "/api/ai/openai",
+      "/api/ai/completion",
       body,
       (delta) => {
         result += delta;

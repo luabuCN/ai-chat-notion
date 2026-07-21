@@ -1,6 +1,5 @@
 const SERVER_API_PREFIXES = [
   "/api/ai/completion",
-  "/api/ai/openai",
   "/api/chat",
   "/api/collab/token",
   "/api/history",
@@ -27,7 +26,6 @@ const SERVER_API_PREFIXES = [
 /** 流式接口必须走同源 Route Handler 代理，不能重定向到后端地址（会绕过防缓冲代理） */
 const STREAMING_API_PREFIXES = [
   "/api/chat",
-  "/api/ai/openai",
   "/api/ai/completion",
   "/api/pdf",
   "/api/document-import",

@@ -129,7 +129,7 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     const spaceAbove = top - PANEL_GAP - VIEWPORT_PADDING;
     const spaceBelow =
       window.innerHeight - bottom - PANEL_GAP - VIEWPORT_PADDING;
-    const shouldStickBelow = mode === "command" && (isThinking || isStreaming);
+    const shouldStickBelow = isThinking || isStreaming;
     const shouldPlaceBelow =
       shouldStickBelow || panelHeight <= spaceBelow || spaceBelow >= spaceAbove;
     const availableHeight = Math.max(
@@ -137,9 +137,7 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
       shouldPlaceBelow ? spaceBelow : spaceAbove
     );
     const displayedHeight = Math.min(panelHeight, availableHeight);
-    const panelTop = shouldStickBelow
-      ? bottom + PANEL_GAP
-      : shouldPlaceBelow
+    const panelTop = shouldPlaceBelow
       ? Math.max(
           VIEWPORT_PADDING,
           Math.min(
@@ -155,7 +153,7 @@ export default function AIPanel({ editor, aiApiUrl }: AIPanelProps) {
     panel.style.width = `${panelWidth}px`;
     panel.style.maxHeight = `${availableHeight}px`;
     panel.style.overflowY = "auto";
-  }, [editor, isThinking, isStreaming, isVisible, mode, panelAnchor]);
+  }, [editor, isThinking, isStreaming, isVisible, panelAnchor]);
 
   const schedulePanelPositionUpdate = useCallback(() => {
     if (positionFrameRef.current !== null) {
